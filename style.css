@@ -1,0 +1,102 @@
+/* =================== Avatar MIRA (objeto <object>) =================== */
+#avatar-mira{
+  /* Tamaño responsive: min 40px, ideal 10vw, máx 72px (PC y móvil) */
+  width: clamp(40px, 10vw, 72px);
+  height: auto;
+  display: inline-block;
+  vertical-align: middle;
+  margin-left: 12px;
+  margin-bottom: 8px;
+  transition: filter 0.3s, opacity 0.3s;
+  opacity: 1;
+  filter: grayscale(0.4) brightness(0.8);
+}
+
+/* “Hablando”: brillo exterior (clase activada desde chat.js) */
+#avatar-mira.pulse{
+  animation: halo-glow 1.2s infinite alternate;
+  filter: drop-shadow(0 0 16px #a855f7) brightness(1.25);
+  opacity: 1;
+}
+@keyframes halo-glow{
+  from { filter: drop-shadow(0 0 12px #4f46e5) brightness(1.18); }
+  to   { filter: drop-shadow(0 0 36px #38bdf8) brightness(1.45); }
+}
+
+/* =================== Ajustes responsive =================== */
+@media (max-width: 600px){
+  #chat-box{ font-size: 0.96rem; }
+  .max-w-3xl{ max-width: 98vw; }
+}
+
+/* =================== Markdown del chat =================== */
+.chat-markdown table{
+  border-collapse: collapse;
+  margin: 0.5em 0;
+  width: 100%;
+  background: #22223b;
+  color: #fafafa;
+  font-size: 0.97rem;
+}
+.chat-markdown th, .chat-markdown td{
+  border: 1px solid #7f5af0;
+  padding: 6px 10px;
+  text-align: left;
+}
+.chat-markdown th{ background: #4f378b; }
+
+/* =================== MathJax =================== */
+mjx-container[jax="CHTML"]{
+  font-size: 1.25em;
+  background: transparent !important;
+  padding: 0.12em 0.2em;
+  margin: 0.35em 0;
+}
+
+/* =================== Modal “¿Quién es MIRA?” =================== */
+#mira-info{
+  z-index: 50;
+  box-shadow: 0 6px 32px #23104a;
+  border-radius: 1.2rem;
+  background: #232146;
+  border: 2px solid #a855f7;
+  color: #fff;
+  max-width: 420px;
+  width: 92vw;
+  padding: 2.1rem 1.3rem 1.3rem 1.3rem;
+  text-align: center;
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%,-50%);
+  display: none;
+  transition: opacity .2s;
+}
+#mira-info h3{
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+}
+#mira-info button{
+  margin-top: 1.5rem;
+  background: #a855f7;
+  color: #fff;
+  padding: 0.5rem 1.3rem;
+  border-radius: 0.6rem;
+  font-weight: 500;
+}
+
+/* =================== Créditos =================== */
+.credits{
+  font-size: 1.1em;
+  color: #bbcbff;
+  text-align: center;
+  padding-bottom: 2em;
+  opacity: 0.85;
+  letter-spacing: 0.03em;
+}
+.credits strong{
+  color: #fff;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}

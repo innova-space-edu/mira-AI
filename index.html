@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Innova Space Education</title>
+
+  <!-- Google Analytics -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-P64ZZSCZ7Z"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-P64ZZSCZ7Z');
+  </script>
+
+  <!-- Librerías -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+  <!-- Estilos propios -->
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body class="bg-gradient-to-br from-black via-indigo-900 to-purple-900 text-white font-sans scroll-smooth">
+
+  <!-- Título -->
+  <section class="pt-10 text-center">
+    <h1 class="text-5xl md:text-6xl font-extrabold bg-gradient-to-r from-pink-400 via-purple-400 to-blue-400 text-transparent bg-clip-text">
+      Innova Space Education
+    </h1>
+    <p class="text-lg text-gray-300 mt-3">Educación del futuro. Conectando estudiantes con IA.</p>
+  </section>
+
+  <!-- Asistente IA y Avatar -->
+  <section class="pt-12 pb-10 px-4 relative">
+    <div class="max-w-3xl mx-auto relative mt-4">
+      <div class="flex items-center justify-center mb-8">
+        <h2 class="text-4xl font-bold text-center mb-0">Asistente IA - MIRA</h2>
+
+        <!-- Avatar como archivo separado -->
+        <object
+          id="avatar-mira"
+          type="image/svg+xml"
+          data="avatar_mira.svg"
+          class="still"
+          tabindex="-1"
+          aria-hidden="true">
+        </object>
+      </div>
+
+      <!-- Chat -->
+      <div class="bg-gray-900 border border-purple-500 rounded-xl p-4 shadow-xl relative">
+        <div id="chat-box" class="h-72 md:h-64 overflow-y-auto bg-gray-800 p-3 rounded-md mb-4 text-sm space-y-2 text-white chat-markdown" aria-live="polite">
+          <div>
+            <strong>MIRA:</strong> ¡Hola! Soy MIRA, tu asistente virtual. ¿En qué puedo ayudarte hoy?
+          </div>
+        </div>
+        <div class="flex gap-2">
+          <input
+            aria-label="Escribe tu mensaje"
+            type="text"
+            id="user-input"
+            placeholder="Escribe tu mensaje..."
+            class="flex-1 p-2 rounded-md bg-gray-700 text-white border border-gray-600"
+            autocomplete="off"
+            onkeydown="if(event.key==='Enter'){sendMessage();return false;}"
+          >
+          <button id="send-btn" onclick="sendMessage()" class="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-md text-white font-bold" tabindex="0">
+            Enviar
+          </button>
+        </div>
+      </div>
+
+      <!-- Botón ¿Quién es MIRA? debajo del chat -->
+      <div class="flex justify-center mt-4">
+        <button onclick="toggleMiraInfo()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-full shadow-lg">
+          ¿Quién es MIRA?
+        </button>
+      </div>
+
+      <!-- Ventana flotante de descripción de MIRA -->
+      <div id="mira-info">
+        <h3>¿Quién es MIRA?</h3>
+        <p class="text-base mb-4">
+          <strong>MIRA</strong> (Modular Intelligent Responsive Assistant), en español: Asistente Modular, Inteligente y Reactivo.<br>
+          Creada por <strong>Innova Space</strong> con tecnología <strong>OpenAI</strong>.<br>
+          Diseñada para acompañar, explicar y ayudar a estudiantes y docentes de forma interactiva y personalizada en todas las materias.<br>
+          Su misión es facilitar el aprendizaje, responder dudas, explicar fórmulas y conceptos, y guiarte en tu avance académico, con explicaciones claras y amigables.
+        </p>
+        <button onclick="toggleMiraInfo()">Cerrar</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Áreas -->
+  <section class="py-14 px-6 bg-indigo-800 bg-opacity-20 text-center">
+    <h2 class="text-4xl font-bold mb-7">Áreas que responde MIRA</h2>
+    <button onclick="toggleAreas()" class="bg-purple-700 px-5 py-3 rounded-lg font-semibold mb-4 text-white shadow-lg">
+      Ver áreas que responde MIRA
+    </button>
+    <div id="areas-list" class="hidden mt-3">
+      <ul class="max-w-lg mx-auto text-left space-y-1">
+        <li>📐 Matemáticas</li>
+        <li>🧲 Física</li>
+        <li>⚗️ Química</li>
+        <li>🧬 Biología</li>
+        <li>🌎 Historia</li>
+        <li>🗺️ Geografía</li>
+        <li>📚 Lenguaje</li>
+        <li>🗣️ Inglés</li>
+        <li>🎨 Artes Visuales</li>
+        <li>🎼 Música</li>
+        <li>🏃 Educación Física</li>
+        <li>💭 Filosofía</li>
+        <li>💻 Tecnología</li>
+        <li>🤝 Orientación</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- Quiénes somos -->
+  <section class="py-14 px-6 bg-indigo-900 bg-opacity-30">
+    <h2 class="text-4xl font-bold text-center mb-6">¿Quiénes somos?</h2>
+    <p class="text-center text-lg max-w-3xl mx-auto text-gray-300">
+      Plataforma educativa que integra inteligencia artificial para apoyar el aprendizaje de los estudiantes.
+    </p>
+  </section>
+
+  <!-- Contacto -->
+  <section class="py-10 px-6 bg-indigo-700 bg-opacity-40">
+    <h2 class="text-4xl font-bold text-center mb-6">Contáctanos</h2>
+    <p class="text-center text-lg text-gray-200">Correo: contacto@innova-space-edu.cl</p>
+  </section>
+
+  <!-- Logo y créditos -->
+  <div class="flex flex-col justify-center items-center py-10 gap-3">
+    <img src="logo.png" alt="Logo Innova Space" style="max-width:170px; width: 40vw; height:auto; opacity:0.95;">
+    <div class="credits">
+      Creado por <strong>Innova Space Edu SpA.</strong>.
+    </div>
+  </div>
+
+  <!-- Funciones UI simples -->
+  <script>
+    function toggleMiraInfo() {
+      const info = document.getElementById("mira-info");
+      info.style.display = (info.style.display === "none" || info.style.display === "") ? "block" : "none";
+    }
+    function toggleAreas() {
+      const list = document.getElementById("areas-list");
+      list.classList.toggle("hidden");
+    }
+  </script>
+
+  <!-- Lógica del chat -->
+  <script src="chat.js"></script>
+
+  <!-- Integración Markdown + LaTeX para el chat (helper opcional) -->
+  <script>
+    // Helper opcional para mostrar mensajes de la IA con Markdown + MathJax
+    function addAssistantMessage(text) {
+      const chatBox = document.getElementById('chat-box');
+      const html = `<div class="assistant-msg">${marked.parse(text)}</div>`;
+      chatBox.insertAdjacentHTML('beforeend', html);
+      chatBox.scrollTop = chatBox.scrollHeight;
+      if (window.MathJax) {
+        setTimeout(() => MathJax.typesetPromise(), 60);
+      }
+    }
+  </script>
+</body>
+</html>
