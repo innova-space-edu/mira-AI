@@ -1,5 +1,5 @@
 // =============== CONFIG ===============
-const API_KEY = "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"; // ⚠️ Visible en el frontend
+const API_KEY = "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"; // ⚠️ Visible en el frontend
 const MODEL = "meta-llama/llama-4-scout-17b-16e-instruct";
 
 // Prompt del sistema
