@@ -1,18 +1,49 @@
-/* =================== Avatar MIRA (objeto <object>) =================== */
+/* =================== Vista 1 pantalla =================== */
+html, body { height: 100%; overflow: hidden; }
+
+/* Layout general: cabecera + chat centrado, todo dentro del viewport */
+#landing{
+  height: 100vh;
+  display: grid;
+  grid-template-rows: auto 1fr; /* hero arriba, chat ocupa el resto */
+  align-items: start;
+}
+
+/* Cabecera */
+#hero{ padding-top: 28px; }
+
+/* Contenedor del chat en el centro */
+#main-chat{
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 10px 12px 18px;
+}
+#chat-card{ width: min(960px, 94vw); }
+
+/* Shell del chat para que el box crezca y tenga scroll interno */
+#chat-shell{
+  display: flex;
+  flex-direction: column;
+  height: min(64vh, 560px);
+}
+#chat-box{ flex: 1 1 auto; overflow-y: auto; }
+
+/* Ocultar el resto de secciones para mantener 1 pantalla */
+#areas-section, #about-section, #contact-section, .credits-wrapper{ display: none !important; }
+
+/* =================== Avatar MIRA (igual que antes) =================== */
 #avatar-mira{
-  /* Tamaño responsive: min 40px, ideal 10vw, máx 72px (PC y móvil) */
   width: clamp(40px, 10vw, 72px);
   height: auto;
   display: inline-block;
   vertical-align: middle;
   margin-left: 12px;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
   transition: filter 0.3s, opacity 0.3s;
   opacity: 1;
   filter: grayscale(0.4) brightness(0.8);
 }
-
-/* “Hablando”: brillo exterior (clase activada desde chat.js) */
 #avatar-mira.pulse{
   animation: halo-glow 1.2s infinite alternate;
   filter: drop-shadow(0 0 16px #a855f7) brightness(1.25);
@@ -23,80 +54,61 @@
   to   { filter: drop-shadow(0 0 36px #38bdf8) brightness(1.45); }
 }
 
-/* =================== Ajustes responsive =================== */
-@media (max-width: 600px){
-  #chat-box{ font-size: 0.96rem; }
-  .max-w-3xl{ max-width: 98vw; }
-}
-
 /* =================== Markdown del chat =================== */
 .chat-markdown table{
-  border-collapse: collapse;
-  margin: 0.5em 0;
-  width: 100%;
-  background: #22223b;
-  color: #fafafa;
-  font-size: 0.97rem;
+  border-collapse: collapse; margin: .5em 0; width: 100%;
+  background: #22223b; color: #fafafa; font-size: .97rem;
 }
 .chat-markdown th, .chat-markdown td{
-  border: 1px solid #7f5af0;
-  padding: 6px 10px;
-  text-align: left;
+  border: 1px solid #7f5af0; padding: 6px 10px; text-align: left;
 }
 .chat-markdown th{ background: #4f378b; }
-
-/* =================== MathJax =================== */
 mjx-container[jax="CHTML"]{
-  font-size: 1.25em;
-  background: transparent !important;
-  padding: 0.12em 0.2em;
-  margin: 0.35em 0;
+  font-size: 1.25em; background: transparent !important;
+  padding: .12em .2em; margin: .35em 0;
 }
 
-/* =================== Modal “¿Quién es MIRA?” =================== */
-#mira-info{
-  z-index: 50;
-  box-shadow: 0 6px 32px #23104a;
-  border-radius: 1.2rem;
-  background: #232146;
-  border: 2px solid #a855f7;
-  color: #fff;
-  max-width: 420px;
-  width: 92vw;
-  padding: 2.1rem 1.3rem 1.3rem 1.3rem;
-  text-align: center;
-  position: fixed;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%,-50%);
-  display: none;
-  transition: opacity .2s;
+/* =================== Panel lateral y dock =================== */
+.side-dock{
+  position: fixed; left: 14px; top: 50%; transform: translateY(-50%);
+  display: flex; flex-direction: column; gap: 10px; z-index: 60;
 }
-#mira-info h3{
-  font-size: 1.5rem;
-  font-weight: 700;
-  margin-bottom: 0.5rem;
+.dock-btn{
+  width: 44px; height: 44px; border: none; background: transparent; padding: 0;
+  display: grid; place-items: center; cursor: pointer;
+  color: #c7ffe0; filter: drop-shadow(0 0 6px rgba(168,85,247,.35));
+  transition: transform .15s ease;
 }
-#mira-info button{
-  margin-top: 1.5rem;
-  background: #a855f7;
-  color: #fff;
-  padding: 0.5rem 1.3rem;
-  border-radius: 0.6rem;
-  font-weight: 500;
+.dock-btn svg{ width: 28px; height: 28px; opacity: .95; }
+.dock-btn:hover{ transform: scale(1.06); }
+
+.side-panel{
+  position: fixed; top: 0; left: 0; height: 100vh; width: 320px;
+  background: rgba(18, 14, 40, .9);
+  border-right: 1px solid #7f5af080;
+  backdrop-filter: blur(8px);
+  transform: translateX(-100%); transition: transform .25s ease;
+  z-index: 70; padding: 14px;
+}
+.side-panel.open{ transform: translateX(0); }
+.side-panel h3{ margin: 6px 0 10px; font-weight: 700; }
+
+.playlist-list{ display: flex; flex-direction: column; gap: 8px; margin: 10px 0 12px; }
+.playlist-item{
+  background: transparent; border: 1px dashed #7f5af040; color: #fff;
+  padding: 10px; border-radius: 10px; text-align: left; cursor: pointer;
+}
+.playlist-item:hover{ border-color: #7f5af0; background: #ffffff09; }
+.playlist-item.active{ border-color: #a855f7; background: #a855f715; }
+
+.panel-iframe{ width: 100%; border: 1px solid #7f5af040; border-radius: 12px; height: 352px; }
+.close-panel{
+  background: transparent; border: none; color: #cbd5ff; cursor: pointer; font-size: .9rem;
 }
 
-/* =================== Créditos =================== */
-.credits{
-  font-size: 1.1em;
-  color: #bbcbff;
-  text-align: center;
-  padding-bottom: 2em;
-  opacity: 0.85;
-  letter-spacing: 0.03em;
-}
-.credits strong{
-  color: #fff;
-  font-weight: 700;
-  letter-spacing: 0.05em;
+/* =================== Responsive =================== */
+@media (max-width: 640px){
+  #chat-shell{ height: min(62vh, 520px); }
+  .side-panel{ width: 88vw; }
+  .side-dock{ left: 8px; }
 }
