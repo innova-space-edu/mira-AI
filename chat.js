@@ -9,18 +9,17 @@ Habla SIEMPRE en español, con claridad y estructura.
 Estilo de respuesta:
 - Primero una idea general en 1–2 frases.
 - Luego usa listas o pasos cuando ayuden.
-- Fórmulas en LaTeX usando $$ ... $$ para que salgan GRANDES.
-- Incluye símbolos y unidades cuando aplique (ej.: m/s, °C, N, J).
-- Si corresponde, muestra 1 ejemplo resuelto y, si hay código, usa bloques triple backticks.
+- Fórmulas EN GRANDE con LaTeX usando $$ ... $$.
+- Usa símbolos y unidades cuando aplique (m/s, °C, N, J).
+- Si corresponde, muestra 1 ejemplo resuelto y/o bloque de código con triple backticks.
 
-Cuando el usuario pida “la fórmula”, escribe así:
+Cuando el usuario pida “la fórmula”, devuelve:
 1) Explicación corta.
 2) $$ \\text{Fórmula } \\quad v_m = \\dfrac{\\Delta x}{\\Delta t} $$
-3) Define las variables con línea separada (sin LaTeX).
+3) Define variables en texto (sin LaTeX).
 `;
 
 // ============ AVATAR ANIMACIÓN ============
-// Referencia al <svg> interno del <object id="avatar-mira">
 let __innerAvatarSvg = null;
 function hookAvatarInnerSvg() {
   const obj = document.getElementById("avatar-mira");
@@ -49,12 +48,9 @@ function appendHTML(html) {
   chatBox.insertAdjacentHTML("beforeend", html);
   chatBox.scrollTop = chatBox.scrollHeight;
 }
-
 function appendMessage(role, contentHTML) {
-  // role: "user" | "assistant"
   appendHTML(`<div class="msg ${role}"><div class="bubble chat-markdown">${contentHTML}</div></div>`);
 }
-
 function showThinking() {
   const chatBox = document.getElementById("chat-box");
   if (document.getElementById("thinking")) return;
@@ -69,31 +65,105 @@ function hideThinking() {
   document.getElementById("thinking")?.remove();
 }
 
-// ============ TTS (voz) ===================
+// ============ TTS ROBUSTO (cola + chunking) ============
+// Limpia markdown/LaTeX/código para voz
 function plainTextForVoice(markdown) {
-  let text = markdown
+  let text = (markdown || "")
+    .replace(/```[\s\S]*?```/g, " ")   // bloques de código
+    .replace(/`[^`]*`/g, " ")          // inline code
+    .replace(/\$\$[\s\S]*?\$\$/g, " ") // LaTeX block
+    .replace(/\$[^$]*\$/g, " ")        // LaTeX inline
     .replace(/\*\*([^*]+)\*\*/g, "$1")
     .replace(/\*([^*]+)\*/g, "$1")
     .replace(/__([^_]+)__/g, "$1")
-    .replace(/_([^_]+)_/g, "$1");
-  text = text.replace(/\$\$[\s\S]*?\$\$/g, " ");
-  text = text.replace(/\$[^$]*\$/g, " ");
-  text = text.replace(/`{3}[\s\S]*?`{3}/g, " ");
+    .replace(/_([^_]+)_/g, "$1")
+    .replace(/[•\-] /g, " ")
+    .replace(/\n+/g, ". ");
   return text.replace(/\s+/g, " ").trim();
 }
-function speak(markdown) {
-  try {
-    const plain = plainTextForVoice(markdown);
-    if (!plain) return;
-    const msg = new SpeechSynthesisUtterance(plain);
-    msg.lang = "es-ES";
-    window.speechSynthesis.cancel();
-    setAvatarTalking(true);
-    msg.onend = () => setAvatarTalking(false);
-    msg.onerror = () => setAvatarTalking(false);
-    window.speechSynthesis.speak(msg);
-  } catch {
-    setAvatarTalking(false);
+
+// Cola de reproducción
+const VOICE_PREFS = ["es-CL", "es-ES", "es-MX", "es-419", "es"];
+let voicesCache = [];
+let speaking = false;
+const speechQueue = [];
+
+function refreshVoices() {
+  voicesCache = window.speechSynthesis.getVoices() || [];
+}
+function pickVoice() {
+  refreshVoices();
+  const v = voicesCache.find(v => VOICE_PREFS.some(tag => (v.lang || "").toLowerCase().startsWith(tag.toLowerCase())));
+  return v || voicesCache.find(v => (v.lang || "").toLowerCase().startsWith("es")) || voicesCache[0] || null;
+}
+window.speechSynthesis.addEventListener("voiceschanged", refreshVoices);
+
+function splitIntoChunks(text, maxLen = 240) {
+  const parts = text.split(/(?<=[\.\!\?\:\;])\s+|\n+/g);
+  const chunks = [];
+  let buf = "";
+  for (const p of parts) {
+    const s = p.trim();
+    if (!s) continue;
+    if ((buf + " " + s).trim().length <= maxLen) {
+      buf = (buf ? buf + " " : "") + s;
+    } else {
+      if (buf) chunks.push(buf);
+      if (s.length <= maxLen) chunks.push(s);
+      else {
+        for (let i = 0; i < s.length; i += maxLen) chunks.push(s.slice(i, i + maxLen));
+      }
+      buf = "";
+    }
+  }
+  if (buf) chunks.push(buf);
+  return chunks;
+}
+
+function playNext() {
+  const next = speechQueue.shift();
+  if (!next) { speaking = false; setAvatarTalking(false); return; }
+
+  const utter = new SpeechSynthesisUtterance(next);
+  const v = pickVoice();
+  if (v) utter.voice = v;
+  utter.lang = (v && v.lang) || "es-ES";
+  utter.rate = 0.98; // un pelín más lento para claridad
+  utter.pitch = 1.02;
+  utter.volume = 1;
+
+  setAvatarTalking(true);
+  utter.onend = () => playNext();
+  utter.onerror = () => playNext();
+
+  window.speechSynthesis.speak(utter);
+  speaking = true;
+}
+function enqueueSpeak(text) {
+  if (!text) return;
+  speechQueue.push(text);
+  if (!speaking) playNext();
+}
+function cancelAllSpeech() {
+  try { window.speechSynthesis.cancel(); } catch {}
+  speechQueue.length = 0;
+  speaking = false;
+  setAvatarTalking(false);
+}
+function speakMarkdown(md) {
+  const plain = plainTextForVoice(md);
+  if (!plain) return;
+  const chunks = splitIntoChunks(plain, 240);
+  chunks.forEach(c => enqueueSpeak(c));
+}
+function speakAfterVoices(md) {
+  if (window.speechSynthesis.getVoices().length) speakMarkdown(md);
+  else {
+    const once = () => {
+      window.speechSynthesis.removeEventListener("voiceschanged", once);
+      speakMarkdown(md);
+    };
+    window.speechSynthesis.addEventListener("voiceschanged", once);
   }
 }
 
@@ -120,12 +190,14 @@ async function sendMessage() {
   const userMessage = (input.value || "").trim();
   if (!userMessage) return;
 
+  // Si el usuario comienza otra consulta, paramos lo anterior para no pisar audio
+  cancelAllSpeech();
+
   appendMessage("user", renderMarkdown(userMessage));
   input.value = "";
   showThinking();
 
   try {
-    // Proxy serverless en Netlify (la key vive en GROQ_API_KEY)
     const response = await fetch("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json", "Accept": "application/json" },
@@ -149,26 +221,23 @@ async function sendMessage() {
       else if (response.status === 429) msg += " (429: límite de uso alcanzado)";
       else msg += ` (HTTP ${response.status})`;
       appendMessage("assistant", msg);
-      setAvatarTalking(false);
       return;
     }
 
     const data = JSON.parse(raw);
     let aiReply = data?.choices?.[0]?.message?.content?.trim() || "";
-
-    if (!aiReply) {
-      aiReply = (await wikiFallback(userMessage)) || "Lo siento, no encontré una respuesta adecuada.";
-    }
+    if (!aiReply) aiReply = (await wikiFallback(userMessage)) || "Lo siento, no encontré una respuesta adecuada.";
 
     const html = renderMarkdown(aiReply);
     appendMessage("assistant", html);
-    speak(aiReply);
+
+    // 🔊 Hablar TODA la respuesta (en cola, por bloques)
+    speakMarkdown(aiReply);
     if (window.MathJax?.typesetPromise) MathJax.typesetPromise();
 
   } catch (err) {
     hideThinking();
     appendMessage("assistant", "Error de red o CORS al conectar con la IA.");
-    setAvatarTalking(false);
     console.error("Network/JS error:", err);
   }
 }
@@ -183,12 +252,12 @@ function initChat() {
   });
   document.getElementById("send-btn")?.addEventListener("click", sendMessage);
 
-  // Saludo como burbuja (y voz)
+  // Saludo inicial UNA sola vez y hablado
   const saludo = "¡Hola! Soy MIRA 👋 ¿En qué puedo ayudarte hoy?";
   appendMessage("assistant", renderMarkdown(saludo));
-  speak(saludo);
-  if (window.MathJax?.typesetPromise) MathJax.typesetPromise();
+  speakAfterVoices(saludo);
 
+  if (window.MathJax?.typesetPromise) MathJax.typesetPromise();
   setAvatarTalking(false);
 }
 window.addEventListener("DOMContentLoaded", initChat);
