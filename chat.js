@@ -5,7 +5,7 @@ const MODEL = "meta-llama/llama-4-scout-17b-16e-instruct";
 // Ejemplos Windows/Edge: "Microsoft Paloma Online (Natural) - Spanish (Mexico)"
 // "Microsoft Elvira Online (Natural) - Spanish (Spain)"
 // Chrome: "Google español de Estados Unidos", "Google español"
-const PREFERRED_VOICE_NAME = "";
+const PREFERRED_VOICE_NAME = "Microsoft Paloma Online (Natural) - Spanish (Mexico)";
 
 // Prompt del sistema (mejorado)
 const SYSTEM_PROMPT = `
