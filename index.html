@@ -17,6 +17,18 @@
   <!-- Librerías -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+  <!-- Configuración MathJax: soporta $...$ inline y $$...$$ display -->
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']],
+        displayMath: [['$$','$$'], ['\\[','\\]']],
+        processEscapes: true
+      },
+      options: { renderActions: { addMenu: [] } }
+    };
+  </script>
   <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 
   <!-- Estilos propios -->
@@ -137,34 +149,27 @@
 
   <!-- Spotify panel -->
   <script>
-    // Playlists
-    <script>
-  // Playlists (con tus títulos pedidos)
-  const PLAYLISTS = [
-    // las 4 que ya tenías renombradas
-    { id: '4Ldou77MwYfWBV288FirwL', title: 'Electro House mix',       description: 'Beats para concentrarte con energía' },
-    { id: '37i9dQZF1DWYY963019MQr', title: 'jazz',                    description: 'Instrumentales suaves para estudiar' },
-    { id: '5jQ2Fy8vyfC2mE9oew8c2Q', title: 'Pop mix',                 description: 'Ambientes pop para inspirarte' },
-    { id: '2EoheVFjqIxgJMb8VnDRtZ', title: 'K-Pop Hits',              description: 'Clásicos modernos del K-Pop' },
+    // Playlists (con tus títulos pedidos)
+    const PLAYLISTS = [
+      // renombradas
+      { id: '4Ldou77MwYfWBV288FirwL', title: 'Electro House mix',       description: 'Beats para concentrarte con energía' },
+      { id: '37i9dQZF1DWYY963019MQr', title: 'jazz',                    description: 'Instrumentales suaves para estudiar' },
+      { id: '5jQ2Fy8vyfC2mE9oew8c2Q', title: 'Pop mix',                 description: 'Ambientes pop para inspirarte' },
+      { id: '2EoheVFjqIxgJMb8VnDRtZ', title: 'K-Pop Hits',              description: 'Clásicos modernos del K-Pop' },
 
-    // ➕ nuevas
-    { id: '09yz2h86ElsO8dwbxyplwt', title: 'Classic music',           description: 'Obras clásicas para estudiar' },
-    { id: '37i9dQZF1EIZna6YqhjeY0', title: 'Calvin harris',           description: 'Hits y colaboraciones de Calvin Harris' },
-    { id: '37i9dQZF1EQmg9rwHdCwFW', title: 'Mix reggaeton',           description: 'Reggaetón para motivarte' },
-    { id: '4hnGrJpcuQepHdewJyUd0w', title: 'Musica relajante naturaleza', description: 'Sonidos de la naturaleza y relax' }
-  ];
+      // nuevas
+      { id: '09yz2h86ElsO8dwbxyplwt', title: 'Classic music',             description: 'Obras clásicas para estudiar' },
+      { id: '37i9dQZF1EIZna6YqhjeY0', title: 'Calvin Harris',             description: 'Hits y colaboraciones de Calvin Harris' },
+      { id: '37i9dQZF1EQmg9rwHdCwFW', title: 'Mix reggaeton',             description: 'Reggaetón para motivarte' },
+      { id: '4hnGrJpcuQepHdewJyUd0w', title: 'Musica relajante naturaleza', description: 'Sonidos de la naturaleza y relax' }
+    ];
 
-  let currentPlaylist = PLAYLISTS[0]; // sigue empezando por Electro House mix
-  // (el resto del script permanece igual)
-</script>
-
-
-    let currentPlaylist = PLAYLISTS[0];
+    let currentPlaylist = PLAYLISTS[0]; // inicia con Electro House mix
 
     function toggleMusicPanel() {
       const panel = document.getElementById('music-panel');
       panel?.classList.toggle('open');
-      // 💡 mueve/centra el contenido cuando el panel está abierto
+      // desplaza/centra el contenido cuando el panel está abierto
       document.body.classList.toggle('panel-open', panel.classList.contains('open'));
     }
 
@@ -186,8 +191,9 @@
           const btn = document.createElement('button');
           btn.className = 'playlist-item';
           btn.dataset.id = p.id;
-          btn.innerHTML = `<div class="text-sm font-semibold">${p.title}</div>
-                           <div class="text-xs opacity-80">${p.description}</div>`;
+          btn.innerHTML = `
+            <div class="text-sm font-semibold">${p.title}</div>
+            <div class="text-xs opacity-80">${p.description}</div>`;
           btn.addEventListener('click', () => selectPlaylist(p.id));
           list.appendChild(btn);
         });
