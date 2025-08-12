@@ -1,5 +1,4 @@
 // =============== CONFIG ===============
-const API_KEY = "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"; // ⚠️ Visible en el frontend
 const MODEL = "meta-llama/llama-4-scout-17b-16e-instruct";
 
 // Prompt del sistema
@@ -132,10 +131,10 @@ async function sendMessage() {
   showThinking();
 
   try {
-    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    // 🔐 Usamos el proxy serverless en Netlify (la key vive en GROQ_API_KEY)
+    const response = await fetch("/api/chat", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${API_KEY}`,
         "Content-Type": "application/json",
         "Accept": "application/json"
       },
@@ -150,12 +149,12 @@ async function sendMessage() {
     });
 
     const raw = await response.text();
-    console.log("Groq raw response:", raw);
+    console.log("Proxy /api/chat raw response:", raw);
 
     hideThinking();
 
     if (!response.ok) {
-      console.error("Groq error:", response.status, raw);
+      console.error("Proxy error:", response.status, raw);
       let msg = "Error al conectar con la IA.";
       if (response.status === 401) msg += " (401: clave inválida o expirada)";
       else if (response.status === 403) msg += " (403: CORS o acceso denegado)";
