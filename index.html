@@ -138,12 +138,26 @@
   <!-- Spotify panel -->
   <script>
     // Playlists
-    const PLAYLISTS = [
-      { id: '4Ldou77MwYfWBV288FirwL', title: 'Electro House mix', description: 'Beats para concentrarte con energía' },
-      { id: '37i9dQZF1DWYY963019MQr', title: 'jazz',               description: 'Instrumentales suaves para estudiar' },
-      { id: '5jQ2Fy8vyfC2mE9oew8c2Q', title: 'Pop mix',           description: 'Ambientes pop para inspirarte' },
-      { id: '2EoheVFjqIxgJMb8VnDRtZ', title: 'K-Pop Hits',        description: 'Clásicos modernos del K-Pop' }
-    ];
+    <script>
+  // Playlists (con tus títulos pedidos)
+  const PLAYLISTS = [
+    // las 4 que ya tenías renombradas
+    { id: '4Ldou77MwYfWBV288FirwL', title: 'Electro House mix',       description: 'Beats para concentrarte con energía' },
+    { id: '37i9dQZF1DWYY963019MQr', title: 'jazz',                    description: 'Instrumentales suaves para estudiar' },
+    { id: '5jQ2Fy8vyfC2mE9oew8c2Q', title: 'Pop mix',                 description: 'Ambientes pop para inspirarte' },
+    { id: '2EoheVFjqIxgJMb8VnDRtZ', title: 'K-Pop Hits',              description: 'Clásicos modernos del K-Pop' },
+
+    // ➕ nuevas
+    { id: '09yz2h86ElsO8dwbxyplwt', title: 'Classic music',           description: 'Obras clásicas para estudiar' },
+    { id: '37i9dQZF1EIZna6YqhjeY0', title: 'Calvin harris',           description: 'Hits y colaboraciones de Calvin Harris' },
+    { id: '37i9dQZF1EQmg9rwHdCwFW', title: 'Mix reggaeton',           description: 'Reggaetón para motivarte' },
+    { id: '4hnGrJpcuQepHdewJyUd0w', title: 'Musica relajante naturaleza', description: 'Sonidos de la naturaleza y relax' }
+  ];
+
+  let currentPlaylist = PLAYLISTS[0]; // sigue empezando por Electro House mix
+  // (el resto del script permanece igual)
+</script>
+
 
     let currentPlaylist = PLAYLISTS[0];
 
