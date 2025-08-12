@@ -1,0 +1,9 @@
+[build]
+  publish = "."
+  functions = "netlify/functions"
+
+# Ruta limpia para la Function
+[[redirects]]
+  from = "/api/chat"
+  to = "/.netlify/functions/groq_chat"
+  status = 200
