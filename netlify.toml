@@ -2,8 +2,9 @@
   publish = "."
   functions = "netlify/functions"
 
-# Ruta limpia para la Function
+# Mapeo amigable: /api/chat -> /.netlify/functions/chat
 [[redirects]]
   from = "/api/chat"
-  to = "/.netlify/functions/groq_chat"
+  to = "/.netlify/functions/chat"
   status = 200
+  force = true
