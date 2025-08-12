@@ -22,79 +22,101 @@
   <!-- Estilos propios -->
   <link rel="stylesheet" href="style.css" />
 </head>
-<body class="bg-gradient-to-br from-black via-indigo-900 to-purple-900 text-white font-sans scroll-smooth">
 
-  <!-- Título -->
-  <section class="pt-10 text-center">
-    <h1 class="text-5xl md:text-6xl font-extrabold bg-gradient-to-r from-pink-400 via-purple-400 to-blue-400 text-transparent bg-clip-text">
-      Innova Space Education
-    </h1>
-    <p class="text-lg text-gray-300 mt-3">Educación del futuro. Conectando estudiantes con IA.</p>
-  </section>
+<body class="bg-gradient-to-br from-black via-indigo-900 to-purple-900 text-white font-sans">
 
-  <!-- Asistente IA y Avatar -->
-  <section class="pt-12 pb-10 px-4 relative">
-    <div class="max-w-3xl mx-auto relative mt-4">
-      <div class="flex items-center justify-center mb-8">
-        <h2 class="text-4xl font-bold text-center mb-0">Asistente IA - MIRA</h2>
+  <!-- ======== Vista 1 pantalla (sin scroll) ======== -->
+  <main id="landing" class="relative">
 
-        <!-- Avatar como archivo separado -->
-        <object
-          id="avatar-mira"
-          type="image/svg+xml"
-          data="avatar_mira.svg"
-          class="still"
-          tabindex="-1"
-          aria-hidden="true">
-        </object>
+    <!-- Barra lateral (botones sin fondo) -->
+    <div class="side-dock">
+      <!-- Botón Spotify -->
+      <button id="btn-spotify" class="dock-btn" title="Spotify">
+        <!-- ícono Spotify -->
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <path d="M12 2.25C6.615 2.25 2.25 6.615 2.25 12S6.615 21.75 12 21.75 21.75 17.385 21.75 12 17.385 2.25 12 2.25Z" fill="url(#g)"/>
+          <path d="M7.7 15.55c3.1-1.87 7.02-.99 8.92 0" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" opacity=".9"/>
+          <path d="M7.3 13.08c3.7-2.1 7.9-1.1 10 .1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" opacity=".8"/>
+          <path d="M7.05 10.5c4.35-2.4 9.7-1.3 12.2.2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" opacity=".7"/>
+          <defs>
+            <linearGradient id="g" x1="2" y1="2" x2="22" y2="22">
+              <stop stop-color="#22c55e"/><stop offset="1" stop-color="#a855f7"/>
+            </linearGradient>
+          </defs>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Panel lateral Spotify (cerrado por defecto) -->
+    <aside id="music-panel" class="side-panel">
+      <div class="flex items-center justify-between mb-2">
+        <h3 class="text-lg">Música para el aprendizaje</h3>
+        <button id="close-panel" class="close-panel">Cerrar ✕</button>
       </div>
 
-      <!-- Chat -->
-      <div class="bg-gray-900 border border-purple-500 rounded-xl p-4 shadow-xl relative">
-        <div id="chat-box" class="h-72 md:h-64 overflow-y-auto bg-gray-800 p-3 rounded-md mb-4 text-sm space-y-2 text-white chat-markdown" aria-live="polite">
-          <div>
-            <strong>MIRA:</strong> ¡Hola! Soy MIRA, tu asistente virtual. ¿En qué puedo ayudarte hoy?
+      <!-- Lista de playlists -->
+      <div id="playlist-list" class="playlist-list"></div>
+
+      <!-- Reproductor -->
+      <iframe id="spotify-embed" class="panel-iframe"
+        src="" frameborder="0" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy">
+      </iframe>
+    </aside>
+
+    <!-- Cabecera -->
+    <section id="hero" class="text-center">
+      <h1 class="text-5xl md:text-6xl font-extrabold bg-gradient-to-r from-pink-400 via-purple-400 to-blue-400 text-transparent bg-clip-text">
+        Innova Space Education
+      </h1>
+      <p class="text-lg text-gray-300 mt-3">Educación del futuro. Conectando estudiantes con IA.</p>
+    </section>
+
+    <!-- Asistente IA y Avatar -->
+    <section id="main-chat" class="px-4">
+      <div class="max-w-3xl mx-auto relative mt-2 w-full">
+        <div class="flex items-center justify-center mb-4 gap-2">
+          <h2 class="text-3xl md:text-4xl font-bold text-center m-0">Asistente IA - MIRA</h2>
+
+          <!-- Avatar como archivo separado -->
+          <object
+            id="avatar-mira"
+            type="image/svg+xml"
+            data="avatar_mira.svg"
+            class="still"
+            tabindex="-1"
+            aria-hidden="true">
+          </object>
+        </div>
+
+        <!-- Chat (ajustado a alto disponible) -->
+        <div id="chat-card" class="bg-gray-900 border border-purple-500 rounded-xl p-4 shadow-xl relative">
+          <div id="chat-shell">
+            <div id="chat-box" class="bg-gray-800 p-3 rounded-md mb-4 text-sm space-y-2 text-white chat-markdown" aria-live="polite">
+              <div>
+                <strong>MIRA:</strong> ¡Hola! Soy MIRA, tu asistente virtual. ¿En qué puedo ayudarte hoy?
+              </div>
+            </div>
+            <div class="flex gap-2">
+              <input
+                aria-label="Escribe tu mensaje"
+                type="text" id="user-input"
+                placeholder="Escribe tu mensaje..."
+                class="flex-1 p-2 rounded-md bg-gray-700 text-white border border-gray-600"
+                autocomplete="off"
+                onkeydown="if(event.key==='Enter'){sendMessage();return false;}"
+              >
+              <button id="send-btn" onclick="sendMessage()" class="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-md text-white font-bold" tabindex="0">
+                Enviar
+              </button>
+            </div>
           </div>
         </div>
-        <div class="flex gap-2">
-          <input
-            aria-label="Escribe tu mensaje"
-            type="text"
-            id="user-input"
-            placeholder="Escribe tu mensaje..."
-            class="flex-1 p-2 rounded-md bg-gray-700 text-white border border-gray-600"
-            autocomplete="off"
-            onkeydown="if(event.key==='Enter'){sendMessage();return false;}"
-          >
-          <button id="send-btn" onclick="sendMessage()" class="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-md text-white font-bold" tabindex="0">
-            Enviar
-          </button>
-        </div>
       </div>
+    </section>
+  </main>
 
-      <!-- Botón ¿Quién es MIRA? debajo del chat -->
-      <div class="flex justify-center mt-4">
-        <button onclick="toggleMiraInfo()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-full shadow-lg">
-          ¿Quién es MIRA?
-        </button>
-      </div>
-
-      <!-- Ventana flotante de descripción de MIRA -->
-      <div id="mira-info">
-        <h3>¿Quién es MIRA?</h3>
-        <p class="text-base mb-4">
-          <strong>MIRA</strong> (Modular Intelligent Responsive Assistant), en español: Asistente Modular, Inteligente y Reactivo.<br>
-          Creada por <strong>Innova Space</strong> con tecnología <strong>OpenAI</strong>.<br>
-          Diseñada para acompañar, explicar y ayudar a estudiantes y docentes de forma interactiva y personalizada en todas las materias.<br>
-          Su misión es facilitar el aprendizaje, responder dudas, explicar fórmulas y conceptos, y guiarte en tu avance académico, con explicaciones claras y amigables.
-        </p>
-        <button onclick="toggleMiraInfo()">Cerrar</button>
-      </div>
-    </div>
-  </section>
-
-  <!-- Áreas -->
-  <section class="py-14 px-6 bg-indigo-800 bg-opacity-20 text-center">
+  <!-- Secciones inferiores (las mantengo en HTML pero ocultas para 1 pantalla) -->
+  <section id="areas-section" class="py-14 px-6 bg-indigo-800 bg-opacity-20 text-center">
     <h2 class="text-4xl font-bold mb-7">Áreas que responde MIRA</h2>
     <button onclick="toggleAreas()" class="bg-purple-700 px-5 py-3 rounded-lg font-semibold mb-4 text-white shadow-lg">
       Ver áreas que responde MIRA
@@ -119,55 +141,100 @@
     </div>
   </section>
 
-  <!-- Quiénes somos -->
-  <section class="py-14 px-6 bg-indigo-900 bg-opacity-30">
+  <section id="about-section" class="py-14 px-6 bg-indigo-900 bg-opacity-30">
     <h2 class="text-4xl font-bold text-center mb-6">¿Quiénes somos?</h2>
     <p class="text-center text-lg max-w-3xl mx-auto text-gray-300">
       Plataforma educativa que integra inteligencia artificial para apoyar el aprendizaje de los estudiantes.
     </p>
   </section>
 
-  <!-- Contacto -->
-  <section class="py-10 px-6 bg-indigo-700 bg-opacity-40">
+  <section id="contact-section" class="py-10 px-6 bg-indigo-700 bg-opacity-40">
     <h2 class="text-4xl font-bold text-center mb-6">Contáctanos</h2>
     <p class="text-center text-lg text-gray-200">Correo: contacto@innova-space-edu.cl</p>
   </section>
 
-  <!-- Logo y créditos -->
-  <div class="flex flex-col justify-center items-center py-10 gap-3">
+  <div class="credits-wrapper flex flex-col justify-center items-center py-10 gap-3">
     <img src="logo.png" alt="Logo Innova Space" style="max-width:170px; width: 40vw; height:auto; opacity:0.95;">
     <div class="credits">
       Creado por <strong>Innova Space Edu SpA.</strong>.
     </div>
   </div>
 
-  <!-- Funciones UI simples -->
+  <!-- Funciones UI simples (mantengo lo tuyo) -->
   <script>
     function toggleMiraInfo() {
       const info = document.getElementById("mira-info");
+      if (!info) return;
       info.style.display = (info.style.display === "none" || info.style.display === "") ? "block" : "none";
     }
     function toggleAreas() {
       const list = document.getElementById("areas-list");
-      list.classList.toggle("hidden");
+      if (list) list.classList.toggle("hidden");
     }
   </script>
 
   <!-- Lógica del chat -->
   <script src="chat.js"></script>
 
-  <!-- Integración Markdown + LaTeX para el chat (helper opcional) -->
+  <!-- Integración Markdown + LaTeX (helper opcional) -->
   <script>
-    // Helper opcional para mostrar mensajes de la IA con Markdown + MathJax
     function addAssistantMessage(text) {
       const chatBox = document.getElementById('chat-box');
       const html = `<div class="assistant-msg">${marked.parse(text)}</div>`;
       chatBox.insertAdjacentHTML('beforeend', html);
       chatBox.scrollTop = chatBox.scrollHeight;
-      if (window.MathJax) {
-        setTimeout(() => MathJax.typesetPromise(), 60);
-      }
+      if (window.MathJax) setTimeout(() => MathJax.typesetPromise(), 60);
     }
+  </script>
+
+  <!-- ======== JS Spotify panel (vanilla, sin React) ======== -->
+  <script>
+    // Playlists (idénticas a las que pasaste)
+    const PLAYLISTS = [
+      { id: '4Ldou77MwYfWBV288FirwL', title: 'Música para Concentrarse', description: 'Sonidos relajantes para mejorar tu enfoque' },
+      { id: '37i9dQZF1DWYY963019MQr', title: 'Estudio Profundo', description: 'Instrumentales para sesiones de estudio largas' },
+      { id: '5jQ2Fy8vyfC2mE9oew8c2Q', title: 'Sonidos Espaciales', description: 'Ambientes cósmicos para inspirarte' },
+      { id: '2EoheVFjqIxgJMb8VnDRtZ', title: 'Clásicos para Aprender', description: 'Música clásica que estimula la mente' }
+    ];
+
+    let currentPlaylist = PLAYLISTS[0];
+
+    function toggleMusicPanel() {
+      document.getElementById('music-panel')?.classList.toggle('open');
+    }
+
+    function selectPlaylist(id) {
+      const p = PLAYLISTS.find(x => x.id === id);
+      if (!p) return;
+      currentPlaylist = p;
+      document.getElementById('spotify-embed').src =
+        `https://open.spotify.com/embed/playlist/${currentPlaylist.id}?utm_source=generator&theme=0`;
+      document.querySelectorAll('.playlist-item').forEach(el => {
+        el.classList.toggle('active', el.dataset.id === id);
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      // Construir lista
+      const list = document.getElementById('playlist-list');
+      if (list) {
+        PLAYLISTS.forEach(p => {
+          const btn = document.createElement('button');
+          btn.className = 'playlist-item';
+          btn.dataset.id = p.id;
+          btn.innerHTML = `<div class="text-sm font-semibold">${p.title}</div>
+                           <div class="text-xs opacity-80">${p.description}</div>`;
+          btn.addEventListener('click', () => selectPlaylist(p.id));
+          list.appendChild(btn);
+        });
+      }
+      // Estado inicial
+      selectPlaylist(currentPlaylist.id);
+
+      // Toggle panel
+      document.getElementById('btn-spotify')?.addEventListener('click', toggleMusicPanel);
+      document.getElementById('close-panel')?.addEventListener('click', toggleMusicPanel);
+    });
   </script>
 </body>
 </html>
