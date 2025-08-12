@@ -1,6 +1,12 @@
 // =============== CONFIG ===============
 const MODEL = "meta-llama/llama-4-scout-17b-16e-instruct";
 
+// --- Voz preferida (opcional). Si pones un nombre exacto, forzará esa voz ---
+// Ejemplos Windows/Edge: "Microsoft Paloma Online (Natural) - Spanish (Mexico)"
+// "Microsoft Elvira Online (Natural) - Spanish (Spain)"
+// Chrome: "Google español de Estados Unidos", "Google español"
+const PREFERRED_VOICE_NAME = "";
+
 // Prompt del sistema (mejorado)
 const SYSTEM_PROMPT = `
 Eres MIRA (Modular Intelligent Responsive Assistant), creada por Innova Space.
@@ -61,40 +67,73 @@ function showThinking() {
   chatBox.appendChild(thinking);
   chatBox.scrollTop = chatBox.scrollHeight;
 }
-function hideThinking() {
-  document.getElementById("thinking")?.remove();
+function hideThinking() { document.getElementById("thinking")?.remove(); }
+
+// ============ TTS ROBUSTO (voz femenina + cola + limpieza) ============
+
+// 1) Limpieza total para voz: sin código, LaTeX, URLs, emojis ni emoticones
+function stripEmojis(s) {
+  try {
+    return s.replace(/[\p{Extended_Pictographic}\uFE0F\u200D]/gu, "");
+  } catch {
+    // Fallback amplio a rangos Unicode de emojis
+    return s.replace(/[\u{1F1E6}-\u{1F1FF}\u{1F300}-\u{1FAFF}\u{2600}-\u{26FF}]/gu, "");
+  }
+}
+function sanitizeForTTS(md) {
+  let t = md || "";
+  // quita bloques de código y LaTeX
+  t = t.replace(/```[\s\S]*?```/g, " ");
+  t = t.replace(/`[^`]*`/g, " ");
+  t = t.replace(/\$\$[\s\S]*?\$\$/g, " ");
+  t = t.replace(/\$[^$]*\$/g, " ");
+  // URLs y comandos/ruido
+  t = t.replace(/https?:\/\/\S+/g, " ");
+  t = t.replace(/(^|\s)[#/][^\s]+/g, " ");        // /comando o #tag
+  // markdown residual y símbolos técnicos
+  t = t.replace(/[>*_~`{}\[\]()<>|]/g, " ");
+  t = t.replace(/[•·•\-] /g, " ");
+  // emojis y emoticones ASCII
+  t = stripEmojis(t);
+  t = t.replace(/[:;=xX8][-^']?[)DPOo3(\\\/|]/g, " "); // :-) ;) :D :P :/ etc.
+  // espacios
+  t = t.replace(/\s+/g, " ").trim();
+  return t;
 }
 
-// ============ TTS ROBUSTO (cola + chunking) ============
-// Limpia markdown/LaTeX/código para voz
-function plainTextForVoice(markdown) {
-  let text = (markdown || "")
-    .replace(/```[\s\S]*?```/g, " ")   // bloques de código
-    .replace(/`[^`]*`/g, " ")          // inline code
-    .replace(/\$\$[\s\S]*?\$\$/g, " ") // LaTeX block
-    .replace(/\$[^$]*\$/g, " ")        // LaTeX inline
-    .replace(/\*\*([^*]+)\*\*/g, "$1")
-    .replace(/\*([^*]+)\*/g, "$1")
-    .replace(/__([^_]+)__/g, "$1")
-    .replace(/_([^_]+)_/g, "$1")
-    .replace(/[•\-] /g, " ")
-    .replace(/\n+/g, ". ");
-  return text.replace(/\s+/g, " ").trim();
-}
+// 2) Preferencias de voces femeninas en español (por nombre)
+const VOICE_NAME_PREFS = [
+  "Paloma", "Elvira", "Dalia", "Lola", "Paulina", "Sabina", "Helena",
+  "Lucia", "Lucía", "Elena", "Camila", "Sofía", "Sofia", "Marina", "Conchita",
+  "Google español", "español de Estados Unidos", "español de España"
+];
+const VOICE_LANG_PREFS = ["es-CL", "es-ES", "es-MX", "es-419", "es"];
 
-// Cola de reproducción
-const VOICE_PREFS = ["es-CL", "es-ES", "es-MX", "es-419", "es"];
 let voicesCache = [];
 let speaking = false;
 const speechQueue = [];
 
-function refreshVoices() {
-  voicesCache = window.speechSynthesis.getVoices() || [];
-}
+function refreshVoices() { voicesCache = window.speechSynthesis.getVoices() || []; }
+
 function pickVoice() {
   refreshVoices();
-  const v = voicesCache.find(v => VOICE_PREFS.some(tag => (v.lang || "").toLowerCase().startsWith(tag.toLowerCase())));
-  return v || voicesCache.find(v => (v.lang || "").toLowerCase().startsWith("es")) || voicesCache[0] || null;
+  if (PREFERRED_VOICE_NAME) {
+    const exact = voicesCache.find(v => (v.name || "").toLowerCase() === PREFERRED_VOICE_NAME.toLowerCase());
+    if (exact) return exact;
+  }
+  // Por nombre "femenino típico"
+  const byName = voicesCache.find(v =>
+    VOICE_NAME_PREFS.some(p => (v.name || "").toLowerCase().includes(p.toLowerCase()))
+    && VOICE_LANG_PREFS.some(l => (v.lang || "").toLowerCase().startsWith(l))
+  );
+  if (byName) return byName;
+
+  // Por idioma español
+  const byLang = voicesCache.find(v => VOICE_LANG_PREFS.some(l => (v.lang || "").toLowerCase().startsWith(l)));
+  if (byLang) return byLang;
+
+  // Fallback
+  return voicesCache[0] || null;
 }
 window.speechSynthesis.addEventListener("voiceschanged", refreshVoices);
 
@@ -105,14 +144,11 @@ function splitIntoChunks(text, maxLen = 240) {
   for (const p of parts) {
     const s = p.trim();
     if (!s) continue;
-    if ((buf + " " + s).trim().length <= maxLen) {
-      buf = (buf ? buf + " " : "") + s;
-    } else {
+    if ((buf + " " + s).trim().length <= maxLen) buf = (buf ? buf + " " : "") + s;
+    else {
       if (buf) chunks.push(buf);
       if (s.length <= maxLen) chunks.push(s);
-      else {
-        for (let i = 0; i < s.length; i += maxLen) chunks.push(s.slice(i, i + maxLen));
-      }
+      else for (let i = 0; i < s.length; i += maxLen) chunks.push(s.slice(i, i + maxLen));
       buf = "";
     }
   }
@@ -128,8 +164,8 @@ function playNext() {
   const v = pickVoice();
   if (v) utter.voice = v;
   utter.lang = (v && v.lang) || "es-ES";
-  utter.rate = 0.98; // un pelín más lento para claridad
-  utter.pitch = 1.02;
+  utter.rate = 1.0;    // natural
+  utter.pitch = 1.12;  // un toque más aguda → femenina joven
   utter.volume = 1;
 
   setAvatarTalking(true);
@@ -151,7 +187,7 @@ function cancelAllSpeech() {
   setAvatarTalking(false);
 }
 function speakMarkdown(md) {
-  const plain = plainTextForVoice(md);
+  const plain = sanitizeForTTS(md);
   if (!plain) return;
   const chunks = splitIntoChunks(plain, 240);
   chunks.forEach(c => enqueueSpeak(c));
@@ -168,9 +204,7 @@ function speakAfterVoices(md) {
 }
 
 // ============ RENDER ======================
-function renderMarkdown(text) {
-  return typeof marked !== "undefined" ? marked.parse(text) : text;
-}
+function renderMarkdown(text) { return typeof marked !== "undefined" ? marked.parse(text) : text; }
 
 // ============ WIKIPEDIA FALLBACK ==========
 async function wikiFallback(query) {
@@ -179,9 +213,7 @@ async function wikiFallback(query) {
     if (!res.ok) return null;
     const data = await res.json();
     return data?.extract || null;
-  } catch {
-    return null;
-  }
+  } catch { return null; }
 }
 
 // ============ ENVÍO MENSAJE ===============
@@ -190,7 +222,7 @@ async function sendMessage() {
   const userMessage = (input.value || "").trim();
   if (!userMessage) return;
 
-  // Si el usuario comienza otra consulta, paramos lo anterior para no pisar audio
+  // Si comienza otra consulta, paramos lo anterior para no pisar audio
   cancelAllSpeech();
 
   appendMessage("user", renderMarkdown(userMessage));
@@ -231,7 +263,7 @@ async function sendMessage() {
     const html = renderMarkdown(aiReply);
     appendMessage("assistant", html);
 
-    // 🔊 Hablar TODA la respuesta (en cola, por bloques)
+    // 🔊 lee TODA la respuesta (sin emojis, código, comandos)
     speakMarkdown(aiReply);
     if (window.MathJax?.typesetPromise) MathJax.typesetPromise();
 
@@ -252,8 +284,8 @@ function initChat() {
   });
   document.getElementById("send-btn")?.addEventListener("click", sendMessage);
 
-  // Saludo inicial UNA sola vez y hablado
-  const saludo = "¡Hola! Soy MIRA 👋 ¿En qué puedo ayudarte hoy?";
+  // Saludo inicial (y hablarlo con la voz preferida)
+  const saludo = "¡Hola! Soy MIRA. ¿En qué puedo ayudarte hoy?";
   appendMessage("assistant", renderMarkdown(saludo));
   speakAfterVoices(saludo);
 
