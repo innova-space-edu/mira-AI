@@ -156,3 +156,10 @@ mjx-container[jax="CHTML"]{
   .side-dock{ left: 8px; }
   .bubble{ max-width: 88%; }
 }
+
+/* hace scroll solo la lista si hay muchas playlists */
+.side-panel { display: flex; flex-direction: column; }
+.playlist-list {
+  overflow-y: auto;
+  max-height: calc(100vh - 420px); /* ajusta si cambias el alto del iframe/título */
+}
