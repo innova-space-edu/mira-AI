@@ -1,8 +1,10 @@
-<svg id="avatar-mira" viewBox="0 0 110 110" width="110" height="110"
+<svg id="avatar-mira"
+     viewBox="-40 -40 190 190" width="110" height="110"
      xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc"
-     style="--level:0.8" preserveAspectRatio="xMidYMid meet">
+     style="--level:0.9; overflow: visible" preserveAspectRatio="xMidYMid meet"
+     overflow="visible">
   <title id="title">Avatar MIRA</title>
-  <desc id="desc">Anillo arcoíris con halo y ecualizador minimalista animable.</desc>
+  <desc id="desc">Anillo arcoíris con halo y ecualizador centrado animado, sin recortes.</desc>
 
   <defs>
     <!-- Degradado arcoíris -->
@@ -18,9 +20,10 @@
       </stop>
     </linearGradient>
 
-    <!-- Halo suave -->
-    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
-      <feGaussianBlur stdDeviation="2.5" result="coloredBlur"/>
+    <!-- Halo MUY amplio para que no se recorte -->
+    <filter id="glow" filterUnits="userSpaceOnUse"
+            x="-80" y="-80" width="280" height="280">
+      <feGaussianBlur stdDeviation="3.2" result="coloredBlur"/>
       <feMerge>
         <feMergeNode in="coloredBlur"/>
         <feMergeNode in="SourceGraphic"/>
@@ -28,47 +31,39 @@
     </filter>
 
     <style>
-      /* Barras del ecualizador (animación lista para cuando haya clase .talking) */
-      .bar {
-        transform-origin: center bottom;
-        animation: bounce 1.2s ease-in-out infinite;
-        animation-play-state: paused;    /* por defecto en pausa */
-        fill: url(#rainbow);
-        vector-effect: non-scaling-stroke;
-      }
-      svg.talking .bar { animation-play-state: running; }
+      /* Ecualizador activo por defecto */
+      .bar { transform-origin: center bottom; animation: bounce 1.2s ease-in-out infinite;
+             fill: url(#rainbow); vector-effect: non-scaling-stroke; }
+      svg.paused .bar { animation-play-state: paused; }
 
       .b1 { animation-delay: 0ms; }
-      .b2 { animation-delay: 120ms; }
+      .b2 { animation-delay: 120ms; } /* barra central con mayor amplitud */
       .b3 { animation-delay: 240ms; }
 
-      /* Amplitud controlada por --level (0.0–1.0) */
       @keyframes bounce {
-        0%, 100% { transform: scaleY(calc(0.25 + 0.20 * var(--level))); }
-        50%      { transform: scaleY(calc(0.9  + 0.60 * var(--level))); }
+        0%,100% { transform: scaleY(calc(0.35 + 0.25 * var(--level))); }
+        50%     { transform: scaleY(calc(1.00 + 0.70 * var(--level))); }
       }
 
-      /* Menos movimiento si el usuario lo prefiere */
       @media (prefers-reduced-motion: reduce) {
         * { animation-duration: 0.001s !important; animation-iteration-count: 1 !important; }
       }
     </style>
   </defs>
 
-  <!-- Anillo principal pulsante -->
-  <circle
-    cx="55" cy="55" r="44"
-    stroke="url(#rainbow)" stroke-width="8" fill="none"
-    filter="url(#glow)" vector-effect="non-scaling-stroke">
+  <!-- Anillo (con mucho aire alrededor) -->
+  <circle cx="55" cy="55" r="44"
+          stroke="url(#rainbow)" stroke-width="8" stroke-linecap="round"
+          fill="none" filter="url(#glow)" vector-effect="non-scaling-stroke">
     <animate attributeName="r" values="44;49;44" dur="1.4s" repeatCount="indefinite"/>
     <animate attributeName="stroke-width" values="8;12;8" dur="1.4s" repeatCount="indefinite"/>
     <animate attributeName="stroke-opacity" values="0.7;1;0.7" dur="1.4s" repeatCount="indefinite"/>
   </circle>
 
-  <!-- Ecualizador minimal (se activa con la clase .talking en el <svg>) -->
-  <g transform="translate(55,68)">
-    <rect class="bar b1" x="-14" y="0"  width="6" height="14" rx="3"/>
-    <rect class="bar b2" x="-3"  y="-4" width="6" height="20" rx="3"/>
-    <rect class="bar b3" x="8"   y="2"  width="6" height="12" rx="3"/>
+  <!-- Ecualizador centrado -->
+  <g transform="translate(55,60)">
+    <rect class="bar b1" x="-14" y="0"  width="6" height="16" rx="3"/>
+    <rect class="bar b2" x="-3"  y="-4" width="6" height="22" rx="3"/>
+    <rect class="bar b3" x="8"   y="2"  width="6" height="14" rx="3"/>
   </g>
 </svg>
