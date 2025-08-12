@@ -1,48 +1,44 @@
 /* =================== Vista 1 pantalla =================== */
+:root{ --panel-w:320px; }
+
 html, body { height: 100%; overflow: hidden; }
 
-/* Layout general: cabecera + chat centrado, todo dentro del viewport */
 #landing{
   height: 100vh;
   display: grid;
-  grid-template-rows: auto 1fr; /* hero arriba, chat ocupa el resto */
+  grid-template-rows: auto 1fr;
   align-items: start;
+  transition: padding-left .25s ease;
+}
+
+/* Cuando se abre el panel, desplazamos el contenido para recentrar */
+body.panel-open #landing{ padding-left: calc(var(--panel-w) + 20px); }
+@media (max-width: 640px){
+  body.panel-open #landing{ padding-left: 0; } /* en móvil, el panel se sobrepone */
 }
 
 /* Cabecera */
 #hero{ padding-top: 28px; }
 
-/* Contenedor del chat en el centro */
-#main-chat{
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 10px 12px 18px;
-}
-#chat-card{ width: min(960px, 94vw); }
+/* Chat centrado */
+#main-chat{ display: flex; justify-content: center; align-items: center; padding: 10px 12px 18px; }
+.chat-wrap{ width: min(960px, 94vw); }
 
-/* Shell del chat para que el box crezca y tenga scroll interno */
-#chat-shell{
-  display: flex;
-  flex-direction: column;
-  height: min(64vh, 560px);
-}
+/* Shell del chat */
+#chat-shell{ display: flex; flex-direction: column; height: min(64vh, 560px); }
 #chat-box{ flex: 1 1 auto; overflow-y: auto; }
 
-/* Ocultar el resto de secciones para mantener 1 pantalla */
+/* Ocultamos secciones extra para 1 pantalla */
 #areas-section, #about-section, #contact-section, .credits-wrapper{ display: none !important; }
 
-/* =================== Avatar MIRA (igual que antes) =================== */
+/* =================== Avatar =================== */
 #avatar-mira{
-  width: clamp(40px, 10vw, 72px);
+  width: clamp(44px, 10vw, 76px);
   height: auto;
-  display: inline-block;
-  vertical-align: middle;
-  margin-left: 12px;
-  margin-bottom: 6px;
-  transition: filter 0.3s, opacity 0.3s;
-  opacity: 1;
-  filter: grayscale(0.4) brightness(0.8);
+  display: inline-block; vertical-align: middle;
+  margin-left: 12px; margin-bottom: 6px;
+  transition: filter .3s, opacity .3s;
+  opacity: 1; filter: grayscale(.4) brightness(.8);
 }
 #avatar-mira.pulse{
   animation: halo-glow 1.2s infinite alternate;
@@ -54,7 +50,39 @@ html, body { height: 100%; overflow: hidden; }
   to   { filter: drop-shadow(0 0 36px #38bdf8) brightness(1.45); }
 }
 
-/* =================== Markdown del chat =================== */
+/* =================== Mensajes tipo chat =================== */
+.msg{ display:flex; gap:8px; margin:8px 0; }
+.msg.assistant{ justify-content:flex-start; }
+.msg.user{ justify-content:flex-end; }
+
+.bubble{
+  max-width: 78%;
+  padding: 10px 12px;
+  border-radius: 14px;
+  line-height: 1.55;
+  word-wrap: break-word;
+  overflow-wrap: anywhere;
+  box-shadow: 0 4px 10px rgba(0,0,0,.25);
+}
+.msg.assistant .bubble{
+  background: #1f2937; /* slate-800 */
+  border: 1px solid #7c3aed; /* violet-600 */
+}
+.msg.user .bubble{
+  background: #3b0764; /* purple-950 */
+  border: 1px solid #a855f7; /* violet-500 */
+  text-align: right;
+}
+
+/* Markdown bonito */
+.chat-markdown pre{
+  background:#0b1220; border:1px solid #3b3b75;
+  padding:12px 14px; border-radius:12px; overflow:auto;
+  font-size:.96rem; margin:.5rem 0;
+}
+.chat-markdown code{
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
 .chat-markdown table{
   border-collapse: collapse; margin: .5em 0; width: 100%;
   background: #22223b; color: #fafafa; font-size: .97rem;
@@ -63,27 +91,42 @@ html, body { height: 100%; overflow: hidden; }
   border: 1px solid #7f5af0; padding: 6px 10px; text-align: left;
 }
 .chat-markdown th{ background: #4f378b; }
+
+/* LaTeX más grande y respirable */
 mjx-container[jax="CHTML"]{
-  font-size: 1.25em; background: transparent !important;
-  padding: .12em .2em; margin: .35em 0;
+  font-size: 1.42em; /* antes 1.25 */
+  background: transparent !important;
+  padding: .12em .2em; margin: .45em 0;
+}
+
+/* Pensando... */
+#thinking .bubble{
+  font-style: italic; color: #c4b5fd;
+  background: #2a2146; border: 1px dashed #a78bfa;
 }
 
 /* =================== Panel lateral y dock =================== */
 .side-dock{
   position: fixed; left: 14px; top: 50%; transform: translateY(-50%);
-  display: flex; flex-direction: column; gap: 10px; z-index: 60;
+  display: flex; flex-direction: column; gap: 14px; z-index: 60;
 }
+
+/* Botón spotify más grande con etiqueta */
 .dock-btn{
-  width: 44px; height: 44px; border: none; background: transparent; padding: 0;
+  width: 72px; height: 72px;
+  border: none; background: transparent; padding: 0;
   display: grid; place-items: center; cursor: pointer;
   color: #c7ffe0; filter: drop-shadow(0 0 6px rgba(168,85,247,.35));
   transition: transform .15s ease;
 }
-.dock-btn svg{ width: 28px; height: 28px; opacity: .95; }
-.dock-btn:hover{ transform: scale(1.06); }
+.dock-btn svg{ width: 38px; height: 38px; opacity: .98; }
+.dock-btn .dock-label{
+  display:block; margin-top:6px; font-size:.78rem; color:#dbeafe; letter-spacing:.2px;
+}
+.dock-btn:hover{ transform: translateY(-2px) scale(1.04); }
 
 .side-panel{
-  position: fixed; top: 0; left: 0; height: 100vh; width: 320px;
+  position: fixed; top: 0; left: 0; height: 100vh; width: var(--panel-w);
   background: rgba(18, 14, 40, .9);
   border-right: 1px solid #7f5af080;
   backdrop-filter: blur(8px);
@@ -111,4 +154,5 @@ mjx-container[jax="CHTML"]{
   #chat-shell{ height: min(62vh, 520px); }
   .side-panel{ width: 88vw; }
   .side-dock{ left: 8px; }
+  .bubble{ max-width: 88%; }
 }
