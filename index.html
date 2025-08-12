@@ -1,158 +1,188 @@
-/* =================== Vista 1 pantalla =================== */
-:root{ --panel-w:320px; }
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Innova Space Education</title>
 
-html, body { height: 100%; overflow: hidden; }
+  <!-- Google Analytics -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-P64ZZSCZ7Z"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-P64ZZSCZ7Z');
+  </script>
 
-#landing{
-  height: 100vh;
-  display: grid;
-  grid-template-rows: auto 1fr;
-  align-items: start;
-  transition: padding-left .25s ease;
-}
+  <!-- Librerías -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 
-/* Cuando se abre el panel, desplazamos el contenido para recentrar */
-body.panel-open #landing{ padding-left: calc(var(--panel-w) + 20px); }
-@media (max-width: 640px){
-  body.panel-open #landing{ padding-left: 0; } /* en móvil, el panel se sobrepone */
-}
+  <!-- Estilos propios -->
+  <link rel="stylesheet" href="style.css" />
+</head>
 
-/* Cabecera */
-#hero{ padding-top: 28px; }
+<body class="bg-gradient-to-br from-black via-indigo-900 to-purple-900 text-white font-sans">
+  <main id="landing" class="relative">
 
-/* Chat centrado */
-#main-chat{ display: flex; justify-content: center; align-items: center; padding: 10px 12px 18px; }
-.chat-wrap{ width: min(960px, 94vw); }
+    <!-- Barra lateral: botón Spotify más grande con etiqueta -->
+    <div class="side-dock">
+      <button id="btn-spotify" class="dock-btn" title="Spotify">
+        <!-- Ícono -->
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <defs>
+            <linearGradient id="g" x1="2" y1="2" x2="22" y2="22">
+              <stop stop-color="#22c55e"/><stop offset="1" stop-color="#a855f7"/>
+            </linearGradient>
+          </defs>
+          <path d="M12 2.25C6.615 2.25 2.25 6.615 2.25 12S6.615 21.75 12 21.75 21.75 17.385 21.75 12 17.385 2.25 12 2.25Z" fill="url(#g)"/>
+          <path d="M7.7 15.55c3.1-1.87 7.02-.99 8.92 0" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" opacity=".9"/>
+          <path d="M7.3 13.08c3.7-2.1 7.9-1.1 10 .1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" opacity=".8"/>
+          <path d="M7.05 10.5c4.35-2.4 9.7-1.3 12.2.2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" opacity=".7"/>
+        </svg>
+        <span class="dock-label">Spotify</span>
+      </button>
+    </div>
 
-/* Shell del chat */
-#chat-shell{ display: flex; flex-direction: column; height: min(64vh, 560px); }
-#chat-box{ flex: 1 1 auto; overflow-y: auto; }
+    <!-- Panel lateral Spotify -->
+    <aside id="music-panel" class="side-panel">
+      <div class="flex items-center justify-between mb-2">
+        <h3 class="text-lg">Música para el aprendizaje</h3>
+        <button id="close-panel" class="close-panel">Cerrar ✕</button>
+      </div>
 
-/* Ocultamos secciones extra para 1 pantalla */
-#areas-section, #about-section, #contact-section, .credits-wrapper{ display: none !important; }
+      <div id="playlist-list" class="playlist-list"></div>
 
-/* =================== Avatar =================== */
-#avatar-mira{
-  width: clamp(44px, 10vw, 76px);
-  height: auto;
-  display: inline-block; vertical-align: middle;
-  margin-left: 12px; margin-bottom: 6px;
-  transition: filter .3s, opacity .3s;
-  opacity: 1; filter: grayscale(.4) brightness(.8);
-}
-#avatar-mira.pulse{
-  animation: halo-glow 1.2s infinite alternate;
-  filter: drop-shadow(0 0 16px #a855f7) brightness(1.25);
-  opacity: 1;
-}
-@keyframes halo-glow{
-  from { filter: drop-shadow(0 0 12px #4f46e5) brightness(1.18); }
-  to   { filter: drop-shadow(0 0 36px #38bdf8) brightness(1.45); }
-}
+      <iframe id="spotify-embed" class="panel-iframe"
+        src="" frameborder="0" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy">
+      </iframe>
+    </aside>
 
-/* =================== Mensajes tipo chat =================== */
-.msg{ display:flex; gap:8px; margin:8px 0; }
-.msg.assistant{ justify-content:flex-start; }
-.msg.user{ justify-content:flex-end; }
+    <!-- Cabecera -->
+    <section id="hero" class="text-center">
+      <h1 class="text-5xl md:text-6xl font-extrabold bg-gradient-to-r from-pink-400 via-purple-400 to-blue-400 text-transparent bg-clip-text">
+        Innova Space Education
+      </h1>
+      <p class="text-lg text-gray-300 mt-3">Educación del futuro. Conectando estudiantes con IA.</p>
+    </section>
 
-.bubble{
-  max-width: 78%;
-  padding: 10px 12px;
-  border-radius: 14px;
-  line-height: 1.55;
-  word-wrap: break-word;
-  overflow-wrap: anywhere;
-  box-shadow: 0 4px 10px rgba(0,0,0,.25);
-}
-.msg.assistant .bubble{
-  background: #1f2937; /* slate-800 */
-  border: 1px solid #7c3aed; /* violet-600 */
-}
-.msg.user .bubble{
-  background: #3b0764; /* purple-950 */
-  border: 1px solid #a855f7; /* violet-500 */
-  text-align: right;
-}
+    <!-- Chat -->
+    <section id="main-chat" class="px-4">
+      <div class="chat-wrap max-w-3xl mx-auto relative mt-2 w-full">
+        <div class="flex items-center justify-center mb-4 gap-2">
+          <h2 class="text-3xl md:text-4xl font-bold text-center m-0">Asistente IA - MIRA</h2>
 
-/* Markdown bonito */
-.chat-markdown pre{
-  background:#0b1220; border:1px solid #3b3b75;
-  padding:12px 14px; border-radius:12px; overflow:auto;
-  font-size:.96rem; margin:.5rem 0;
-}
-.chat-markdown code{
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-}
-.chat-markdown table{
-  border-collapse: collapse; margin: .5em 0; width: 100%;
-  background: #22223b; color: #fafafa; font-size: .97rem;
-}
-.chat-markdown th, .chat-markdown td{
-  border: 1px solid #7f5af0; padding: 6px 10px; text-align: left;
-}
-.chat-markdown th{ background: #4f378b; }
+          <!-- Avatar separado -->
+          <object
+            id="avatar-mira"
+            type="image/svg+xml"
+            data="avatar_mira.svg"
+            class="still"
+            tabindex="-1"
+            aria-hidden="true">
+          </object>
+        </div>
 
-/* LaTeX más grande y respirable */
-mjx-container[jax="CHTML"]{
-  font-size: 1.42em; /* antes 1.25 */
-  background: transparent !important;
-  padding: .12em .2em; margin: .45em 0;
-}
+        <div id="chat-card" class="bg-gray-900 border border-purple-500 rounded-xl p-4 shadow-xl relative">
+          <div id="chat-shell">
+            <!-- Vacío: el saludo se inyecta por JS como burbuja -->
+            <div id="chat-box" class="bg-gray-800 p-3 rounded-md mb-4 text-sm space-y-2 text-white"></div>
 
-/* Pensando... */
-#thinking .bubble{
-  font-style: italic; color: #c4b5fd;
-  background: #2a2146; border: 1px dashed #a78bfa;
-}
+            <div class="flex gap-2">
+              <input
+                aria-label="Escribe tu mensaje"
+                type="text" id="user-input"
+                placeholder="Escribe tu mensaje..."
+                class="flex-1 p-2 rounded-md bg-gray-700 text-white border border-gray-600"
+                autocomplete="off"
+                onkeydown="if(event.key==='Enter'){sendMessage();return false;}">
+              <button id="send-btn" onclick="sendMessage()" class="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-md text-white font-bold" tabindex="0">
+                Enviar
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
 
-/* =================== Panel lateral y dock =================== */
-.side-dock{
-  position: fixed; left: 14px; top: 50%; transform: translateY(-50%);
-  display: flex; flex-direction: column; gap: 14px; z-index: 60;
-}
+  </main>
 
-/* Botón spotify más grande con etiqueta */
-.dock-btn{
-  width: 72px; height: 72px;
-  border: none; background: transparent; padding: 0;
-  display: grid; place-items: center; cursor: pointer;
-  color: #c7ffe0; filter: drop-shadow(0 0 6px rgba(168,85,247,.35));
-  transition: transform .15s ease;
-}
-.dock-btn svg{ width: 38px; height: 38px; opacity: .98; }
-.dock-btn .dock-label{
-  display:block; margin-top:6px; font-size:.78rem; color:#dbeafe; letter-spacing:.2px;
-}
-.dock-btn:hover{ transform: translateY(-2px) scale(1.04); }
+  <!-- Helpers UI básicos -->
+  <script>
+    function toggleMiraInfo() {
+      const info = document.getElementById("mira-info");
+      if (!info) return;
+      info.style.display = (info.style.display === "none" || info.style.display === "") ? "block" : "none";
+    }
+    function toggleAreas() {
+      const list = document.getElementById("areas-list");
+      if (list) list.classList.toggle("hidden");
+    }
+  </script>
 
-.side-panel{
-  position: fixed; top: 0; left: 0; height: 100vh; width: var(--panel-w);
-  background: rgba(18, 14, 40, .9);
-  border-right: 1px solid #7f5af080;
-  backdrop-filter: blur(8px);
-  transform: translateX(-100%); transition: transform .25s ease;
-  z-index: 70; padding: 14px;
-}
-.side-panel.open{ transform: translateX(0); }
-.side-panel h3{ margin: 6px 0 10px; font-weight: 700; }
+  <!-- Chat logic -->
+  <script src="chat.js"></script>
 
-.playlist-list{ display: flex; flex-direction: column; gap: 8px; margin: 10px 0 12px; }
-.playlist-item{
-  background: transparent; border: 1px dashed #7f5af040; color: #fff;
-  padding: 10px; border-radius: 10px; text-align: left; cursor: pointer;
-}
-.playlist-item:hover{ border-color: #7f5af0; background: #ffffff09; }
-.playlist-item.active{ border-color: #a855f7; background: #a855f715; }
+  <!-- Markdown + LaTeX helper (sigue) -->
+  <script>
+    function addAssistantMessage(text) {
+      const chatBox = document.getElementById('chat-box');
+      const html = `<div class="msg assistant"><div class="bubble chat-markdown">${marked.parse(text)}</div></div>`;
+      chatBox.insertAdjacentHTML('beforeend', html);
+      chatBox.scrollTop = chatBox.scrollHeight;
+      if (window.MathJax) setTimeout(() => MathJax.typesetPromise(), 60);
+    }
+  </script>
 
-.panel-iframe{ width: 100%; border: 1px solid #7f5af040; border-radius: 12px; height: 352px; }
-.close-panel{
-  background: transparent; border: none; color: #cbd5ff; cursor: pointer; font-size: .9rem;
-}
+  <!-- Spotify panel -->
+  <script>
+    // Playlists
+    const PLAYLISTS = [
+      { id: '4Ldou77MwYfWBV288FirwL', title: 'Música para Concentrarse', description: 'Sonidos relajantes para mejorar tu enfoque' },
+      { id: '37i9dQZF1DWYY963019MQr', title: 'Estudio Profundo', description: 'Instrumentales para sesiones de estudio largas' },
+      { id: '5jQ2Fy8vyfC2mE9oew8c2Q', title: 'Sonidos Espaciales', description: 'Ambientes cósmicos para inspirarte' },
+      { id: '2EoheVFjqIxgJMb8VnDRtZ', title: 'Clásicos para Aprender', description: 'Música clásica que estimula la mente' }
+    ];
 
-/* =================== Responsive =================== */
-@media (max-width: 640px){
-  #chat-shell{ height: min(62vh, 520px); }
-  .side-panel{ width: 88vw; }
-  .side-dock{ left: 8px; }
-  .bubble{ max-width: 88%; }
-}
+    let currentPlaylist = PLAYLISTS[0];
+
+    function toggleMusicPanel() {
+      const panel = document.getElementById('music-panel');
+      panel?.classList.toggle('open');
+      // 💡 mueve/centra el contenido cuando el panel está abierto
+      document.body.classList.toggle('panel-open', panel.classList.contains('open'));
+    }
+
+    function selectPlaylist(id) {
+      const p = PLAYLISTS.find(x => x.id === id);
+      if (!p) return;
+      currentPlaylist = p;
+      document.getElementById('spotify-embed').src =
+        `https://open.spotify.com/embed/playlist/${currentPlaylist.id}?utm_source=generator&theme=0`;
+      document.querySelectorAll('.playlist-item').forEach(el => {
+        el.classList.toggle('active', el.dataset.id === id);
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const list = document.getElementById('playlist-list');
+      if (list) {
+        PLAYLISTS.forEach(p => {
+          const btn = document.createElement('button');
+          btn.className = 'playlist-item';
+          btn.dataset.id = p.id;
+          btn.innerHTML = `<div class="text-sm font-semibold">${p.title}</div>
+                           <div class="text-xs opacity-80">${p.description}</div>`;
+          btn.addEventListener('click', () => selectPlaylist(p.id));
+          list.appendChild(btn);
+        });
+      }
+      selectPlaylist(currentPlaylist.id);
+
+      document.getElementById('btn-spotify')?.addEventListener('click', toggleMusicPanel);
+      document.getElementById('close-panel')?.addEventListener('click', toggleMusicPanel);
+    });
+  </script>
+</body>
+</html>
