@@ -1,6 +1,6 @@
 // =============== CONFIG ===============
 const MODEL = "meta-llama/llama-4-scout-17b-16e-instruct";
-const PREFERRED_VOICE_NAME = "";
+const PREFERRED_VOICE_NAME = "Microsoft Helena – Spanish (Spain)";
 
 // Prompt
 const SYSTEM_PROMPT = `
