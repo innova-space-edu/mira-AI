@@ -223,16 +223,35 @@ mjx-container[jax="CHTML"]{
   /* Ocultar subtítulo SOLO en móvil (login y app) */
   #hero-subtitle, #hero-subtitle-app { display: none; }
 
-  /* Dock: arriba a la izquierda, fila horizontal, transparente */
+  /* Chat más compacto y centrado */
+  .chat-wrap{ width: min(92vw, 560px); margin-inline: auto; }
+  #chat-card{ padding: 10px; }
+  #chat-shell{ height: min(50vh, 420px); }
+  #chat-box{ font-size: .92rem; }
+
+  /* Input más pequeño y con espacio extra para el dock */
+  .input-row{
+    padding-top: 6px;
+    /* +44px aprox por la altura del dock (34px icono + margen) */
+    padding-bottom: calc(max(6px, var(--safe-bottom)) + 44px);
+  }
+  .input-row input{ padding: 8px 10px; font-size: .9rem; }
+  .input-row button{ padding: 8px 12px; font-size: .9rem; }
+
+  /* Burbujas un poquito más estrechas */
+  .bubble{ max-width: 84%; }
+
+  .side-panel{ width: 88vw; }
+
+  /* === Dock: bajo el input, abajo-izquierda === */
   .side-dock{
     position: fixed;
-    left: 10px; right: auto;
-    top: calc(var(--topbar-h) + clamp(70px, 16vw, 120px));
-    bottom: auto;
+    bottom: calc(10px + var(--safe-bottom));
+    left: 12px;
+    right: auto; top: auto;
     transform: none;
     background: transparent !important;
     border: none !important;
-    border-radius: 0;
     padding: 0;
     gap: 12px;
     flex-direction: row;          /* fila horizontal */
@@ -242,21 +261,6 @@ mjx-container[jax="CHTML"]{
   .dock-label{ display: none; }
   .dock-icon{ width: 34px; height: 34px; }
   .dock-icon svg{ width: 20px; height: 20px; }
-
-  /* Chat más compacto y centrado */
-  .chat-wrap{ width: min(92vw, 560px); margin-inline: auto; }
-  #chat-card{ padding: 10px; }
-  #chat-shell{ height: min(50vh, 420px); }
-  #chat-box{ font-size: .92rem; }
-
-  /* Input más pequeño */
-  .input-row{ padding-top: 6px; }
-  .input-row input{ padding: 8px 10px; font-size: .9rem; }
-  .input-row button{ padding: 8px 12px; font-size: .9rem; }
-
-  /* Burbujas un poquito más estrechas */
-  .bubble{ max-width: 84%; }
-  .side-panel{ width: 88vw; }
 }
 
 /* Ocultar completamente el main cuando está hidden */
