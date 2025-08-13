@@ -18,7 +18,7 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
-  <!-- MathJax: soporta $...$ y $$...$$ -->
+  <!-- MathJax -->
   <script>
     window.MathJax = {
       tex: {
@@ -31,13 +31,27 @@
   </script>
   <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 
+  <!-- Altura real del viewport + safe areas -->
+  <script>
+    function updateViewportVars(){
+      document.documentElement.style.setProperty('--vh', (window.innerHeight * 0.01) + 'px');
+      const top = document.getElementById('auth-bar');
+      const h = top && !top.classList.contains('hidden') ? top.offsetHeight : 0;
+      document.documentElement.style.setProperty('--topbar-h', h + 'px');
+      document.documentElement.style.setProperty('--safe-bottom', 'env(safe-area-inset-bottom, 0px)');
+    }
+    window.addEventListener('resize', updateViewportVars);
+    window.addEventListener('orientationchange', updateViewportVars);
+    document.addEventListener('DOMContentLoaded', updateViewportVars);
+  </script>
+
   <!-- Estilos -->
   <link rel="stylesheet" href="style.css" />
 </head>
 
 <body class="bg-gradient-to-br from-black via-indigo-900 to-purple-900 text-white font-sans">
 
-  <!-- Barra superior -->
+  <!-- Barra superior (solo con sesión) -->
   <header id="auth-bar" class="hidden sticky top-0 z-40 backdrop-blur bg-black/30 border-b border-white/10">
     <div class="max-w-5xl mx-auto flex items-center justify-between px-4 py-2 text-sm">
       <div class="opacity-80">Conectado: <span id="user-email" class="font-semibold"></span></div>
@@ -46,10 +60,10 @@
   </header>
 
   <!-- Pantalla de autenticación -->
-  <section id="auth" class="min-h-[90vh] grid place-items-center px-4">
-    <div class="w-full max-w-md bg-gray-900/70 border border-purple-500/50 rounded-2xl p-6 shadow-2xl">
-      <h1 class="text-3xl font-extrabold text-center mb-1">Innova Space Education</h1>
-      <p id="hero-subtitle" class="text-center text-gray-300 mb-6">Accede con tu correo para usar MIRA</p>
+  <section id="auth" class="grid place-items-center px-4">
+    <div class="w-full max-w-md bg-gray-900/70 border border-purple-500/50 rounded-2xl p-6 shadow-2xl auth-card">
+      <h1 class="hero-title text-center mb-1">Innova Space Education</h1>
+      <p id="hero-subtitle" class="text-center text-gray-300 mb-6">Educación del futuro. Conectando estudiantes con IA.</p>
 
       <h2 id="auth-title" class="text-xl font-bold mb-3">Iniciar sesión</h2>
 
@@ -78,86 +92,71 @@
     </div>
   </section>
 
-  <!-- App -->
+  <!-- App (se muestra solo cuando hay sesión) -->
   <main id="landing" class="relative hidden">
 
-    <!-- Dock lateral -->
+    <!-- Dock: Spotify + Usuario -->
     <div class="side-dock">
       <!-- Spotify -->
       <button id="btn-spotify" class="dock-btn" title="Spotify">
-        <div class="dock-icon">
-          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-            <path d="M12 2.25A9.75 9.75 0 1 0 21.75 12 9.76 9.76 0 0 0 12 2.25Zm4.35 13.78a.75.75 0 0 1-.97.36 10.27 10.27 0 0 0-6.96-.38.75.75 0 1 1-.48-1.43 11.79 11.79 0 0 1 7.99.45.75.75 0 0 1 .42 1zM17 12.2a.88.88 0 0 1-1.14.43 13.32 13.32 0 0 0-9.09-.5.88.88 0 1 1-.54-1.68 15.06 15.06 0 0 1 10.3.56A.88.88 0 0 1 17 12.2Zm.26-2.72a1 1 0 0 1-1.3.5 16.59 16.59 0 0 0-11.37-.6 1 1 0 0 1-.58-1.9 18.29 18.29 0 0 1 12.55.69 1 1 0 0 1 .7 1.31Z"/>
+        <span class="dock-icon">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <defs>
+              <linearGradient id="g" x1="2" y1="2" x2="22" y2="22">
+                <stop stop-color="#22c55e"/><stop offset="1" stop-color="#a855f7"/>
+              </linearGradient>
+            </defs>
+            <path d="M12 2.25C6.615 2.25 2.25 6.615 2.25 12S6.615 21.75 12 21.75 21.75 17.385 21.75 12 17.385 2.25 12 2.25Z" fill="url(#g)"/>
+            <path d="M7.7 15.55c3.1-1.87 7.02-.99 8.92 0" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" opacity=".9"/>
+            <path d="M7.3 13.08c3.7-2.1 7.9-1.1 10 .1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" opacity=".8"/>
+            <path d="M7.05 10.5c4.35-2.4 9.7-1.3 12.2.2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" opacity=".7"/>
           </svg>
-        </div>
+        </span>
         <span class="dock-label">Spotify</span>
       </button>
 
-      <!-- Usuario / Chats -->
-      <button id="btn-user" class="dock-btn" title="Usuario & Chats">
-        <div class="dock-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
-            <circle cx="12" cy="8" r="4" stroke-width="1.6"/>
-            <path d="M4 20a8 8 0 0 1 16 0" stroke-width="1.6" stroke-linecap="round"/>
+      <!-- Usuario -->
+      <button id="btn-user" class="dock-btn" title="Usuario">
+        <span class="dock-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="7" r="4"/>
           </svg>
-        </div>
+        </span>
         <span class="dock-label">Usuario</span>
       </button>
     </div>
 
-    <!-- Panel lateral (tabs: Música / Chats) -->
-    <aside id="side-panel" class="side-panel">
+    <!-- Panel lateral reutilizado (Música / Chats) -->
+    <aside id="side-panel" class="side-panel" data-mode="music">
       <div class="flex items-center justify-between mb-2">
-        <div class="panel-tabs">
-          <button class="panel-tab active" data-tab="music">Música</button>
-          <button class="panel-tab" data-tab="chats">Chats</button>
-        </div>
+        <h3 id="panel-title" class="text-lg">Música para el aprendizaje</h3>
         <button id="close-panel" class="close-panel">Cerrar ✕</button>
       </div>
 
-      <!-- ===== Tab: Música ===== -->
-      <section id="panel-music" class="panel-section active">
-        <h3 class="text-lg">Música para el aprendizaje</h3>
+      <!-- Música -->
+      <div id="panel-music" class="panel-section active">
         <div id="playlist-list" class="playlist-list"></div>
         <iframe id="spotify-embed" class="panel-iframe"
-          src="" frameborder="0"
-          allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-          loading="lazy"></iframe>
-      </section>
+          src="" frameborder="0" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy">
+        </iframe>
+      </div>
 
-      <!-- ===== Tab: Chats / Carpetas ===== -->
-      <section id="panel-chats" class="panel-section">
-        <div class="chatmgr">
-          <div class="mgr-row">
-            <button id="btn-new-folder" class="mgr-btn">+ Carpeta</button>
-            <button id="btn-new-chat" class="mgr-btn violet">+ Chat</button>
-          </div>
-
-          <div class="mgr-columns">
-            <!-- Carpetas -->
-            <div class="mgr-col">
-              <div class="mgr-title">Carpetas</div>
-              <ul id="folder-list" class="mgr-list"></ul>
-            </div>
-
-            <!-- Chats -->
-            <div class="mgr-col">
-              <div class="mgr-title">
-                Chats <span id="folder-current-name" class="mgr-sub"></span>
-              </div>
-              <ul id="chat-list" class="mgr-list"></ul>
-            </div>
-          </div>
+      <!-- Chats -->
+      <div id="panel-chats" class="panel-section">
+        <div class="text-sm opacity-80 mb-2">Conectado como <span id="panel-user-email"></span></div>
+        <div class="flex gap-2 mb-3">
+          <button id="btn-new-chat" class="bg-green-600 hover:bg-green-700 px-3 py-2 rounded">Nuevo chat</button>
+          <button id="btn-logout-panel" class="bg-gray-600 hover:bg-gray-700 px-3 py-2 rounded">Cerrar sesión</button>
         </div>
-      </section>
+        <div class="text-sm mb-1 opacity-70">Tus chats</div>
+        <div id="chat-list" class="playlist-list" style="max-height:48vh; overflow:auto;"></div>
+      </div>
     </aside>
 
     <!-- Cabecera -->
     <section id="hero" class="text-center">
       <h1 class="hero-title">Innova Space Education</h1>
-      <p id="hero-subtitle-app" class="text-lg text-gray-300 mt-3">
-        Educación del futuro. Conectando estudiantes con IA.
-      </p>
+      <p id="hero-subtitle-app" class="text-lg text-gray-300 mt-3">Educación del futuro. Conectando estudiantes con IA.</p>
     </section>
 
     <!-- Chat -->
@@ -165,24 +164,18 @@
       <div class="chat-wrap max-w-3xl mx-auto relative mt-2 w-full">
         <div class="flex items-center justify-center mb-4 gap-2">
           <h2 class="text-3xl md:text-4xl font-bold text-center m-0">Asistente IA - MIRA</h2>
-
-          <!-- Avatar -->
-          <object id="avatar-mira" type="image/svg+xml" data="avatar_mira.svg"
-                  class="still" tabindex="-1" aria-hidden="true"></object>
+          <object id="avatar-mira" type="image/svg+xml" data="avatar_mira.svg" class="still" tabindex="-1" aria-hidden="true"></object>
         </div>
 
         <div id="chat-card" class="bg-gray-900 border border-purple-500 rounded-xl p-4 shadow-xl relative">
           <div id="chat-shell">
-            <div id="chat-box" class="bg-gray-800 p-3 rounded-md mb-4 text-sm space-y-2 text-white"></div>
+            <div id="chat-box" class="bg-gray-800 p-3 rounded-md mb-2 text-sm space-y-2 text-white"></div>
 
             <div class="input-row flex gap-2">
-              <input aria-label="Escribe tu mensaje" type="text" id="user-input"
-                     placeholder="Escribe tu mensaje..."
+              <input aria-label="Escribe tu mensaje" type="text" id="user-input" placeholder="Escribe tu mensaje..."
                      class="flex-1 p-2 rounded-md bg-gray-700 text-white border border-gray-600"
-                     autocomplete="off"
-                     onkeydown="if(event.key==='Enter'){sendMessage();return false;}">
-              <button id="send-btn" onclick="sendMessage()"
-                      class="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-md text-white font-bold" tabindex="0">
+                     autocomplete="off" onkeydown="if(event.key==='Enter'){sendMessage();return false;}">
+              <button id="send-btn" onclick="sendMessage()" class="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-md text-white font-bold" tabindex="0">
                 Enviar
               </button>
             </div>
@@ -195,13 +188,14 @@
 
   <!-- Helpers UI -->
   <script>
-    function toggleAreas() {
-      const list = document.getElementById("areas-list");
-      if (list) list.classList.toggle("hidden");
-    }
+    function toggleMiraInfo(){ const el = document.getElementById("mira-info"); if(!el) return; el.style.display = (el.style.display==="none"||el.style.display==="")?"block":"none"; }
+    function toggleAreas(){ const el = document.getElementById("areas-list"); if(el) el.classList.toggle("hidden"); }
   </script>
 
-  <!-- Lógica de render auxiliar -->
+  <!-- Lógica del chat -->
+  <script src="chat.js"></script>
+
+  <!-- Markdown + LaTeX helper -->
   <script>
     function addAssistantMessage(text) {
       const chatBox = document.getElementById('chat-box');
@@ -212,40 +206,39 @@
     }
   </script>
 
-  <!-- Chat Core -->
-  <script src="chat.js"></script>
-
-  <!-- Spotify + Tabs -->
+  <!-- Panel / Playlists / Halo -->
   <script>
     const PLAYLISTS = [
-      { id: '4Ldou77MwYfWBV288FirwL', title: 'Electro House mix', description: 'Beats para concentrarte con energía' },
-      { id: '37i9dQZF1DWYY963019MQr', title: 'jazz',                    description: 'Instrumentales suaves para estudiar' },
-      { id: '5jQ2Fy8vyfC2mE9oew8c2Q', title: 'Pop mix',                 description: 'Ambientes pop para inspirarte' },
-      { id: '2EoheVFjqIxgJMb8VnDRtZ', title: 'K-Pop Hits',              description: 'Clásicos modernos del K-Pop' },
-      { id: '09yz2h86ElsO8dwbxyplwt', title: 'Classic music',           description: 'Obras clásicas para estudiar' },
-      { id: '37i9dQZF1EIZna6YqhjeY0', title: 'Calvin Harris',           description: 'Hits y colaboraciones de Calvin Harris' },
-      { id: '37i9dQZF1EQmg9rwHdCwFW', title: 'Mix reggaeton',           description: 'Reggaetón para motivarte' },
-      { id: '4hnGrJpcuQepHdewJyUd0w', title: 'Musica relajante naturaleza', description: 'Sonidos de la naturaleza y relax' }
+      { id:'4Ldou77MwYfWBV288FirwL', title:'Electro House mix',       description:'Beats para concentrarte con energía' },
+      { id:'37i9dQZF1DWYY963019MQr', title:'jazz',                    description:'Instrumentales suaves para estudiar' },
+      { id:'5jQ2Fy8vyfC2mE9oew8c2Q', title:'Pop mix',                 description:'Ambientes pop para inspirarte' },
+      { id:'2EoheVFjqIxgJMb8VnDRtZ', title:'K-Pop Hits',              description:'Clásicos modernos del K-Pop' },
+      { id:'09yz2h86ElsO8dwbxyplwt', title:'Classic music',           description:'Obras clásicas para estudiar' },
+      { id:'37i9dQZF1EIZna6YqhjeY0', title:'Calvin Harris',           description:'Hits y colaboraciones de Calvin Harris' },
+      { id:'37i9dQZF1EQmg9rwHdCwFW', title:'Mix reggaeton',           description:'Reggaetón para motivarte' },
+      { id:'4hnGrJpcuQepHdewJyUd0w', title:'Musica relajante naturaleza', description:'Sonidos de la naturaleza y relax' }
     ];
     let currentPlaylist = PLAYLISTS[0];
 
-    function openPanel(tab='music'){
-      document.getElementById('side-panel')?.classList.add('open');
-      document.body.classList.toggle('panel-open', true);
-      setActiveTab(tab);
+    const panel    = document.getElementById('side-panel');
+    const titleEl  = document.getElementById('panel-title');
+    const secMusic = document.getElementById('panel-music');
+    const secChats = document.getElementById('panel-chats');
+
+    function setPanelMode(mode){
+      const isMusic = (mode === 'music');
+      secMusic.classList.toggle('active', isMusic);
+      secChats.classList.toggle('active', !isMusic);
+      titleEl.textContent = isMusic ? 'Música para el aprendizaje' : 'Tus chats';
+      panel.classList.add('open');
+      document.body.classList.add('panel-open');
+      const u = window._currentUser;
+      if (u) document.getElementById('panel-user-email').textContent = u.email || u.uid;
+      updateViewportVars();
     }
     function closePanel(){
-      document.getElementById('side-panel')?.classList.remove('open');
-      document.body.classList.toggle('panel-open', false);
-    }
-    function setActiveTab(tab){
-      document.querySelectorAll('.panel-tab').forEach(b=>{
-        b.classList.toggle('active', b.dataset.tab===tab);
-      });
-      document.querySelectorAll('.panel-section').forEach(s=>{
-        s.classList.remove('active');
-      });
-      document.getElementById(tab==='music'?'panel-music':'panel-chats').classList.add('active');
+      panel.classList.remove('open');
+      document.body.classList.remove('panel-open');
     }
 
     function selectPlaylist(id) {
@@ -257,17 +250,14 @@
       document.querySelectorAll('.playlist-item').forEach(el => {
         el.classList.toggle('active', el.dataset.id === id);
       });
-      // halo en el icono
-      document.getElementById('btn-spotify')?.classList.add('playing');
+      document.getElementById('btn-spotify')?.classList.add('playing'); // halo SOLO en el icono
     }
 
-    document.addEventListener('DOMContentLoaded', () => {
-      // tabs
-      document.querySelectorAll('.panel-tab').forEach(b=>{
-        b.addEventListener('click', ()=> setActiveTab(b.dataset.tab));
-      });
+    document.getElementById('btn-spotify')?.addEventListener('click', ()=>setPanelMode('music'));
+    document.getElementById('btn-user')?.addEventListener('click',   ()=>setPanelMode('chats'));
+    document.getElementById('close-panel')?.addEventListener('click', closePanel);
 
-      // playlists
+    document.addEventListener('DOMContentLoaded', () => {
       const list = document.getElementById('playlist-list');
       if (list) {
         PLAYLISTS.forEach(p => {
@@ -279,20 +269,18 @@
           btn.addEventListener('click', () => selectPlaylist(p.id));
           list.appendChild(btn);
         });
-        selectPlaylist(currentPlaylist.id);
       }
+      selectPlaylist(currentPlaylist.id);
 
-      // dock handlers
-      document.getElementById('btn-spotify')?.addEventListener('click', ()=>openPanel('music'));
-      document.getElementById('btn-user')?.addEventListener('click', ()=>openPanel('chats'));
-      document.getElementById('close-panel')?.addEventListener('click', ()=> {
-        closePanel();
-        document.getElementById('btn-spotify')?.classList.remove('playing');
-      });
+      const inp = document.getElementById('user-input');
+      if (inp) {
+        const ensureVisible = () => setTimeout(()=> inp.scrollIntoView({ block:'nearest', behavior:'smooth' }), 120);
+        inp.addEventListener('focus', ensureVisible);
+      }
     });
   </script>
 
-  <!-- ===================== Firebase (CDN v12.1.0) + Auth + Firestore ===================== -->
+  <!-- ================= Firebase (módulo) + Auth + Firestore ================= -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
     import {
@@ -302,8 +290,8 @@
     } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
     import { getAnalytics, isSupported } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-analytics.js";
     import {
-      getFirestore, collection, addDoc, doc, setDoc, updateDoc, deleteDoc,
-      getDocs, query, where, orderBy, onSnapshot, serverTimestamp
+      getFirestore, collection, doc, addDoc, setDoc, getDoc, getDocs,
+      query, orderBy, serverTimestamp, arrayUnion
     } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
 
     const firebaseConfig = {
@@ -317,27 +305,143 @@
     };
 
     const app = initializeApp(firebaseConfig);
-    try { if (await isSupported()) getAnalytics(app); } catch (_) {}
-
+    try { if (await isSupported()) getAnalytics(app); } catch(_) {}
     const auth = getAuth(app);
     await setPersistence(auth, browserLocalPersistence);
     const db = getFirestore(app);
 
-    // ======= Estado UI =======
+    // ===== ChatStore (local + Firestore) =====
+    window.ChatStore = (function(){
+      let currentChatId = null;
+      let currentUser   = null;
+
+      function userChatsCol(uid){ return collection(db, 'users', uid, 'chats'); }
+      function chatDocRef(uid, chatId){ return doc(db, 'users', uid, 'chats', chatId); }
+      function setUser(u){ currentUser = u || null; window._currentUser = currentUser; if(!u) currentChatId = null; }
+
+      async function ensureChat(){
+        if (currentChatId) return currentChatId;
+        if (!currentUser) {
+          currentChatId = "guest-" + Date.now();
+          const all = getGuestAll();
+          all.push({ id: currentChatId, title:"Nuevo chat", messages:[], createdAt:Date.now(), updatedAt:Date.now() });
+          localStorage.setItem('mira_guest_chats', JSON.stringify(all));
+          renderGuestList(); return currentChatId;
+        }
+        const ref = await addDoc(userChatsCol(currentUser.uid), {
+          title: "Nuevo chat", createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(), messages: []
+        });
+        currentChatId = ref.id; await loadChatList(); return currentChatId;
+      }
+
+      async function saveMessage(role, content){
+        const id = await ensureChat();
+        if (!currentUser){
+          const all = getGuestAll();
+          const chat = all.find(c=>c.id===id);
+          chat.messages.push({ role, content, ts: Date.now() });
+          chat.updatedAt = Date.now();
+          if (role==="user" && chat.title==="Nuevo chat") chat.title = content.slice(0,40);
+          localStorage.setItem('mira_guest_chats', JSON.stringify(all));
+          return;
+        }
+        const ref = chatDocRef(currentUser.uid, id);
+        await setDoc(ref, {
+          updatedAt: serverTimestamp(),
+          ...(role === "user" ? { title: content.slice(0,40) } : {}),
+          messages: arrayUnion({ role, content, ts: Date.now() })
+        }, { merge: true });
+      }
+
+      async function loadChatList(){
+        const list = document.getElementById('chat-list');
+        if (!list) return;
+        list.innerHTML = "";
+        if (!currentUser){ return renderGuestList(); }
+        const q = query(userChatsCol(currentUser.uid), orderBy('updatedAt','desc'));
+        const snap = await getDocs(q);
+        snap.forEach(docSnap=>{
+          const d = docSnap.data();
+          const btn = document.createElement('button');
+          btn.className = 'playlist-item';
+          btn.innerHTML = `<div class="text-sm font-semibold">${d.title || "Chat"}</div>
+                           <div class="text-xs opacity-70">${docSnap.id}</div>`;
+          btn.onclick = ()=>loadChat(docSnap.id);
+          list.appendChild(btn);
+        });
+      }
+
+      async function loadChat(chatId){
+        currentChatId = chatId;
+        const chatBox = document.getElementById('chat-box');
+        chatBox.innerHTML = "";
+        if(!currentUser){
+          const c = getGuestAll().find(x=>x.id===chatId);
+          (c?.messages||[]).forEach(m=>{
+            const html = (typeof marked!=="undefined")? marked.parse(m.content) : m.content;
+            appendMessage(m.role==="user"?"user":"assistant", html);
+          });
+          if (window.MathJax?.typesetPromise) MathJax.typesetPromise();
+          document.getElementById('side-panel')?.classList.remove('open');
+          document.body.classList.remove('panel-open');
+          return;
+        }
+        const ref = chatDocRef(currentUser.uid, chatId);
+        const snap = await getDoc(ref);
+        (snap.data()?.messages||[]).forEach(m=>{
+          const html = (typeof marked!=="undefined")? marked.parse(m.content) : m.content;
+          appendMessage(m.role==="user"?"user":"assistant", html);
+        });
+        if (window.MathJax?.typesetPromise) MathJax.typesetPromise();
+        document.getElementById('side-panel')?.classList.remove('open');
+        document.body.classList.remove('panel-open');
+      }
+
+      function newChat(){
+        currentChatId = null;
+        const chatBox = document.getElementById('chat-box');
+        chatBox.innerHTML = "";
+        const saludo = "¡Nuevo chat iniciado! ¿Sobre qué tema quieres conversar?";
+        appendMessage("assistant", (typeof marked!=="undefined")? marked.parse(saludo) : saludo);
+        document.getElementById('side-panel')?.classList.remove('open');
+        document.body.classList.remove('panel-open');
+      }
+
+      function getGuestAll(){ try{ return JSON.parse(localStorage.getItem('mira_guest_chats')||"[]"); }catch{ return []; } }
+      function renderGuestList(){
+        const list = document.getElementById('chat-list'); if(!list) return;
+        list.innerHTML = "";
+        getGuestAll().sort((a,b)=>b.updatedAt-a.updatedAt).forEach(c=>{
+          const btn = document.createElement('button');
+          btn.className = 'playlist-item';
+          btn.innerHTML = `<div class="text-sm font-semibold">${c.title||"Chat"}</div>
+                           <div class="text-xs opacity-70">${c.id}</div>`;
+          btn.onclick = ()=>loadChat(c.id);
+          list.appendChild(btn);
+        });
+      }
+
+      return { setUser, saveMessage, loadChatList, loadChat, newChat };
+    })();
+
+    // ===== Auth UI =====
     const $authSection = document.getElementById('auth');
     const $landing     = document.getElementById('landing');
     const $authBar     = document.getElementById('auth-bar');
     const $userEmail   = document.getElementById('user-email');
-    const $logoutBtn   = document.getElementById('logout-btn');
+    const $panelUser   = document.getElementById('panel-user-email');
+    const $logoutTop   = document.getElementById('logout-btn');
+    const $logoutPanel = document.getElementById('btn-logout-panel');
 
-    const $authTitle   = document.getElementById('auth-title');
-    const $authForm    = document.getElementById('auth-form');
-    const $authError   = document.getElementById('auth-error');
-    const $toggleAuth  = document.getElementById('toggle-auth');
-    const $authSubmit  = document.getElementById('auth-submit');
+    const $authTitle  = document.getElementById('auth-title');
+    const $authForm   = document.getElementById('auth-form');
+    const $authError  = document.getElementById('auth-error');
+    const $toggleAuth = document.getElementById('toggle-auth');
+    const $authSubmit = document.getElementById('auth-submit');
 
     let mode = 'login';
-    function renderMode() {
+    function renderMode(){
       if (mode === 'login') {
         $authTitle.textContent = 'Iniciar sesión';
         $authSubmit.textContent = 'Ingresar';
@@ -350,17 +454,18 @@
       $authError.textContent = '';
     }
     renderMode();
-    $toggleAuth.addEventListener('click', () => { mode = (mode==='login')?'register':'login'; renderMode(); });
 
-    $authForm.addEventListener('submit', async (e) => {
+    $toggleAuth.addEventListener('click', ()=>{ mode = (mode==='login'?'register':'login'); renderMode(); });
+
+    $authForm.addEventListener('submit', async (e)=>{
       e.preventDefault();
       $authError.textContent = '';
       const email = (document.getElementById('email').value || '').trim();
       const password = document.getElementById('password').value;
-      try {
+      try{
         if (mode === 'login') await signInWithEmailAndPassword(auth, email, password);
         else await createUserWithEmailAndPassword(auth, email, password);
-      } catch (err) {
+      }catch(err){
         const map = {
           'auth/invalid-email': 'Correo inválido.',
           'auth/missing-password': 'Ingresa la contraseña.',
@@ -373,253 +478,30 @@
       }
     });
 
-    $logoutBtn.addEventListener('click', () => signOut(auth));
+    $logoutTop?.addEventListener('click', ()=>signOut(auth));
+    $logoutPanel?.addEventListener('click', ()=>signOut(auth));
+    document.getElementById('btn-new-chat')?.addEventListener('click', ()=>window.ChatStore.newChat());
 
-    onAuthStateChanged(auth, (user) => {
+    onAuthStateChanged(auth, async (user)=>{
+      window.ChatStore.setUser(user || null);
+      window._currentUser = user || null;
+
       const logged = !!user;
       $authSection.classList.toggle('hidden', logged);
       $landing.classList.toggle('hidden', !logged);
       $authBar.classList.toggle('hidden', !logged);
-      if (logged) {
-        $userEmail.textContent = user.email || user.uid;
-        ChatStore.init(user.uid);
-      } else {
-        ChatStore.reset();
+
+      updateViewportVars();
+
+      if (logged){
+        const email = user.email || user.uid;
+        $userEmail.textContent = email;
+        if ($panelUser) $panelUser.textContent = email;
+        await window.ChatStore.loadChatList();
+        document.getElementById('side-panel')?.classList.remove('open');
+        document.body.classList.remove('panel-open');
       }
     });
-
-    // ================= ChatStore (Firestore) =================
-    const folderCol = (uid)=> collection(db, 'users', uid, 'folders');
-    const chatCol   = (uid)=> collection(db, 'users', uid, 'chats');
-    const msgCol    = (uid, chatId)=> collection(db, 'users', uid, 'chats', chatId, 'messages');
-
-    const $folderList = document.getElementById('folder-list');
-    const $chatList   = document.getElementById('chat-list');
-    const $folderCurrentName = document.getElementById('folder-current-name');
-
-    const ChatStore = {
-      uid: null,
-      folders: [], // {id,name}
-      chats:   [], // {id,title,folderId,updatedAt}
-      currentFolderId: null, // null => "Sin carpeta"
-      currentChatId: null,
-
-      reset(){
-        this.uid=null; this.folders=[]; this.chats=[];
-        this.currentFolderId=null; this.currentChatId=null;
-        $folderList.innerHTML=''; $chatList.innerHTML='';
-        $folderCurrentName.textContent='';
-      },
-
-      async init(uid){
-        this.uid = uid;
-
-        // FOLDERS listener
-        onSnapshot(query(folderCol(uid), orderBy('name')), snap=>{
-          this.folders = snap.docs.map(d=>({id:d.id, ...d.data()}));
-          this.renderFolders();
-        });
-
-        // CHATS listener
-        onSnapshot(query(chatCol(uid), orderBy('updatedAt','desc')), snap=>{
-          this.chats = snap.docs.map(d=>({id:d.id, ...d.data()}));
-          this.renderChats();
-        });
-
-        // Root folder selected by default
-        this.setFolder(null);
-      },
-
-      // ----- Folders -----
-      async newFolder(){
-        const name = prompt('Nombre de la carpeta:');
-        if (!name) return;
-        await addDoc(folderCol(this.uid), { name, createdAt: serverTimestamp() });
-      },
-      async renameFolder(id){
-        const current = this.folders.find(f=>f.id===id);
-        const name = prompt('Renombrar carpeta:', current?.name || '');
-        if (!name) return;
-        await updateDoc(doc(folderCol(this.uid), id), { name });
-      },
-      async deleteFolder(id){
-        const hasChats = this.chats.some(c=>c.folderId===id);
-        if (hasChats && !confirm('La carpeta tiene chats. ¿Mover a “Sin carpeta” y borrar la carpeta?')) return;
-        // mover chats a root
-        const affected = this.chats.filter(c=>c.folderId===id);
-        await Promise.all(affected.map(c=> updateDoc(doc(chatCol(this.uid), c.id), { folderId: null })));
-        await deleteDoc(doc(folderCol(this.uid), id));
-        if (this.currentFolderId===id) this.setFolder(null);
-      },
-      setFolder(id){
-        this.currentFolderId = id || null;
-        const name = id ? (this.folders.find(f=>f.id===id)?.name || '') : 'Sin carpeta';
-        $folderCurrentName.textContent = `· ${name}`;
-        this.renderFolders(); this.renderChats();
-      },
-
-      // ----- Chats -----
-      async newChat(){
-        const title = prompt('Título del chat:', 'Nuevo chat') || 'Nuevo chat';
-        const docRef = await addDoc(chatCol(this.uid), {
-          title, folderId: this.currentFolderId || null,
-          createdAt: serverTimestamp(), updatedAt: serverTimestamp()
-        });
-        this.setChat(docRef.id, true);
-      },
-      async renameChat(id){
-        const current = this.chats.find(c=>c.id===id);
-        const title = prompt('Renombrar chat:', current?.title || '');
-        if (!title) return;
-        await updateDoc(doc(chatCol(this.uid), id), { title, updatedAt: serverTimestamp() });
-      },
-      async deleteChat(id){
-        if (!confirm('¿Eliminar chat definitivamente?')) return;
-        // borrar mensajes
-        const msgs = await getDocs(msgCol(this.uid, id));
-        const batch = [];
-        msgs.forEach(m=> batch.push(deleteDoc(doc(msgCol(this.uid, id), m.id))));
-        await Promise.all(batch);
-        await deleteDoc(doc(chatCol(this.uid), id));
-        if (this.currentChatId===id) {
-          this.currentChatId = null;
-          ChatUI.clear();
-        }
-      },
-      async moveChat(id){
-        const options = ['(Sin carpeta)', ...this.folders.map(f=>f.name)];
-        const idx = prompt(`Mover a carpeta:\n${options.map((n,i)=>`${i}. ${n}`).join('\n')}\nEscribe el número:`);
-        if (idx===null) return;
-        const i = Number(idx);
-        if (Number.isNaN(i) || i<0 || i>=options.length) return alert('Selección inválida');
-        const folderId = i===0 ? null : this.folders[i-1].id;
-        await updateDoc(doc(chatCol(this.uid), id), { folderId, updatedAt: serverTimestamp() });
-        if (this.currentChatId===id) this.setFolder(folderId);
-      },
-
-      async setChat(id, loadHistory=false){
-        this.currentChatId = id;
-        this.renderChats();
-        if (!loadHistory) return;
-        // Carga últimas 50 entradas
-        const q = query(msgCol(this.uid, id), orderBy('createdAt','asc'));
-        const snap = await getDocs(q);
-        ChatUI.clear();
-        snap.forEach(docSnap=>{
-          const m = docSnap.data();
-          ChatUI.add(m.role, m.content);
-        });
-        if (window.MathJax?.typesetPromise) MathJax.typesetPromise();
-      },
-
-      // llamada por chat.js
-      async saveMessage(role, content){
-        if (!this.uid) return;
-        // si no hay chat activo, crear uno con el primer texto del usuario
-        if (!this.currentChatId && role==='user') {
-          const title = (content || 'Nuevo chat').slice(0, 40);
-          const newRef = await addDoc(chatCol(this.uid), {
-            title, folderId: this.currentFolderId || null,
-            createdAt: serverTimestamp(), updatedAt: serverTimestamp()
-          });
-          this.currentChatId = newRef.id;
-        }
-        if (!this.currentChatId) return;
-        await addDoc(msgCol(this.uid, this.currentChatId), {
-          role, content, createdAt: serverTimestamp()
-        });
-        await updateDoc(doc(chatCol(this.uid), this.currentChatId), { updatedAt: serverTimestamp() });
-      },
-
-      // ----- Render -----
-      renderFolders(){
-        const rootActive = this.currentFolderId===null;
-        $folderList.innerHTML = `
-          <li class="mgr-item ${rootActive?'active':''}">
-            <button class="mgr-entry" data-folder="__root">
-              ${Icons.folder} <span>Sin carpeta</span>
-            </button>
-          </li>
-        ` + this.folders.map(f=>`
-          <li class="mgr-item ${this.currentFolderId===f.id?'active':''}">
-            <button class="mgr-entry" data-folder="${f.id}">
-              ${Icons.folder} <span>${f.name}</span>
-            </button>
-            <div class="mgr-actions">
-              <button class="mgr-a" data-f-rename="${f.id}" title="Renombrar">✎</button>
-              <button class="mgr-a" data-f-del="${f.id}" title="Eliminar">🗑</button>
-            </div>
-          </li>
-        `).join('');
-
-        // handlers
-        $folderList.querySelectorAll('[data-folder]').forEach(b=>{
-          b.onclick = () => this.setFolder(b.dataset.folder==='__root'?null:b.dataset.folder);
-        });
-        $folderList.querySelectorAll('[data-f-rename]').forEach(b=>{
-          b.onclick = ()=> this.renameFolder(b.dataset.fRename);
-        });
-        $folderList.querySelectorAll('[data-f-del]').forEach(b=>{
-          b.onclick = ()=> this.deleteFolder(b.dataset.fDel);
-        });
-      },
-
-      renderChats(){
-        const list = this.chats.filter(c=>(c.folderId||null)===this.currentFolderId);
-        $chatList.innerHTML = list.map(c=>`
-          <li class="mgr-item ${this.currentChatId===c.id?'active':''}">
-            <button class="mgr-entry" data-chat="${c.id}">
-              ${Icons.chat} <span>${c.title || 'Chat'}</span>
-            </button>
-            <div class="mgr-actions">
-              <button class="mgr-a" data-c-move="${c.id}"   title="Mover a carpeta">⤴︎</button>
-              <button class="mgr-a" data-c-rename="${c.id}" title="Renombrar">✎</button>
-              <button class="mgr-a" data-c-del="${c.id}"    title="Eliminar">🗑</button>
-            </div>
-          </li>
-        `).join('') || `<li class="text-sm opacity-70 px-2 py-1">No hay chats aquí.</li>`;
-
-        $chatList.querySelectorAll('[data-chat]').forEach(b=>{
-          b.onclick = ()=> this.setChat(b.dataset.chat, true);
-        });
-        $chatList.querySelectorAll('[data-c-rename]').forEach(b=>{
-          b.onclick = ()=> this.renameChat(b.dataset.cRename);
-        });
-        $chatList.querySelectorAll('[data-c-del]').forEach(b=>{
-          b.onclick = ()=> this.deleteChat(b.dataset.cDel);
-        });
-        $chatList.querySelectorAll('[data-c-move]').forEach(b=>{
-          b.onclick = ()=> this.moveChat(b.dataset.cMove);
-        });
-      }
-    };
-
-    // UI helpers para el chat-box
-    const ChatUI = {
-      add(role, content){
-        const html = (role==='user')
-          ? `<div class="msg user"><div class="bubble chat-markdown">${marked.parse(content)}</div></div>`
-          : `<div class="msg assistant"><div class="bubble chat-markdown">${marked.parse(content)}</div></div>`;
-        const box = document.getElementById('chat-box');
-        box.insertAdjacentHTML('beforeend', html);
-        box.scrollTop = box.scrollHeight;
-      },
-      clear(){
-        document.getElementById('chat-box').innerHTML='';
-      }
-    };
-
-    window.ChatStore = ChatStore; // para chat.js
-
-    // Botones gestor
-    document.getElementById('btn-new-folder')?.addEventListener('click', ()=>ChatStore.newFolder());
-    document.getElementById('btn-new-chat')?.addEventListener('click',   ()=>ChatStore.newChat());
-
-    // Ajuste 1vh móvil (corrige barras)
-    function setVh(){ document.documentElement.style.setProperty('--vh', (window.innerHeight*0.01)+'px'); }
-    setVh(); window.addEventListener('resize', setVh);
   </script>
-  <!-- ======================================================================= -->
-
 </body>
 </html>
