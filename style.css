@@ -141,7 +141,7 @@ mjx-container[jax="CHTML"]{
   background: #2a2146; border: 1px dashed #a78bfa;
 }
 
-/* =================== Panel lateral y dock =================== */
+/* =================== Panel lateral y dock (desktop) =================== */
 .side-dock{
   position: fixed; left: 14px; top: 50%; transform: translateY(-50%);
   display: flex; flex-direction: column; gap: 14px; z-index: 60;
@@ -219,29 +219,33 @@ mjx-container[jax="CHTML"]{
 }
 
 /* =================== Responsive =================== */
-/* Dock -> barra inferior flotante en pantallas pequeñas */
+/* ——— NUEVO: en móvil el dock va arriba del avatar, transparente ——— */
 @media (max-width: 480px), (max-height: 640px){
+  /* Dock como overlay superior derecho, sin fondo */
   .side-dock{
-    left: 10px; right: 10px; top: auto; bottom: calc(var(--safe-bottom) + 10px);
+    position: fixed;
+    left: auto; right: 10px;
+    top: calc(var(--topbar-h) + clamp(84px, 18vw, 140px)); /* queda sobre el avatar/título */
+    bottom: auto;
     transform: none;
-    flex-direction: row; justify-content: flex-start; gap: 12px;
-    padding: 6px 8px;
-    background: rgba(16, 24, 40, .35);
-    border: 1px solid rgba(124,58,237,.35);
-    border-radius: 9999px;
-    backdrop-filter: blur(8px);
+    background: transparent !important;
+    border: none !important;
+    border-radius: 0;
+    padding: 0;
+    gap: 10px;
+    flex-direction: column;       /* íconos uno sobre otro */
+    align-items: center;
     z-index: 80;
   }
-  .dock-label{ display: none; }
+  .dock-label{ display: none; }   /* sin texto para no tapar */
   .dock-icon{ width: 36px; height: 36px; }
   .dock-icon svg{ width: 22px; height: 22px; }
-}
 
-/* Chat en móvil: más alto; burbujas más anchas */
-@media (max-width: 640px){
-  #chat-shell{ height: min(66vh, 560px); }
-  .side-panel{ width: 88vw; }
+  /* Ventana de chat más compacta en móvil */
+  #chat-shell{ height: min(56vh, 480px); }
+  .chat-wrap{ width: min(96vw, 620px); }
   .bubble{ max-width: 88%; }
+  .side-panel{ width: 88vw; }
 }
 
 /* Ocultar completamente el main cuando está hidden */
