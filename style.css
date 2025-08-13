@@ -1,7 +1,7 @@
 /* =================== Variables y viewport =================== */
 :root{
-  --vh: 1vh;             /* se actualiza por JS */
-  --topbar-h: 0px;       /* altura barra superior si existe */
+  --vh: 1vh;
+  --topbar-h: 0px;
   --panel-w: 320px;
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
@@ -9,7 +9,7 @@
 /* Todo dentro del viewport, sin desbordes */
 html, body { height: 100%; overflow: hidden; }
 
-/* App: ocupa alto visible menos la topbar */
+/* App: alto visible menos topbar */
 #landing{
   min-height: calc((var(--vh) * 100) - var(--topbar-h));
   display: grid;
@@ -21,7 +21,7 @@ html, body { height: 100%; overflow: hidden; }
   #landing{ min-height: calc(100dvh - var(--topbar-h)); }
 }
 
-/* Login: también ocupa alto visible */
+/* Login: alto visible */
 #auth{
   min-height: calc((var(--vh) * 100) - var(--topbar-h));
   overflow: hidden;
@@ -30,7 +30,7 @@ html, body { height: 100%; overflow: hidden; }
   #auth{ min-height: calc(100dvh - var(--topbar-h)); }
 }
 
-/* Cuando se abre el panel, desplazamos el contenido (solo desktop) */
+/* Panel abierto (solo desktop) */
 body.panel-open #landing{ padding-left: calc(var(--panel-w) + 20px); }
 @media (max-width: 640px){
   body.panel-open #landing{ padding-left: 0; }
@@ -50,8 +50,9 @@ body.panel-open #landing{ padding-left: calc(var(--panel-w) + 20px); }
 
 /* =================== Chat =================== */
 #main-chat{ display: flex; justify-content: center; align-items: center; padding: 10px 12px 18px; }
-.chat-wrap{ width: min(960px, 94vw); }
+.chat-wrap{ width: min(960px, 94vw); margin-inline: auto; }
 
+#chat-card{ padding: 1rem; }
 #chat-shell{ display: flex; flex-direction: column; height: min(64vh, 560px); }
 #chat-box{ flex: 1 1 auto; overflow-y: auto; }
 
@@ -101,12 +102,12 @@ body.panel-open #landing{ padding-left: calc(var(--panel-w) + 20px); }
   box-shadow: 0 4px 10px rgba(0,0,0,.25);
 }
 .msg.assistant .bubble{
-  background: #1f2937; /* slate-800 */
-  border: 1px solid #7c3aed; /* violet-600 */
+  background: #1f2937;
+  border: 1px solid #7c3aed;
 }
 .msg.user .bubble{
-  background: #3b0764; /* purple-950 */
-  border: 1px solid #a855f7; /* violet-500 */
+  background: #3b0764;
+  border: 1px solid #a855f7;
   text-align: right;
 }
 
@@ -128,7 +129,7 @@ body.panel-open #landing{ padding-left: calc(var(--panel-w) + 20px); }
 }
 .chat-markdown th{ background: #4f378b; }
 
-/* LaTeX más grande y respirable */
+/* LaTeX más grande */
 mjx-container[jax="CHTML"]{
   font-size: 1.42em;
   background: transparent !important;
@@ -165,7 +166,7 @@ mjx-container[jax="CHTML"]{
 }
 .dock-icon svg{ width: 28px; height: 28px; opacity:.98; }
 
-/* 🌟 Halo SOLO en el icono */
+/* 🌟 Halo SOLO en el icono de Spotify */
 .dock-btn.playing .dock-icon::before{
   content:"";
   position:absolute; inset:-10px; border-radius:9999px;
@@ -192,7 +193,6 @@ mjx-container[jax="CHTML"]{
 .side-panel.open{ transform: translateX(0); }
 .side-panel h3{ margin: 6px 0 10px; font-weight: 700; }
 
-/* Secciones del panel (Música/Chats) */
 .panel-section{ display:none; }
 .panel-section.active{ display:block; }
 
@@ -218,33 +218,44 @@ mjx-container[jax="CHTML"]{
   .playlist-list{ max-height: calc(100dvh - 420px); }
 }
 
-/* =================== Responsive =================== */
-/* ——— NUEVO: en móvil el dock va arriba del avatar, transparente ——— */
+/* =================== Responsive móvil =================== */
 @media (max-width: 480px), (max-height: 640px){
-  /* Dock como overlay superior derecho, sin fondo */
+  /* Ocultar subtítulo SOLO en móvil (login y app) */
+  #hero-subtitle, #hero-subtitle-app { display: none; }
+
+  /* Dock: arriba a la izquierda, fila horizontal, transparente */
   .side-dock{
     position: fixed;
-    left: auto; right: 10px;
-    top: calc(var(--topbar-h) + clamp(84px, 18vw, 140px)); /* queda sobre el avatar/título */
+    left: 10px; right: auto;
+    top: calc(var(--topbar-h) + clamp(70px, 16vw, 120px));
     bottom: auto;
     transform: none;
     background: transparent !important;
     border: none !important;
     border-radius: 0;
     padding: 0;
-    gap: 10px;
-    flex-direction: column;       /* íconos uno sobre otro */
+    gap: 12px;
+    flex-direction: row;          /* fila horizontal */
     align-items: center;
     z-index: 80;
   }
-  .dock-label{ display: none; }   /* sin texto para no tapar */
-  .dock-icon{ width: 36px; height: 36px; }
-  .dock-icon svg{ width: 22px; height: 22px; }
+  .dock-label{ display: none; }
+  .dock-icon{ width: 34px; height: 34px; }
+  .dock-icon svg{ width: 20px; height: 20px; }
 
-  /* Ventana de chat más compacta en móvil */
-  #chat-shell{ height: min(56vh, 480px); }
-  .chat-wrap{ width: min(96vw, 620px); }
-  .bubble{ max-width: 88%; }
+  /* Chat más compacto y centrado */
+  .chat-wrap{ width: min(92vw, 560px); margin-inline: auto; }
+  #chat-card{ padding: 10px; }
+  #chat-shell{ height: min(50vh, 420px); }
+  #chat-box{ font-size: .92rem; }
+
+  /* Input más pequeño */
+  .input-row{ padding-top: 6px; }
+  .input-row input{ padding: 8px 10px; font-size: .9rem; }
+  .input-row button{ padding: 8px 12px; font-size: .9rem; }
+
+  /* Burbujas un poquito más estrechas */
+  .bubble{ max-width: 84%; }
   .side-panel{ width: 88vw; }
 }
 
