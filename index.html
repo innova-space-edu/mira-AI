@@ -18,7 +18,7 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
-  <!-- Configuración MathJax: soporta $...$ inline y $$...$$ display -->
+  <!-- MathJax ($...$ y $$...$$) -->
   <script>
     window.MathJax = {
       tex: {
@@ -31,40 +31,26 @@
   </script>
   <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 
-  <!-- Fix 100vh en móviles -->
+  <!-- Altura móvil real -->
   <script>
-    function setVh(){ document.documentElement.style.setProperty('--vh', (window.innerHeight * 0.01) + 'px'); }
-    window.addEventListener('resize', setVh);
-    window.addEventListener('orientationchange', setVh);
-    setVh();
+    function updateViewportVars(){
+      document.documentElement.style.setProperty('--vh', (window.innerHeight * 0.01) + 'px');
+      const top = document.getElementById('auth-bar');
+      const h = top && !top.classList.contains('hidden') ? top.offsetHeight : 0;
+      document.documentElement.style.setProperty('--topbar-h', h + 'px');
+    }
+    window.addEventListener('resize', updateViewportVars);
+    window.addEventListener('orientationchange', updateViewportVars);
+    document.addEventListener('DOMContentLoaded', updateViewportVars);
   </script>
 
-  <!-- Estilos propios -->
+  <!-- Estilos -->
   <link rel="stylesheet" href="style.css" />
-
-  <!-- Pequeños estilos que quizá no tengas aún -->
-  <style>
-    /* Halo del botón Spotify cuando hay reproducción/selección */
-    .dock-btn{ position: relative; }
-    .dock-btn.playing::before{
-      content:""; position:absolute; inset:-10px; border-radius:9999px;
-      background: radial-gradient(closest-side, rgba(168,85,247,.45), rgba(56,189,248,.25) 60%, transparent 70%);
-      filter: blur(8px); z-index:-1; animation: glowPulse 1.6s ease-in-out infinite;
-    }
-    @keyframes glowPulse{
-      0%{ transform:scale(.95); opacity:.7; }
-      50%{ transform:scale(1.08); opacity:1; }
-      100%{ transform:scale(.95); opacity:.7; }
-    }
-    /* Secciones del panel reutilizado */
-    .panel-section{ display:none; }
-    .panel-section.active{ display:block; }
-  </style>
 </head>
 
 <body class="bg-gradient-to-br from-black via-indigo-900 to-purple-900 text-white font-sans">
 
-  <!-- Barra superior con usuario + salir (solo cuando hay sesión) -->
+  <!-- Barra superior (solo con sesión) -->
   <header id="auth-bar" class="hidden sticky top-0 z-40 backdrop-blur bg-black/30 border-b border-white/10">
     <div class="max-w-5xl mx-auto flex items-center justify-between px-4 py-2 text-sm">
       <div class="opacity-80">Conectado: <span id="user-email" class="font-semibold"></span></div>
@@ -72,8 +58,8 @@
     </div>
   </header>
 
-  <!-- Pantalla de autenticación -->
-  <section id="auth" class="min-h-[90vh] grid place-items-center px-4">
+  <!-- Autenticación -->
+  <section id="auth" class="grid place-items-center px-4">
     <div class="w-full max-w-md bg-gray-900/70 border border-purple-500/50 rounded-2xl p-6 shadow-2xl">
       <h1 class="text-3xl font-extrabold text-center mb-1">Innova Space Education</h1>
       <p class="text-center text-gray-300 mb-6">Accede con tu correo para usar MIRA</p>
@@ -105,32 +91,36 @@
     </div>
   </section>
 
-  <!-- App (se muestra solo cuando hay sesión) -->
+  <!-- App -->
   <main id="landing" class="relative hidden">
 
-    <!-- Dock lateral: Spotify + Usuario -->
+    <!-- Dock: Spotify + Usuario -->
     <div class="side-dock">
       <!-- Spotify -->
       <button id="btn-spotify" class="dock-btn" title="Spotify">
-        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-          <defs>
-            <linearGradient id="g" x1="2" y1="2" x2="22" y2="22">
-              <stop stop-color="#22c55e"/><stop offset="1" stop-color="#a855f7"/>
-            </linearGradient>
-          </defs>
-          <path d="M12 2.25C6.615 2.25 2.25 6.615 2.25 12S6.615 21.75 12 21.75 21.75 17.385 21.75 12 17.385 2.25 12 2.25Z" fill="url(#g)"/>
-          <path d="M7.7 15.55c3.1-1.87 7.02-.99 8.92 0" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" opacity=".9"/>
-          <path d="M7.3 13.08c3.7-2.1 7.9-1.1 10 .1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" opacity=".8"/>
-          <path d="M7.05 10.5c4.35-2.4 9.7-1.3 12.2.2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" opacity=".7"/>
-        </svg>
+        <span class="dock-icon">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <defs>
+              <linearGradient id="g" x1="2" y1="2" x2="22" y2="22">
+                <stop stop-color="#22c55e"/><stop offset="1" stop-color="#a855f7"/>
+              </linearGradient>
+            </defs>
+            <path d="M12 2.25C6.615 2.25 2.25 6.615 2.25 12S6.615 21.75 12 21.75 21.75 17.385 21.75 12 17.385 2.25 12 2.25Z" fill="url(#g)"/>
+            <path d="M7.7 15.55c3.1-1.87 7.02-.99 8.92 0" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" opacity=".9"/>
+            <path d="M7.3 13.08c3.7-2.1 7.9-1.1 10 .1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" opacity=".8"/>
+            <path d="M7.05 10.5c4.35-2.4 9.7-1.3 12.2.2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" opacity=".7"/>
+          </svg>
+        </span>
         <span class="dock-label">Spotify</span>
       </button>
 
-      <!-- Usuario (abre modo Chats en el mismo panel) -->
+      <!-- Usuario (abre modo Chats) -->
       <button id="btn-user" class="dock-btn" title="Usuario">
-        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-          <path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="7" r="4"/>
-        </svg>
+        <span class="dock-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="7" r="4"/>
+          </svg>
+        </span>
         <span class="dock-label">Usuario</span>
       </button>
     </div>
@@ -175,16 +165,7 @@
       <div class="chat-wrap max-w-3xl mx-auto relative mt-2 w-full">
         <div class="flex items-center justify-center mb-4 gap-2">
           <h2 class="text-3xl md:text-4xl font-bold text-center m-0">Asistente IA - MIRA</h2>
-
-          <!-- Avatar separado -->
-          <object
-            id="avatar-mira"
-            type="image/svg+xml"
-            data="avatar_mira.svg"
-            class="still"
-            tabindex="-1"
-            aria-hidden="true">
-          </object>
+          <object id="avatar-mira" type="image/svg+xml" data="avatar_mira.svg" class="still" tabindex="-1" aria-hidden="true"></object>
         </div>
 
         <div id="chat-card" class="bg-gray-900 border border-purple-500 rounded-xl p-4 shadow-xl relative">
@@ -192,13 +173,9 @@
             <div id="chat-box" class="bg-gray-800 p-3 rounded-md mb-4 text-sm space-y-2 text-white"></div>
 
             <div class="flex gap-2">
-              <input
-                aria-label="Escribe tu mensaje"
-                type="text" id="user-input"
-                placeholder="Escribe tu mensaje..."
-                class="flex-1 p-2 rounded-md bg-gray-700 text-white border border-gray-600"
-                autocomplete="off"
-                onkeydown="if(event.key==='Enter'){sendMessage();return false;}">
+              <input aria-label="Escribe tu mensaje" type="text" id="user-input" placeholder="Escribe tu mensaje..."
+                     class="flex-1 p-2 rounded-md bg-gray-700 text-white border border-gray-600"
+                     autocomplete="off" onkeydown="if(event.key==='Enter'){sendMessage();return false;}">
               <button id="send-btn" onclick="sendMessage()" class="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-md text-white font-bold" tabindex="0">
                 Enviar
               </button>
@@ -210,20 +187,13 @@
 
   </main>
 
-  <!-- Helpers UI básicos -->
+  <!-- Helpers UI -->
   <script>
-    function toggleMiraInfo() {
-      const info = document.getElementById("mira-info");
-      if (!info) return;
-      info.style.display = (info.style.display === "none" || info.style.display === "") ? "block" : "none";
-    }
-    function toggleAreas() {
-      const list = document.getElementById("areas-list");
-      if (list) list.classList.toggle("hidden");
-    }
+    function toggleMiraInfo(){ const el = document.getElementById("mira-info"); if(!el) return; el.style.display = (el.style.display==="none"||el.style.display==="")?"block":"none"; }
+    function toggleAreas(){ const el = document.getElementById("areas-list"); if(el) el.classList.toggle("hidden"); }
   </script>
 
-  <!-- Chat logic -->
+  <!-- Lógica de chat -->
   <script src="chat.js"></script>
 
   <!-- Markdown + LaTeX helper -->
@@ -237,9 +207,8 @@
     }
   </script>
 
-  <!-- =================== Panel / Playlists / Halo (no módulo) =================== -->
+  <!-- Panel / Playlists / Halo -->
   <script>
-    // Playlists (con tus títulos pedidos)
     const PLAYLISTS = [
       { id:'4Ldou77MwYfWBV288FirwL', title:'Electro House mix',       description:'Beats para concentrarte con energía' },
       { id:'37i9dQZF1DWYY963019MQr', title:'jazz',                    description:'Instrumentales suaves para estudiar' },
@@ -252,22 +221,21 @@
     ];
     let currentPlaylist = PLAYLISTS[0];
 
-    // Panel reutilizado
     const panel    = document.getElementById('side-panel');
     const titleEl  = document.getElementById('panel-title');
     const secMusic = document.getElementById('panel-music');
     const secChats = document.getElementById('panel-chats');
 
-    function setPanelMode(mode){ // 'music' | 'chats'
+    function setPanelMode(mode){
       const isMusic = (mode === 'music');
       secMusic.classList.toggle('active', isMusic);
       secChats.classList.toggle('active', !isMusic);
       titleEl.textContent = isMusic ? 'Música para el aprendizaje' : 'Tus chats';
       panel.classList.add('open');
       document.body.classList.add('panel-open');
-      // Coloca el correo si hay usuario
       const u = window._currentUser;
       if (u) document.getElementById('panel-user-email').textContent = u.email || u.uid;
+      updateViewportVars(); // por si cambia la barra superior
     }
     function closePanel(){
       panel.classList.remove('open');
@@ -283,7 +251,7 @@
       document.querySelectorAll('.playlist-item').forEach(el => {
         el.classList.toggle('active', el.dataset.id === id);
       });
-      // 🌟 halo brillante en el botón de Spotify
+      // halo SOLO en el ícono (la clase va en el botón, el halo se pinta en .dock-icon via CSS)
       document.getElementById('btn-spotify')?.classList.add('playing');
     }
 
@@ -298,9 +266,8 @@
           const btn = document.createElement('button');
           btn.className = 'playlist-item';
           btn.dataset.id = p.id;
-          btn.innerHTML = `
-            <div class="text-sm font-semibold">${p.title}</div>
-            <div class="text-xs opacity-80">${p.description}</div>`;
+          btn.innerHTML = `<div class="text-sm font-semibold">${p.title}</div>
+                           <div class="text-xs opacity-80">${p.description}</div>`;
           btn.addEventListener('click', () => selectPlaylist(p.id));
           list.appendChild(btn);
         });
@@ -309,7 +276,7 @@
     });
   </script>
 
-  <!-- ===================== Firebase (módulo) + Auth + Firestore ===================== -->
+  <!-- ================= Firebase (módulo) + Auth + Firestore ================= -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
     import {
@@ -323,7 +290,6 @@
       updateDoc, query, orderBy, serverTimestamp, arrayUnion
     } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
 
-    // Config de tu proyecto (pública)
     const firebaseConfig = {
       apiKey: "AIzaSyCPNds1Tc_BYM5DYroW9-3ZzgeQV1pv0KI",
       authDomain: "innovaspaceai.firebaseapp.com",
@@ -334,50 +300,35 @@
       measurementId: "G-C1RF3TZZ2X"
     };
 
-    // Inicializa
     const app = initializeApp(firebaseConfig);
-    try { if (await isSupported()) getAnalytics(app); } catch (_) {}
-
-    // Auth
+    try { if (await isSupported()) getAnalytics(app); } catch(_) {}
     const auth = getAuth(app);
     await setPersistence(auth, browserLocalPersistence);
-
-    // Firestore
     const db = getFirestore(app);
 
-    // ====== ChatStore global (para que lo use chat.js) ======
+    // ===== ChatStore =====
     window.ChatStore = (function(){
       let currentChatId = null;
       let currentUser   = null;
 
-      function userChatsCol(uid){
-        return collection(db, 'users', uid, 'chats');
-      }
-      function chatDocRef(uid, chatId){
-        return doc(db, 'users', uid, 'chats', chatId);
-      }
+      function userChatsCol(uid){ return collection(db, 'users', uid, 'chats'); }
+      function chatDocRef(uid, chatId){ return doc(db, 'users', uid, 'chats', chatId); }
       function setUser(u){ currentUser = u || null; window._currentUser = currentUser; if(!u) currentChatId = null; }
 
       async function ensureChat(){
         if (currentChatId) return currentChatId;
         if (!currentUser) {
-          // invitado: guardar en localStorage
           currentChatId = "guest-" + Date.now();
           const all = getGuestAll();
           all.push({ id: currentChatId, title:"Nuevo chat", messages:[], createdAt:Date.now(), updatedAt:Date.now() });
           localStorage.setItem('mira_guest_chats', JSON.stringify(all));
-          renderGuestList();
-          return currentChatId;
+          renderGuestList(); return currentChatId;
         }
         const ref = await addDoc(userChatsCol(currentUser.uid), {
-          title: "Nuevo chat",
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-          messages: []
+          title: "Nuevo chat", createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(), messages: []
         });
-        currentChatId = ref.id;
-        await loadChatList();
-        return currentChatId;
+        currentChatId = ref.id; await loadChatList(); return currentChatId;
       }
 
       async function saveMessage(role, content){
@@ -392,7 +343,6 @@
           return;
         }
         const ref = chatDocRef(currentUser.uid, id);
-        // setDoc con merge para título/updatedAt y arrayUnion para mensajes
         await setDoc(ref, {
           updatedAt: serverTimestamp(),
           ...(role === "user" ? { title: content.slice(0,40) } : {}),
@@ -454,7 +404,6 @@
         document.body.classList.remove('panel-open');
       }
 
-      // Invitado
       function getGuestAll(){ try{ return JSON.parse(localStorage.getItem('mira_guest_chats')||"[]"); }catch{ return []; } }
       function renderGuestList(){
         const list = document.getElementById('chat-list'); if(!list) return;
@@ -472,7 +421,7 @@
       return { setUser, saveMessage, loadChatList, loadChat, newChat };
     })();
 
-    // ====== UI de Auth (pantalla inicial + barra + panel chats) ======
+    // ===== Auth UI =====
     const $authSection = document.getElementById('auth');
     const $landing     = document.getElementById('landing');
     const $authBar     = document.getElementById('auth-bar');
@@ -538,17 +487,18 @@
       $landing.classList.toggle('hidden', !logged);
       $authBar.classList.toggle('hidden', !logged);
 
+      // recalcula alturas cuando cambia la barra superior
+      updateViewportVars();
+
       if (logged){
         const email = user.email || user.uid;
         $userEmail.textContent = email;
         if ($panelUser) $panelUser.textContent = email;
         await window.ChatStore.loadChatList();
-        // Cerrar panel si estaba abierto (como pediste)
         document.getElementById('side-panel')?.classList.remove('open');
         document.body.classList.remove('panel-open');
       }
     });
   </script>
-  <!-- ======================================================================= -->
 </body>
 </html>
