@@ -1,14 +1,11 @@
 // =============== CONFIG ===============
 const MODEL = "meta-llama/llama-4-scout-17b-16e-instruct";
-
-// (opcional) fuerza un nombre exacto de voz si quieres
 const PREFERRED_VOICE_NAME = "";
 
 // Prompt
 const SYSTEM_PROMPT = `
 Eres MIRA (Modular Intelligent Responsive Assistant), creada por Innova Space.
 Habla SIEMPRE en español, clara y estructurada.
-
 - Primero una idea general en 1–2 frases.
 - Luego pasos o listas cuando ayuden.
 - Fórmulas EN GRANDE con LaTeX usando $$ ... $$.
@@ -43,7 +40,6 @@ function appendHTML(html) {
   chatBox.scrollTop = chatBox.scrollHeight;
 }
 function appendMessage(role, contentHTML) {
-  // role: "user" | "assistant"
   appendHTML(`<div class="msg ${role}"><div class="bubble chat-markdown">${contentHTML}</div></div>`);
 }
 function showThinking() {
@@ -58,29 +54,27 @@ function showThinking() {
 function hideThinking() { document.getElementById("thinking")?.remove(); }
 
 // ============ TTS (femenina + lenta + fluida) ============
-// — Limpieza: no leer emojis, código, $...$, urls, comandos —
+// Limpieza: no leer emojis, código ni LaTeX
 function stripEmojis(s) {
   try { return s.replace(/[\p{Extended_Pictographic}\uFE0F\u200D]/gu, ""); }
   catch { return s.replace(/[\u{1F1E6}-\u{1F1FF}\u{1F300}-\u{1FAFF}\u{2600}-\u{26FF}]/gu, ""); }
 }
 function sanitizeForTTS(md) {
   let t = md || "";
-  t = t.replace(/```[\s\S]*?```/g, " ");   // code blocks
-  t = t.replace(/`[^`]*`/g, " ");          // inline code
-  t = t.replace(/\$\$[\s\S]*?\$\$/g, " "); // LaTeX block
-  t = t.replace(/\$[^$]*\$/g, " ");        // LaTeX inline
-  t = t.replace(/https?:\/\/\S+/g, " ");   // URLs
-  t = t.replace(/(^|\s)[#/][^\s]+/g, " "); // /comando o #tag
+  t = t.replace(/```[\s\S]*?```/g, " ");
+  t = t.replace(/`[^`]*`/g, " ");
+  t = t.replace(/\$\$[\s\S]*?\$\$/g, " ");
+  t = t.replace(/\$[^$]*\$/g, " ");
+  t = t.replace(/https?:\/\/\S+/g, " ");
+  t = t.replace(/(^|\s)[#/][^\s]+/g, " ");
   t = t.replace(/[>*_~`{}\[\]()<>|]/g, " ");
   t = t.replace(/[•·\-] /g, " ");
   t = stripEmojis(t);
-  // Suaviza encabezados "Título:" -> "Título. "
   t = t.replace(/:\s/g, ". ");
   t = t.replace(/\s+/g, " ").trim();
   return t;
 }
 
-// Preferencias de voces femeninas e idioma
 const VOICE_NAME_PREFS = [
   "Paloma","Elvira","Dalia","Lola","Paulina","Sabina","Helena",
   "Lucia","Lucía","Elena","Camila","Sofía","Sofia","Marina","Conchita",
@@ -93,7 +87,7 @@ let speaking = false;
 const speechQueue = [];
 
 function refreshVoices(){ voicesCache = window.speechSynthesis.getVoices() || []; }
-window.speechSynthesis.addEventListener("voiceschanged", refreshVoices);
+if (window.speechSynthesis) window.speechSynthesis.addEventListener("voiceschanged", refreshVoices);
 
 function pickVoice(){
   refreshVoices();
@@ -109,7 +103,6 @@ function pickVoice(){
   return byLang || voicesCache[0] || null;
 }
 
-// Particionado en frases para lectura natural
 function splitIntoChunks(text, maxLen = 200) {
   const parts = text.split(/(?<=[\.\!\?\:\;])\s+|\n+/g);
   const chunks = []; let buf = "";
@@ -122,26 +115,22 @@ function splitIntoChunks(text, maxLen = 200) {
   return chunks;
 }
 
-// Pausa entre trozos para que suene más humano
 const INTER_CHUNK_PAUSE_MS = 120;
 
 function playNext() {
   const next = speechQueue.shift();
   if (!next) { speaking = false; setAvatarTalking(false); return; }
-
   const utter = new SpeechSynthesisUtterance(next);
   const v = pickVoice();
   if (v) utter.voice = v;
   utter.lang   = (v && v.lang) || "es-ES";
-  utter.rate   = 0.94;  // 🔉 un poquito más lento
-  utter.pitch  = 1.08;  // tono agradable
+  utter.rate   = 0.94;
+  utter.pitch  = 1.08;
   utter.volume = 1;
-
   setAvatarTalking(true);
   utter.onend = () => setTimeout(playNext, INTER_CHUNK_PAUSE_MS);
   utter.onerror = () => setTimeout(playNext, INTER_CHUNK_PAUSE_MS);
-
-  window.speechSynthesis.speak(utter);
+  try { window.speechSynthesis.speak(utter); } catch {}
   speaking = true;
 }
 function enqueueSpeak(text){ if (!text) return; speechQueue.push(text); if (!speaking) playNext(); }
@@ -152,11 +141,13 @@ function speakMarkdown(md){
   splitIntoChunks(plain, 200).forEach(c => enqueueSpeak(c));
 }
 function speakAfterVoices(md){
-  if (window.speechSynthesis.getVoices().length) speakMarkdown(md);
-  else {
-    const once = () => { window.speechSynthesis.removeEventListener("voiceschanged", once); speakMarkdown(md); };
-    window.speechSynthesis.addEventListener("voiceschanged", once);
-  }
+  try{
+    if (window.speechSynthesis?.getVoices().length) speakMarkdown(md);
+    else {
+      const once = () => { window.speechSynthesis.removeEventListener("voiceschanged", once); speakMarkdown(md); };
+      window.speechSynthesis?.addEventListener("voiceschanged", once);
+    }
+  }catch(e){ /* no romper flujo en móvil */ }
 }
 
 // ============ RENDER ============
@@ -170,22 +161,29 @@ async function wikiFallback(q){
   } catch { return null; }
 }
 
+// Guardar mensajes si está disponible ChatStore
+async function saveMsg(role, content){
+  try{ await window.ChatStore?.saveMessage?.(role, content); }catch{}
+}
+
 // ============ ENVÍO MENSAJE ============
 async function sendMessage() {
   const input = document.getElementById("user-input");
   const userMessage = (input.value || "").trim();
   if (!userMessage) return;
 
-  // si llega un mensaje nuevo, cortamos la lectura anterior
   cancelAllSpeech();
 
-  // UI + guardado (usuario)
   appendMessage("user", renderMarkdown(userMessage));
-  window.ChatStore?.saveMessage("user", userMessage);
+  saveMsg("user", userMessage);
 
   input.value = "";
   showThinking();
 
+  let aiReply = "";
+  let requestSucceeded = false;
+
+  // ---- 1) SOLO red/IA dentro de este try ----
   try {
     const response = await fetch("/api/chat", {
       method: "POST",
@@ -209,29 +207,41 @@ async function sendMessage() {
       else if (response.status === 403) msg += " (403: CORS o acceso denegado)";
       else if (response.status === 429) msg += " (429: límite de uso alcanzado)";
       else msg += ` (HTTP ${response.status})`;
-      appendMessage("assistant", renderMarkdown(msg));
-      window.ChatStore?.saveMessage("assistant", msg);
+      appendMessage("assistant", msg);
+      saveMsg("assistant", msg);
       return;
     }
 
     const data = JSON.parse(raw);
-    let aiReply = data?.choices?.[0]?.message?.content?.trim() || "";
-    if (!aiReply) aiReply = (await wikiFallback(userMessage)) || "Lo siento, no encontré una respuesta adecuada.";
+    aiReply = data?.choices?.[0]?.message?.content?.trim() || "";
+
+    if (!aiReply) {
+      aiReply = (await wikiFallback(userMessage)) || "Lo siento, no encontré una respuesta adecuada.";
+    }
 
     const html = renderMarkdown(aiReply);
     appendMessage("assistant", html);
-    window.ChatStore?.saveMessage("assistant", aiReply);
-
-    // hablar TODA la respuesta de forma fluida
-    speakMarkdown(aiReply);
+    saveMsg("assistant", aiReply);
     if (window.MathJax?.typesetPromise) MathJax.typesetPromise();
 
+    requestSucceeded = true;
   } catch (err) {
     hideThinking();
-    const msg = "Error de red o CORS al conectar con la IA.";
-    appendMessage("assistant", renderMarkdown(msg));
-    window.ChatStore?.saveMessage("assistant", msg);
-    console.error("Network/JS error:", err);
+    console.error("Chat request error:", err);
+    // Sólo mostramos error de red si la petición realmente falló
+    if (!requestSucceeded) {
+      const msg = "Error de red o CORS al conectar con la IA.";
+      appendMessage("assistant", msg);
+      saveMsg("assistant", msg);
+    }
+    return;
+  }
+
+  // ---- 2) TTS aparte: si falla, no mostramos mensaje de error de red ----
+  try {
+    speakMarkdown(aiReply);
+  } catch (e) {
+    console.warn("TTS no disponible en este dispositivo:", e);
   }
 }
 
@@ -245,9 +255,7 @@ function initChat() {
 
   const saludo = "¡Hola! Soy MIRA. ¿En qué puedo ayudarte hoy?";
   appendMessage("assistant", renderMarkdown(saludo));
-  // No guardo el saludo en historial para no “ensuciar” títulos; si lo quieres, descomenta:
-  // window.ChatStore?.saveMessage("assistant", saludo);
-  speakAfterVoices(saludo);
+  try { speakAfterVoices(saludo); } catch {}
 
   if (window.MathJax?.typesetPromise) MathJax.typesetPromise();
   setAvatarTalking(false);
