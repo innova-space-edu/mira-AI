@@ -18,7 +18,7 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
-  <!-- MathJax ($...$ y $$...$$) -->
+  <!-- MathJax -->
   <script>
     window.MathJax = {
       tex: {
@@ -63,7 +63,7 @@
   <section id="auth" class="grid place-items-center px-4">
     <div class="w-full max-w-md bg-gray-900/70 border border-purple-500/50 rounded-2xl p-6 shadow-2xl auth-card">
       <h1 class="hero-title text-center mb-1">Innova Space Education</h1>
-      <p class="text-center text-gray-300 mb-6">Accede con tu correo para usar MIRA</p>
+      <p id="hero-subtitle" class="text-center text-gray-300 mb-6">Educación del futuro. Conectando estudiantes con IA.</p>
 
       <h2 id="auth-title" class="text-xl font-bold mb-3">Iniciar sesión</h2>
 
@@ -156,7 +156,7 @@
     <!-- Cabecera -->
     <section id="hero" class="text-center">
       <h1 class="hero-title">Innova Space Education</h1>
-      <p class="text-lg text-gray-300 mt-3">Educación del futuro. Conectando estudiantes con IA.</p>
+      <p id="hero-subtitle-app" class="text-lg text-gray-300 mt-3">Educación del futuro. Conectando estudiantes con IA.</p>
     </section>
 
     <!-- Chat -->
@@ -171,7 +171,6 @@
           <div id="chat-shell">
             <div id="chat-box" class="bg-gray-800 p-3 rounded-md mb-2 text-sm space-y-2 text-white"></div>
 
-            <!-- fila sticky para que el input siempre esté visible -->
             <div class="input-row flex gap-2">
               <input aria-label="Escribe tu mensaje" type="text" id="user-input" placeholder="Escribe tu mensaje..."
                      class="flex-1 p-2 rounded-md bg-gray-700 text-white border border-gray-600"
@@ -251,8 +250,7 @@
       document.querySelectorAll('.playlist-item').forEach(el => {
         el.classList.toggle('active', el.dataset.id === id);
       });
-      // halo SOLO en el icono
-      document.getElementById('btn-spotify')?.classList.add('playing');
+      document.getElementById('btn-spotify')?.classList.add('playing'); // halo SOLO en el icono
     }
 
     document.getElementById('btn-spotify')?.addEventListener('click', ()=>setPanelMode('music'));
@@ -274,7 +272,6 @@
       }
       selectPlaylist(currentPlaylist.id);
 
-      // Asegura que el input sea visible al abrir teclado en móvil
       const inp = document.getElementById('user-input');
       if (inp) {
         const ensureVisible = () => setTimeout(()=> inp.scrollIntoView({ block:'nearest', behavior:'smooth' }), 120);
@@ -313,7 +310,7 @@
     await setPersistence(auth, browserLocalPersistence);
     const db = getFirestore(app);
 
-    // ===== ChatStore =====
+    // ===== ChatStore (local + Firestore) =====
     window.ChatStore = (function(){
       let currentChatId = null;
       let currentUser   = null;
