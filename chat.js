@@ -43,6 +43,7 @@ function appendHTML(html) {
   chatBox.scrollTop = chatBox.scrollHeight;
 }
 function appendMessage(role, contentHTML) {
+  // role: "user" | "assistant"
   appendHTML(`<div class="msg ${role}"><div class="bubble chat-markdown">${contentHTML}</div></div>`);
 }
 function showThinking() {
@@ -178,7 +179,10 @@ async function sendMessage() {
   // si llega un mensaje nuevo, cortamos la lectura anterior
   cancelAllSpeech();
 
+  // UI + guardado (usuario)
   appendMessage("user", renderMarkdown(userMessage));
+  window.ChatStore?.saveMessage("user", userMessage);
+
   input.value = "";
   showThinking();
 
@@ -205,7 +209,8 @@ async function sendMessage() {
       else if (response.status === 403) msg += " (403: CORS o acceso denegado)";
       else if (response.status === 429) msg += " (429: límite de uso alcanzado)";
       else msg += ` (HTTP ${response.status})`;
-      appendMessage("assistant", msg);
+      appendMessage("assistant", renderMarkdown(msg));
+      window.ChatStore?.saveMessage("assistant", msg);
       return;
     }
 
@@ -215,6 +220,7 @@ async function sendMessage() {
 
     const html = renderMarkdown(aiReply);
     appendMessage("assistant", html);
+    window.ChatStore?.saveMessage("assistant", aiReply);
 
     // hablar TODA la respuesta de forma fluida
     speakMarkdown(aiReply);
@@ -222,7 +228,9 @@ async function sendMessage() {
 
   } catch (err) {
     hideThinking();
-    appendMessage("assistant", "Error de red o CORS al conectar con la IA.");
+    const msg = "Error de red o CORS al conectar con la IA.";
+    appendMessage("assistant", renderMarkdown(msg));
+    window.ChatStore?.saveMessage("assistant", msg);
     console.error("Network/JS error:", err);
   }
 }
@@ -237,6 +245,8 @@ function initChat() {
 
   const saludo = "¡Hola! Soy MIRA. ¿En qué puedo ayudarte hoy?";
   appendMessage("assistant", renderMarkdown(saludo));
+  // No guardo el saludo en historial para no “ensuciar” títulos; si lo quieres, descomenta:
+  // window.ChatStore?.saveMessage("assistant", saludo);
   speakAfterVoices(saludo);
 
   if (window.MathJax?.typesetPromise) MathJax.typesetPromise();
