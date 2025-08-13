@@ -31,13 +31,14 @@
   </script>
   <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 
-  <!-- Altura móvil real -->
+  <!-- Altura real del viewport + safe areas -->
   <script>
     function updateViewportVars(){
       document.documentElement.style.setProperty('--vh', (window.innerHeight * 0.01) + 'px');
       const top = document.getElementById('auth-bar');
       const h = top && !top.classList.contains('hidden') ? top.offsetHeight : 0;
       document.documentElement.style.setProperty('--topbar-h', h + 'px');
+      document.documentElement.style.setProperty('--safe-bottom', 'env(safe-area-inset-bottom, 0px)');
     }
     window.addEventListener('resize', updateViewportVars);
     window.addEventListener('orientationchange', updateViewportVars);
@@ -58,10 +59,10 @@
     </div>
   </header>
 
-  <!-- Autenticación -->
+  <!-- Pantalla de autenticación -->
   <section id="auth" class="grid place-items-center px-4">
-    <div class="w-full max-w-md bg-gray-900/70 border border-purple-500/50 rounded-2xl p-6 shadow-2xl">
-      <h1 class="text-3xl font-extrabold text-center mb-1">Innova Space Education</h1>
+    <div class="w-full max-w-md bg-gray-900/70 border border-purple-500/50 rounded-2xl p-6 shadow-2xl auth-card">
+      <h1 class="hero-title text-center mb-1">Innova Space Education</h1>
       <p class="text-center text-gray-300 mb-6">Accede con tu correo para usar MIRA</p>
 
       <h2 id="auth-title" class="text-xl font-bold mb-3">Iniciar sesión</h2>
@@ -91,7 +92,7 @@
     </div>
   </section>
 
-  <!-- App -->
+  <!-- App (se muestra solo cuando hay sesión) -->
   <main id="landing" class="relative hidden">
 
     <!-- Dock: Spotify + Usuario -->
@@ -114,7 +115,7 @@
         <span class="dock-label">Spotify</span>
       </button>
 
-      <!-- Usuario (abre modo Chats) -->
+      <!-- Usuario -->
       <button id="btn-user" class="dock-btn" title="Usuario">
         <span class="dock-icon">
           <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -154,9 +155,7 @@
 
     <!-- Cabecera -->
     <section id="hero" class="text-center">
-      <h1 class="text-5xl md:text-6xl font-extrabold bg-gradient-to-r from-pink-400 via-purple-400 to-blue-400 text-transparent bg-clip-text">
-        Innova Space Education
-      </h1>
+      <h1 class="hero-title">Innova Space Education</h1>
       <p class="text-lg text-gray-300 mt-3">Educación del futuro. Conectando estudiantes con IA.</p>
     </section>
 
@@ -170,9 +169,10 @@
 
         <div id="chat-card" class="bg-gray-900 border border-purple-500 rounded-xl p-4 shadow-xl relative">
           <div id="chat-shell">
-            <div id="chat-box" class="bg-gray-800 p-3 rounded-md mb-4 text-sm space-y-2 text-white"></div>
+            <div id="chat-box" class="bg-gray-800 p-3 rounded-md mb-2 text-sm space-y-2 text-white"></div>
 
-            <div class="flex gap-2">
+            <!-- fila sticky para que el input siempre esté visible -->
+            <div class="input-row flex gap-2">
               <input aria-label="Escribe tu mensaje" type="text" id="user-input" placeholder="Escribe tu mensaje..."
                      class="flex-1 p-2 rounded-md bg-gray-700 text-white border border-gray-600"
                      autocomplete="off" onkeydown="if(event.key==='Enter'){sendMessage();return false;}">
@@ -193,7 +193,7 @@
     function toggleAreas(){ const el = document.getElementById("areas-list"); if(el) el.classList.toggle("hidden"); }
   </script>
 
-  <!-- Lógica de chat -->
+  <!-- Lógica del chat -->
   <script src="chat.js"></script>
 
   <!-- Markdown + LaTeX helper -->
@@ -235,7 +235,7 @@
       document.body.classList.add('panel-open');
       const u = window._currentUser;
       if (u) document.getElementById('panel-user-email').textContent = u.email || u.uid;
-      updateViewportVars(); // por si cambia la barra superior
+      updateViewportVars();
     }
     function closePanel(){
       panel.classList.remove('open');
@@ -251,7 +251,7 @@
       document.querySelectorAll('.playlist-item').forEach(el => {
         el.classList.toggle('active', el.dataset.id === id);
       });
-      // halo SOLO en el ícono (la clase va en el botón, el halo se pinta en .dock-icon via CSS)
+      // halo SOLO en el icono
       document.getElementById('btn-spotify')?.classList.add('playing');
     }
 
@@ -273,6 +273,13 @@
         });
       }
       selectPlaylist(currentPlaylist.id);
+
+      // Asegura que el input sea visible al abrir teclado en móvil
+      const inp = document.getElementById('user-input');
+      if (inp) {
+        const ensureVisible = () => setTimeout(()=> inp.scrollIntoView({ block:'nearest', behavior:'smooth' }), 120);
+        inp.addEventListener('focus', ensureVisible);
+      }
     });
   </script>
 
@@ -287,7 +294,7 @@
     import { getAnalytics, isSupported } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-analytics.js";
     import {
       getFirestore, collection, doc, addDoc, setDoc, getDoc, getDocs,
-      updateDoc, query, orderBy, serverTimestamp, arrayUnion
+      query, orderBy, serverTimestamp, arrayUnion
     } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
 
     const firebaseConfig = {
@@ -487,7 +494,6 @@
       $landing.classList.toggle('hidden', !logged);
       $authBar.classList.toggle('hidden', !logged);
 
-      // recalcula alturas cuando cambia la barra superior
       updateViewportVars();
 
       if (logged){
