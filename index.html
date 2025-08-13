@@ -31,8 +31,35 @@
   </script>
   <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 
+  <!-- Fix 100vh en móviles -->
+  <script>
+    function setVh(){ document.documentElement.style.setProperty('--vh', (window.innerHeight * 0.01) + 'px'); }
+    window.addEventListener('resize', setVh);
+    window.addEventListener('orientationchange', setVh);
+    setVh();
+  </script>
+
   <!-- Estilos propios -->
   <link rel="stylesheet" href="style.css" />
+
+  <!-- Pequeños estilos que quizá no tengas aún -->
+  <style>
+    /* Halo del botón Spotify cuando hay reproducción/selección */
+    .dock-btn{ position: relative; }
+    .dock-btn.playing::before{
+      content:""; position:absolute; inset:-10px; border-radius:9999px;
+      background: radial-gradient(closest-side, rgba(168,85,247,.45), rgba(56,189,248,.25) 60%, transparent 70%);
+      filter: blur(8px); z-index:-1; animation: glowPulse 1.6s ease-in-out infinite;
+    }
+    @keyframes glowPulse{
+      0%{ transform:scale(.95); opacity:.7; }
+      50%{ transform:scale(1.08); opacity:1; }
+      100%{ transform:scale(.95); opacity:.7; }
+    }
+    /* Secciones del panel reutilizado */
+    .panel-section{ display:none; }
+    .panel-section.active{ display:block; }
+  </style>
 </head>
 
 <body class="bg-gradient-to-br from-black via-indigo-900 to-purple-900 text-white font-sans">
@@ -81,10 +108,10 @@
   <!-- App (se muestra solo cuando hay sesión) -->
   <main id="landing" class="relative hidden">
 
-    <!-- Barra lateral: botón Spotify más grande con etiqueta -->
+    <!-- Dock lateral: Spotify + Usuario -->
     <div class="side-dock">
+      <!-- Spotify -->
       <button id="btn-spotify" class="dock-btn" title="Spotify">
-        <!-- Ícono -->
         <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
           <defs>
             <linearGradient id="g" x1="2" y1="2" x2="22" y2="22">
@@ -98,20 +125,41 @@
         </svg>
         <span class="dock-label">Spotify</span>
       </button>
+
+      <!-- Usuario (abre modo Chats en el mismo panel) -->
+      <button id="btn-user" class="dock-btn" title="Usuario">
+        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="7" r="4"/>
+        </svg>
+        <span class="dock-label">Usuario</span>
+      </button>
     </div>
 
-    <!-- Panel lateral Spotify -->
-    <aside id="music-panel" class="side-panel">
+    <!-- Panel lateral reutilizado (Música / Chats) -->
+    <aside id="side-panel" class="side-panel" data-mode="music">
       <div class="flex items-center justify-between mb-2">
-        <h3 class="text-lg">Música para el aprendizaje</h3>
+        <h3 id="panel-title" class="text-lg">Música para el aprendizaje</h3>
         <button id="close-panel" class="close-panel">Cerrar ✕</button>
       </div>
 
-      <div id="playlist-list" class="playlist-list"></div>
+      <!-- Música -->
+      <div id="panel-music" class="panel-section active">
+        <div id="playlist-list" class="playlist-list"></div>
+        <iframe id="spotify-embed" class="panel-iframe"
+          src="" frameborder="0" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy">
+        </iframe>
+      </div>
 
-      <iframe id="spotify-embed" class="panel-iframe"
-        src="" frameborder="0" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy">
-      </iframe>
+      <!-- Chats -->
+      <div id="panel-chats" class="panel-section">
+        <div class="text-sm opacity-80 mb-2">Conectado como <span id="panel-user-email"></span></div>
+        <div class="flex gap-2 mb-3">
+          <button id="btn-new-chat" class="bg-green-600 hover:bg-green-700 px-3 py-2 rounded">Nuevo chat</button>
+          <button id="btn-logout-panel" class="bg-gray-600 hover:bg-gray-700 px-3 py-2 rounded">Cerrar sesión</button>
+        </div>
+        <div class="text-sm mb-1 opacity-70">Tus chats</div>
+        <div id="chat-list" class="playlist-list" style="max-height:48vh; overflow:auto;"></div>
+      </div>
     </aside>
 
     <!-- Cabecera -->
@@ -141,7 +189,6 @@
 
         <div id="chat-card" class="bg-gray-900 border border-purple-500 rounded-xl p-4 shadow-xl relative">
           <div id="chat-shell">
-            <!-- Vacío: el saludo se inyecta por JS como burbuja -->
             <div id="chat-box" class="bg-gray-800 p-3 rounded-md mb-4 text-sm space-y-2 text-white"></div>
 
             <div class="flex gap-2">
@@ -179,7 +226,7 @@
   <!-- Chat logic -->
   <script src="chat.js"></script>
 
-  <!-- Markdown + LaTeX helper (sigue) -->
+  <!-- Markdown + LaTeX helper -->
   <script>
     function addAssistantMessage(text) {
       const chatBox = document.getElementById('chat-box');
@@ -190,29 +237,41 @@
     }
   </script>
 
-  <!-- Spotify panel -->
+  <!-- =================== Panel / Playlists / Halo (no módulo) =================== -->
   <script>
     // Playlists (con tus títulos pedidos)
     const PLAYLISTS = [
-      // renombradas
-      { id: '4Ldou77MwYfWBV288FirwL', title: 'Electro House mix',       description: 'Beats para concentrarte con energía' },
-      { id: '37i9dQZF1DWYY963019MQr', title: 'jazz',                    description: 'Instrumentales suaves para estudiar' },
-      { id: '5jQ2Fy8vyfC2mE9oew8c2Q', title: 'Pop mix',                 description: 'Ambientes pop para inspirarte' },
-      { id: '2EoheVFjqIxgJMb8VnDRtZ', title: 'K-Pop Hits',              description: 'Clásicos modernos del K-Pop' },
-
-      // nuevas
-      { id: '09yz2h86ElsO8dwbxyplwt', title: 'Classic music',             description: 'Obras clásicas para estudiar' },
-      { id: '37i9dQZF1EIZna6YqhjeY0', title: 'Calvin Harris',             description: 'Hits y colaboraciones de Calvin Harris' },
-      { id: '37i9dQZF1EQmg9rwHdCwFW', title: 'Mix reggaeton',             description: 'Reggaetón para motivarte' },
-      { id: '4hnGrJpcuQepHdewJyUd0w', title: 'Musica relajante naturaleza', description: 'Sonidos de la naturaleza y relax' }
+      { id:'4Ldou77MwYfWBV288FirwL', title:'Electro House mix',       description:'Beats para concentrarte con energía' },
+      { id:'37i9dQZF1DWYY963019MQr', title:'jazz',                    description:'Instrumentales suaves para estudiar' },
+      { id:'5jQ2Fy8vyfC2mE9oew8c2Q', title:'Pop mix',                 description:'Ambientes pop para inspirarte' },
+      { id:'2EoheVFjqIxgJMb8VnDRtZ', title:'K-Pop Hits',              description:'Clásicos modernos del K-Pop' },
+      { id:'09yz2h86ElsO8dwbxyplwt', title:'Classic music',           description:'Obras clásicas para estudiar' },
+      { id:'37i9dQZF1EIZna6YqhjeY0', title:'Calvin Harris',           description:'Hits y colaboraciones de Calvin Harris' },
+      { id:'37i9dQZF1EQmg9rwHdCwFW', title:'Mix reggaeton',           description:'Reggaetón para motivarte' },
+      { id:'4hnGrJpcuQepHdewJyUd0w', title:'Musica relajante naturaleza', description:'Sonidos de la naturaleza y relax' }
     ];
+    let currentPlaylist = PLAYLISTS[0];
 
-    let currentPlaylist = PLAYLISTS[0]; // inicia con Electro House mix
+    // Panel reutilizado
+    const panel    = document.getElementById('side-panel');
+    const titleEl  = document.getElementById('panel-title');
+    const secMusic = document.getElementById('panel-music');
+    const secChats = document.getElementById('panel-chats');
 
-    function toggleMusicPanel() {
-      const panel = document.getElementById('music-panel');
-      panel?.classList.toggle('open');
-      document.body.classList.toggle('panel-open', panel.classList.contains('open'));
+    function setPanelMode(mode){ // 'music' | 'chats'
+      const isMusic = (mode === 'music');
+      secMusic.classList.toggle('active', isMusic);
+      secChats.classList.toggle('active', !isMusic);
+      titleEl.textContent = isMusic ? 'Música para el aprendizaje' : 'Tus chats';
+      panel.classList.add('open');
+      document.body.classList.add('panel-open');
+      // Coloca el correo si hay usuario
+      const u = window._currentUser;
+      if (u) document.getElementById('panel-user-email').textContent = u.email || u.uid;
+    }
+    function closePanel(){
+      panel.classList.remove('open');
+      document.body.classList.remove('panel-open');
     }
 
     function selectPlaylist(id) {
@@ -224,7 +283,13 @@
       document.querySelectorAll('.playlist-item').forEach(el => {
         el.classList.toggle('active', el.dataset.id === id);
       });
+      // 🌟 halo brillante en el botón de Spotify
+      document.getElementById('btn-spotify')?.classList.add('playing');
     }
+
+    document.getElementById('btn-spotify')?.addEventListener('click', ()=>setPanelMode('music'));
+    document.getElementById('btn-user')?.addEventListener('click',   ()=>setPanelMode('chats'));
+    document.getElementById('close-panel')?.addEventListener('click', closePanel);
 
     document.addEventListener('DOMContentLoaded', () => {
       const list = document.getElementById('playlist-list');
@@ -241,15 +306,11 @@
         });
       }
       selectPlaylist(currentPlaylist.id);
-
-      document.getElementById('btn-spotify')?.addEventListener('click', toggleMusicPanel);
-      document.getElementById('close-panel')?.addEventListener('click', toggleMusicPanel);
     });
   </script>
 
-  <!-- ===================== Firebase (CDN v12.1.0) + Auth ===================== -->
+  <!-- ===================== Firebase (módulo) + Auth + Firestore ===================== -->
   <script type="module">
-    // Importa SDKs
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
     import {
       getAuth, setPersistence, browserLocalPersistence,
@@ -257,6 +318,10 @@
       signOut, onAuthStateChanged
     } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
     import { getAnalytics, isSupported } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-analytics.js";
+    import {
+      getFirestore, collection, doc, addDoc, setDoc, getDoc, getDocs,
+      updateDoc, query, orderBy, serverTimestamp, arrayUnion
+    } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
 
     // Config de tu proyecto (pública)
     const firebaseConfig = {
@@ -273,25 +338,157 @@
     const app = initializeApp(firebaseConfig);
     try { if (await isSupported()) getAnalytics(app); } catch (_) {}
 
-    // Auth + persistencia "siempre"
+    // Auth
     const auth = getAuth(app);
     await setPersistence(auth, browserLocalPersistence);
 
-    // --- UI / DOM ---
+    // Firestore
+    const db = getFirestore(app);
+
+    // ====== ChatStore global (para que lo use chat.js) ======
+    window.ChatStore = (function(){
+      let currentChatId = null;
+      let currentUser   = null;
+
+      function userChatsCol(uid){
+        return collection(db, 'users', uid, 'chats');
+      }
+      function chatDocRef(uid, chatId){
+        return doc(db, 'users', uid, 'chats', chatId);
+      }
+      function setUser(u){ currentUser = u || null; window._currentUser = currentUser; if(!u) currentChatId = null; }
+
+      async function ensureChat(){
+        if (currentChatId) return currentChatId;
+        if (!currentUser) {
+          // invitado: guardar en localStorage
+          currentChatId = "guest-" + Date.now();
+          const all = getGuestAll();
+          all.push({ id: currentChatId, title:"Nuevo chat", messages:[], createdAt:Date.now(), updatedAt:Date.now() });
+          localStorage.setItem('mira_guest_chats', JSON.stringify(all));
+          renderGuestList();
+          return currentChatId;
+        }
+        const ref = await addDoc(userChatsCol(currentUser.uid), {
+          title: "Nuevo chat",
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          messages: []
+        });
+        currentChatId = ref.id;
+        await loadChatList();
+        return currentChatId;
+      }
+
+      async function saveMessage(role, content){
+        const id = await ensureChat();
+        if (!currentUser){
+          const all = getGuestAll();
+          const chat = all.find(c=>c.id===id);
+          chat.messages.push({ role, content, ts: Date.now() });
+          chat.updatedAt = Date.now();
+          if (role==="user" && chat.title==="Nuevo chat") chat.title = content.slice(0,40);
+          localStorage.setItem('mira_guest_chats', JSON.stringify(all));
+          return;
+        }
+        const ref = chatDocRef(currentUser.uid, id);
+        // setDoc con merge para título/updatedAt y arrayUnion para mensajes
+        await setDoc(ref, {
+          updatedAt: serverTimestamp(),
+          ...(role === "user" ? { title: content.slice(0,40) } : {}),
+          messages: arrayUnion({ role, content, ts: Date.now() })
+        }, { merge: true });
+      }
+
+      async function loadChatList(){
+        const list = document.getElementById('chat-list');
+        if (!list) return;
+        list.innerHTML = "";
+        if (!currentUser){ return renderGuestList(); }
+        const q = query(userChatsCol(currentUser.uid), orderBy('updatedAt','desc'));
+        const snap = await getDocs(q);
+        snap.forEach(docSnap=>{
+          const d = docSnap.data();
+          const btn = document.createElement('button');
+          btn.className = 'playlist-item';
+          btn.innerHTML = `<div class="text-sm font-semibold">${d.title || "Chat"}</div>
+                           <div class="text-xs opacity-70">${docSnap.id}</div>`;
+          btn.onclick = ()=>loadChat(docSnap.id);
+          list.appendChild(btn);
+        });
+      }
+
+      async function loadChat(chatId){
+        currentChatId = chatId;
+        const chatBox = document.getElementById('chat-box');
+        chatBox.innerHTML = "";
+        if(!currentUser){
+          const c = getGuestAll().find(x=>x.id===chatId);
+          (c?.messages||[]).forEach(m=>{
+            const html = (typeof marked!=="undefined")? marked.parse(m.content) : m.content;
+            appendMessage(m.role==="user"?"user":"assistant", html);
+          });
+          if (window.MathJax?.typesetPromise) MathJax.typesetPromise();
+          document.getElementById('side-panel')?.classList.remove('open');
+          document.body.classList.remove('panel-open');
+          return;
+        }
+        const ref = chatDocRef(currentUser.uid, chatId);
+        const snap = await getDoc(ref);
+        (snap.data()?.messages||[]).forEach(m=>{
+          const html = (typeof marked!=="undefined")? marked.parse(m.content) : m.content;
+          appendMessage(m.role==="user"?"user":"assistant", html);
+        });
+        if (window.MathJax?.typesetPromise) MathJax.typesetPromise();
+        document.getElementById('side-panel')?.classList.remove('open');
+        document.body.classList.remove('panel-open');
+      }
+
+      function newChat(){
+        currentChatId = null;
+        const chatBox = document.getElementById('chat-box');
+        chatBox.innerHTML = "";
+        const saludo = "¡Nuevo chat iniciado! ¿Sobre qué tema quieres conversar?";
+        appendMessage("assistant", (typeof marked!=="undefined")? marked.parse(saludo) : saludo);
+        document.getElementById('side-panel')?.classList.remove('open');
+        document.body.classList.remove('panel-open');
+      }
+
+      // Invitado
+      function getGuestAll(){ try{ return JSON.parse(localStorage.getItem('mira_guest_chats')||"[]"); }catch{ return []; } }
+      function renderGuestList(){
+        const list = document.getElementById('chat-list'); if(!list) return;
+        list.innerHTML = "";
+        getGuestAll().sort((a,b)=>b.updatedAt-a.updatedAt).forEach(c=>{
+          const btn = document.createElement('button');
+          btn.className = 'playlist-item';
+          btn.innerHTML = `<div class="text-sm font-semibold">${c.title||"Chat"}</div>
+                           <div class="text-xs opacity-70">${c.id}</div>`;
+          btn.onclick = ()=>loadChat(c.id);
+          list.appendChild(btn);
+        });
+      }
+
+      return { setUser, saveMessage, loadChatList, loadChat, newChat };
+    })();
+
+    // ====== UI de Auth (pantalla inicial + barra + panel chats) ======
     const $authSection = document.getElementById('auth');
     const $landing     = document.getElementById('landing');
     const $authBar     = document.getElementById('auth-bar');
     const $userEmail   = document.getElementById('user-email');
-    const $logoutBtn   = document.getElementById('logout-btn');
+    const $panelUser   = document.getElementById('panel-user-email');
+    const $logoutTop   = document.getElementById('logout-btn');
+    const $logoutPanel = document.getElementById('btn-logout-panel');
 
-    const $authTitle   = document.getElementById('auth-title');
-    const $authForm    = document.getElementById('auth-form');
-    const $authError   = document.getElementById('auth-error');
-    const $toggleAuth  = document.getElementById('toggle-auth');
-    const $authSubmit  = document.getElementById('auth-submit');
+    const $authTitle  = document.getElementById('auth-title');
+    const $authForm   = document.getElementById('auth-form');
+    const $authError  = document.getElementById('auth-error');
+    const $toggleAuth = document.getElementById('toggle-auth');
+    const $authSubmit = document.getElementById('auth-submit');
 
-    let mode = 'login'; // 'login' | 'register'
-    function renderMode() {
+    let mode = 'login';
+    function renderMode(){
       if (mode === 'login') {
         $authTitle.textContent = 'Iniciar sesión';
         $authSubmit.textContent = 'Ingresar';
@@ -305,25 +502,17 @@
     }
     renderMode();
 
-    $toggleAuth.addEventListener('click', () => {
-      mode = (mode === 'login') ? 'register' : 'login';
-      renderMode();
-    });
+    $toggleAuth.addEventListener('click', ()=>{ mode = (mode==='login'?'register':'login'); renderMode(); });
 
-    $authForm.addEventListener('submit', async (e) => {
+    $authForm.addEventListener('submit', async (e)=>{
       e.preventDefault();
       $authError.textContent = '';
       const email = (document.getElementById('email').value || '').trim();
       const password = document.getElementById('password').value;
-
-      try {
-        if (mode === 'login') {
-          await signInWithEmailAndPassword(auth, email, password);
-        } else {
-          await createUserWithEmailAndPassword(auth, email, password);
-        }
-      } catch (err) {
-        // Mensajes breves y claros
+      try{
+        if (mode === 'login') await signInWithEmailAndPassword(auth, email, password);
+        else await createUserWithEmailAndPassword(auth, email, password);
+      }catch(err){
         const map = {
           'auth/invalid-email': 'Correo inválido.',
           'auth/missing-password': 'Ingresa la contraseña.',
@@ -336,18 +525,30 @@
       }
     });
 
-    $logoutBtn.addEventListener('click', () => signOut(auth));
+    $logoutTop?.addEventListener('click', ()=>signOut(auth));
+    $logoutPanel?.addEventListener('click', ()=>signOut(auth));
+    document.getElementById('btn-new-chat')?.addEventListener('click', ()=>window.ChatStore.newChat());
 
-    // Mostrar/ocultar app según sesión
-    onAuthStateChanged(auth, (user) => {
+    onAuthStateChanged(auth, async (user)=>{
+      window.ChatStore.setUser(user || null);
+      window._currentUser = user || null;
+
       const logged = !!user;
       $authSection.classList.toggle('hidden', logged);
       $landing.classList.toggle('hidden', !logged);
       $authBar.classList.toggle('hidden', !logged);
-      if (logged) $userEmail.textContent = user.email || user.uid;
+
+      if (logged){
+        const email = user.email || user.uid;
+        $userEmail.textContent = email;
+        if ($panelUser) $panelUser.textContent = email;
+        await window.ChatStore.loadChatList();
+        // Cerrar panel si estaba abierto (como pediste)
+        document.getElementById('side-panel')?.classList.remove('open');
+        document.body.classList.remove('panel-open');
+      }
     });
   </script>
   <!-- ======================================================================= -->
-
 </body>
 </html>
