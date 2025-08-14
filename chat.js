@@ -14,8 +14,8 @@ Habla SIEMPRE en español, clara y estructurada.
 `;
 
 // ===== Endpoints de visión (backend) =====
-const BLIP_ENDPOINT = "/api/blip";        // POST FormData { image }
-const OCR_ENDPOINT  = "/api/ocrspace";    // POST FormData { image }
+const BLIP_ENDPOINT = "/api/blip";        // POST JSON { imageBase64 }
+const OCR_ENDPOINT  = "/api/ocrspace";    // POST JSON { imageBase64 }
 
 // ============ AVATAR ============
 let __innerAvatarSvg = null;
@@ -208,7 +208,18 @@ async function callLLMFromText(userText){
   ]);
 }
 
+// ===== Utilidad: File → Base64 (dataURL)
+function fileToBase64(file){
+  return new Promise((resolve, reject)=>{
+    const fr = new FileReader();
+    fr.onload = () => resolve(fr.result);
+    fr.onerror = reject;
+    fr.readAsDataURL(file);
+  });
+}
+
 // ============ VISIÓN (BLIP + OCR) ============
+// Ahora enviamos JSON con imageBase64 (más estable que multipart en Netlify)
 async function httpError(res) {
   let body = "";
   try { body = await res.text(); } catch {}
@@ -224,18 +235,25 @@ function parseNiceError(err) {
 }
 
 async function callBLIP(file) {
-  const fd = new FormData();
-  fd.append("image", file, file.name);
-  const r = await fetch(BLIP_ENDPOINT, { method: "POST", body: fd });
+  const imageBase64 = await fileToBase64(file);
+  const r = await fetch(BLIP_ENDPOINT, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ imageBase64 })
+  });
   if (!r.ok) throw await httpError(r);
   const data = await r.json();
   if (!data || !data.description) throw new Error("Respuesta BLIP inválida.");
   return data.description;
 }
+
 async function callOCR(file) {
-  const fd = new FormData();
-  fd.append("image", file, file.name);
-  const r = await fetch(OCR_ENDPOINT, { method: "POST", body: fd });
+  const imageBase64 = await fileToBase64(file);
+  const r = await fetch(OCR_ENDPOINT, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ imageBase64, language: "spa" })
+  });
   if (!r.ok) throw await httpError(r);
   const data = await r.json();
   if (typeof data?.text !== "string") throw new Error("Respuesta OCR inválida.");
