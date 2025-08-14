@@ -13,6 +13,10 @@ Habla SIEMPRE en español, clara y estructurada.
 - Cuando pidan “la fórmula”, da explicación breve, fórmula y define variables en texto.
 `;
 
+// ===== Endpoints de visión (backend) =====
+const BLIP_ENDPOINT = "/api/blip";        // POST FormData { image }
+const OCR_ENDPOINT  = "/api/ocrspace";    // POST FormData { image }
+
 // ============ AVATAR ============
 let __innerAvatarSvg = null;
 function hookAvatarInnerSvg() {
@@ -204,57 +208,68 @@ async function callLLMFromText(userText){
   ]);
 }
 
-// ============ ENVÍO MENSAJE (texto) ============
-async function sendMessage() {
-  const input = document.getElementById("user-input");
-  const userMessage = (input.value || "").trim();
-  if (!userMessage) return;
-
-  cancelAllSpeech();
-
-  appendMessage("user", renderMarkdown(userMessage));
-  saveMsg("user", userMessage);
-
-  input.value = "";
-  showThinking();
-
-  let aiReply = "";
-  let requestSucceeded = false;
-
-  try {
-    aiReply = await callLLMFromText(userMessage);
-    hideThinking();
-
-    if (!aiReply) {
-      aiReply = (await wikiFallback(userMessage)) || "Lo siento, no encontré una respuesta adecuada.";
-    }
-
-    const html = renderMarkdown(aiReply);
-    appendMessage("assistant", html);
-    saveMsg("assistant", aiReply);
-    if (window.MathJax?.typesetPromise) MathJax.typesetPromise();
-    requestSucceeded = true;
-  } catch (err) {
-    hideThinking();
-    console.error("Chat request error:", err);
-    if (!requestSucceeded) {
-      const msg = "Error de red o CORS al conectar con la IA.";
-      appendMessage("assistant", msg);
-      saveMsg("assistant", msg);
-    }
-    return;
-  }
-
-  try { speakMarkdown(aiReply); } catch (e) { console.warn("TTS no disponible en este dispositivo:", e); }
+// ============ VISIÓN (BLIP + OCR) ============
+async function httpError(res) {
+  let body = "";
+  try { body = await res.text(); } catch {}
+  const msg = `HTTP ${res.status} ${res.statusText}${body ? ` – ${body.slice(0,200)}` : ""}`;
+  return new Error(msg);
 }
-window.sendMessage = sendMessage;
+function parseNiceError(err) {
+  const s = String(err?.message || err);
+  if (s.includes("401")) return "El servidor respondió 401 (revisa tokens/variables de entorno).";
+  if (s.includes("429")) return "Límite de uso alcanzado (rate limit).";
+  if (s.toLowerCase().includes("cors")) return "Bloqueo CORS (habilita tu dominio en el backend).";
+  return s;
+}
 
-// ============ PIPELINE DESDE VISIÓN ============
+async function callBLIP(file) {
+  const fd = new FormData();
+  fd.append("image", file, file.name);
+  const r = await fetch(BLIP_ENDPOINT, { method: "POST", body: fd });
+  if (!r.ok) throw await httpError(r);
+  const data = await r.json();
+  if (!data || !data.description) throw new Error("Respuesta BLIP inválida.");
+  return data.description;
+}
+async function callOCR(file) {
+  const fd = new FormData();
+  fd.append("image", file, file.name);
+  const r = await fetch(OCR_ENDPOINT, { method: "POST", body: fd });
+  if (!r.ok) throw await httpError(r);
+  const data = await r.json();
+  if (typeof data?.text !== "string") throw new Error("Respuesta OCR inválida.");
+  return data.text.trim();
+}
+
+async function analyzeImages(files) {
+  const results = [];
+  for (const file of files) {
+    const [blip, ocr] = await Promise.allSettled([ callBLIP(file), callOCR(file) ]);
+    const desc = blip.status === "fulfilled" ? blip.value : "";
+    const text = ocr.status  === "fulfilled" ? ocr.value  : "";
+
+    if (!desc && !text) {
+      const why = (blip.reason && blip.reason.message) || (ocr.reason && ocr.reason.message) || "Fallo desconocido.";
+      throw new Error(why);
+    }
+
+    const block = [
+      desc ? `• **Descripción (IA):** ${desc}` : "",
+      text ? `• **Texto detectado (OCR):** ${text}` : ""
+    ].filter(Boolean).join("\n");
+
+    results.push(block);
+  }
+  return results.map((b,i)=>`Imagen ${i+1}:\n${b}`).join("\n\n");
+}
+
+// ============ PIPELINE DESDE VISIÓN → LLM ============
 let __visionCtx = { ocrText: "" };
 window.setVisionContext = function ({ ocrText = "" } = {}) { __visionCtx.ocrText = ocrText; };
 
 /**
- * Encadena explicación con el LLM usando la respuesta del VQA.
+ * Encadena explicación con el LLM usando la respuesta del VQA/descripción.
  */
 window.pipelineFromVision = async function (answerFromVision, question = "", extras = {}) {
   const ocrText = (extras.ocrText ?? __visionCtx.ocrText ?? "").trim();
@@ -264,7 +279,7 @@ window.pipelineFromVision = async function (answerFromVision, question = "", ext
 `Tenemos una consulta basada en una imagen.
 ${userMessage ? `Mensaje del usuario: """${userMessage}"""\n` : ""}
 Pregunta específica sobre la imagen: """${question || "Resume el enunciado, datos clave y resuelve brevemente."}"""
-Observaciones del modelo de visión (VQA): """${answerFromVision || "(vacío)"}"""
+Observaciones del modelo de visión (VQA/Caption): """${answerFromVision || "(vacío)"}"""
 ${ocrText ? `Texto reconocido (OCR): """${ocrText}"""\n` : ""}
 
 Por favor:
@@ -295,13 +310,126 @@ Recuerda: usa LaTeX grande para fórmulas con $$ ... $$ cuando apliquen. Respond
   }
 };
 
+// ============ ENVÍO MENSAJE (texto + adjuntos) ============
+
+// Estado de adjuntos (UI compacta integrada al input)
+const $fileInput   = document.getElementById("fileInput");
+const $attachBtn   = document.getElementById("attachBtn");
+const $attachments = document.getElementById("attachments");
+let attachments = []; // [{file, urlPreview}]
+
+$attachBtn?.addEventListener("click", () => $fileInput?.click());
+$fileInput?.addEventListener("change", async (e) => {
+  const files = Array.from(e.target.files || []);
+  for (const f of files) {
+    const url = URL.createObjectURL(f);
+    attachments.push({ file: f, urlPreview: url });
+  }
+  renderAttachmentChips();
+  if ($fileInput) $fileInput.value = "";
+});
+
+function renderAttachmentChips() {
+  if (!$attachments) return;
+  $attachments.innerHTML = "";
+  attachments.forEach((att, i) => {
+    const chip = document.createElement("span");
+    chip.className = "attachment-chip";
+    chip.innerHTML = `
+      <img src="${att.urlPreview}" alt="img">
+      <span>${att.file.name}</span>
+      <button title="Quitar" aria-label="Quitar" data-i="${i}">×</button>
+    `;
+    chip.querySelector("button").onclick = () => {
+      URL.revokeObjectURL(att.urlPreview);
+      attachments.splice(i,1);
+      renderAttachmentChips();
+    };
+    $attachments.appendChild(chip);
+  });
+}
+
+// Envío con Enter (no Shift)
+(function bindEnterSend(){
+  const input = document.getElementById("user-input");
+  const btn   = document.getElementById("send-btn");
+  input?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+  });
+  btn?.addEventListener("click", sendMessage);
+})();
+
+async function sendMessage() {
+  const input = document.getElementById("user-input");
+  const userMessage = (input?.value || "").trim();
+  if (!userMessage && attachments.length === 0) return;
+
+  cancelAllSpeech();
+
+  // pintar mensaje del usuario (texto + miniaturas)
+  let htmlUser = "";
+  if (userMessage) htmlUser += renderMarkdown(userMessage);
+  if (attachments.length) {
+    const g = attachments.map(a => `<img src="${a.urlPreview}" alt="adjunto" class="max-w-[120px] rounded-lg border border-purple-800 mr-1 mb-1"/>`).join("");
+    htmlUser += `<div class="mt-2 flex flex-wrap gap-2">${g}</div>`;
+  }
+  appendMessage("user", htmlUser);
+  saveMsg("user", userMessage || (attachments.length ? "[Imagen adjunta]" : ""));
+
+  // limpia input y chips
+  if (input) input.value = "";
+  const localUrls = attachments.map(a => a.urlPreview);
+  const files     = attachments.map(a => a.file);
+  attachments = [];
+  renderAttachmentChips();
+
+  let aiReply = "";
+  let requestSucceeded = false;
+
+  try {
+    if (files.length > 0) {
+      showThinking("Analizando imagen…");
+      const visualContext = await analyzeImages(files);
+      hideThinking();
+
+      // Si no escribió nada, pedimos descripción + detalle
+      const question = userMessage || "Describe y analiza detalladamente la(s) imagen(es).";
+      await window.pipelineFromVision(visualContext, question, { userMessage });
+      requestSucceeded = true;
+    } else {
+      // Chat normal
+      showThinking();
+      aiReply = await callLLMFromText(userMessage);
+      hideThinking();
+
+      if (!aiReply) {
+        aiReply = (await wikiFallback(userMessage)) || "Lo siento, no encontré una respuesta adecuada.";
+      }
+
+      const html = renderMarkdown(aiReply);
+      appendMessage("assistant", html);
+      saveMsg("assistant", aiReply);
+      if (window.MathJax?.typesetPromise) MathJax.typesetPromise();
+      requestSucceeded = true;
+    }
+  } catch (err) {
+    hideThinking();
+    console.error("Chat/Visión error:", err);
+    const msg = "⚠️ Error en análisis/consulta. " + parseNiceError(err);
+    appendMessage("assistant", msg);
+    saveMsg("assistant", msg);
+  } finally {
+    // libera blobs locales
+    localUrls.forEach(u => URL.revokeObjectURL(u));
+  }
+
+  try { if (requestSucceeded) speakMarkdown(aiReply); } catch (e) { console.warn("TTS no disponible:", e); }
+}
+window.sendMessage = sendMessage;
+
 // ============ INICIO ============
 function initChat() {
   hookAvatarInnerSvg();
-
-  const input = document.getElementById("user-input");
-  input?.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); sendMessage(); } });
-  document.getElementById("send-btn")?.addEventListener("click", sendMessage);
 
   const saludo = "¡Hola! Soy MIRA. ¿En qué puedo ayudarte hoy?";
   appendMessage("assistant", renderMarkdown(saludo));
