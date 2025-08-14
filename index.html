@@ -21,11 +21,7 @@
   <!-- MathJax -->
   <script>
     window.MathJax = {
-      tex: {
-        inlineMath: [['$', '$'], ['\\(', '\\)']],
-        displayMath: [['$$','$$'], ['\\[','\\]']],
-        processEscapes: true
-      },
+      tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$','$$'], ['\\[','\\]']], processEscapes: true },
       options: { renderActions: { addMenu: [] } }
     };
   </script>
@@ -45,16 +41,18 @@
     document.addEventListener('DOMContentLoaded', updateViewportVars);
   </script>
 
-  <!-- Estilos base de tu proyecto -->
+  <!-- Estilos base -->
   <link rel="stylesheet" href="style.css"/>
 
-  <!-- Estilos de cabecera flotante y overrides locales -->
+  <!-- Overrides de layout/cabecera -->
   <style>
     :root{
       --topbar-h: 48px;   /* se actualiza en runtime */
       --dock-w: 72px;     /* ancho barra lateral de iconos */
       --pad: 16px;
     }
+
+    .hidden{ display:none !important; }
 
     /* ======= Overlay de encabezado (no ocupa alto real) ======= */
     .hero-overlay{
@@ -74,48 +72,57 @@
       display:flex; justify-content:flex-start; padding-left: calc(var(--dock-w) + 12px);
     }
 
-    /* Título grande y vistoso */
+    /* Título principal (un poco más chico que antes) */
     .brand-mini{
-      font-size: clamp(30px, 3.6vw, 56px);
+      font-size: clamp(26px, 3.2vw, 50px);
       font-weight: 900;
       margin: 8px 0 0 24px;
-      line-height: 1.05;
+      line-height: 1.06;
       background-image: linear-gradient(90deg, #34d399, #a78bfa, #60a5fa);
-      -webkit-background-clip: text;
-      background-clip: text;
-      color: transparent;
-      text-shadow: 0 6px 28px rgba(99,102,241,.25);
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+      text-shadow: 0 6px 28px rgba(99,102,241,.22);
       letter-spacing: .3px;
     }
 
     .hero-right{
-      display:flex; justify-content:flex-end; align-items:center; gap: 14px;
-      padding-right: 24px;
+      display:grid; grid-auto-rows: auto; justify-items:end; align-items:start;
+      gap: 8px; padding-right: 24px;
     }
+
+    /* “Asistente IA –” en 1ª línea, “MIRA” debajo */
     .mira-title{
-      font-size: clamp(20px, 2.2vw, 32px);
-      font-weight: 800;
-      letter-spacing: .4px;
-      color: #fff;
+      text-align: right;
+      line-height: 1.05;
       text-shadow: 0 6px 22px rgba(0,0,0,.35);
     }
-    /* Avatar al lado del texto */
+    .mira-title .assist{
+      display:block;
+      font-size: clamp(18px, 2.1vw, 28px);
+      font-weight: 800; color: #fff; letter-spacing: .4px;
+    }
+    .mira-title .mira{
+      display:block;
+      font-size: clamp(24px, 2.6vw, 36px);
+      font-weight: 900; color: #fff; letter-spacing: .6px;
+    }
+
+    /* Avatar debajo del texto, alineado a la derecha */
     #avatar-mira{
       width: clamp(48px, 4.6vw, 70px);
-      margin: 0;
+      margin: 2px 0 0 0;
       filter: drop-shadow(0 2px 6px rgba(0,0,0,.35));
     }
 
-    /* El chat comienza más abajo para que nada se superponga */
+    /* El chat comienza más abajo para no superponer cabecera */
     #main-chat .chat-wrap{
       margin-left: calc(var(--dock-w) + 12px);
       margin-right: var(--pad);
-      margin-top: 96px; /* espacio bajo el overlay */
+      margin-top: 96px; /* espacio bajo overlay */
     }
 
-    /* Altura del área de chat “de pie a cabeza” sin tapar topbar */
+    /* Altura del área de chat de “pie a cabeza” */
     #chat-shell{
-      height: calc(100vh - var(--topbar-h) - 200px); /* ajuste fino */
+      height: calc(100vh - var(--topbar-h) - 180px); /* ajusta si lo quieres más alto/bajo */
       display: flex; flex-direction: column;
     }
     #chat-box{
@@ -124,7 +131,7 @@
       min-height: 240px;
     }
 
-    /* Composer unificado: input grande + botón Enviar pequeño */
+    /* Composer: input grande, botón Enviar pequeño a la derecha, + flotante */
     .composer{
       display: grid; grid-template-columns: 1fr auto;
       gap: .6rem; align-items: center;
@@ -133,6 +140,7 @@
       background: rgba(0,0,0,.35);
       border-radius: .6rem;
     }
+    .input-group{ position: relative; width: 100%; }
     .composer-input{
       width: 100%;
       max-height: 140px;
@@ -141,7 +149,7 @@
       border: 1px solid #4b5563;
       outline: none;
       border-radius: .6rem;
-      padding: .8rem 2.6rem .8rem .75rem; /* espacio para el + flotante */
+      padding: .9rem 2.8rem .9rem .8rem; /* espacio para el + flotante */
       font-size: 1rem;
     }
     .send-btn{
@@ -151,18 +159,15 @@
       font-weight: 700; font-size: .95rem;
       min-width: 84px;
     }
+    .send-btn:active{ transform: translateY(1px); }
 
-    /* Botón + flotante dentro del input */
-    .input-group{ position: relative; }
     .plus-btn{
       position: absolute; right: 8px; bottom: 8px;
       border: none; background: #4b5563; color: #fff;
       width: 36px; height: 36px; border-radius: .6rem;
-      font-size: 1.2rem; line-height: 1;
-      cursor: pointer; opacity: .95;
+      font-size: 1.2rem; line-height: 1; cursor: pointer; opacity: .95;
     }
 
-    /* Menú del + */
     .upload-tray{
       position: absolute;
       bottom: calc(100% + .55rem);
@@ -176,22 +181,27 @@
       box-shadow: 0 14px 34px rgba(0,0,0,.35);
       z-index: 40;
     }
-    .hidden{ display: none !important; }
     .upload-item{
       display: inline-flex; align-items: center; gap: .5rem;
       font-size: .95rem; cursor: pointer; color: #e5e7eb;
       background: transparent; border: none; padding:.35rem .4rem;
     }
 
-    /* Chips/previews bajo el composer */
+    /* Previews bajo el composer */
     .attachments{
-      grid-column: 1 / -1; display:flex; gap:.4rem; flex-wrap:wrap; margin-top:.35rem;
+      display:flex; gap:.4rem; flex-wrap:wrap; margin-top:.35rem;
     }
+    .attachment-chip{
+      display:inline-flex; align-items:center; gap:.35rem;
+      background:#1f2937; border:1px solid #4c1d95; color:#e5e7eb;
+      padding:.25rem .45rem; border-radius:.55rem; font-size:.85rem;
+    }
+    .attachment-chip img{ width:24px;height:24px;object-fit:cover;border-radius:.35rem; }
 
     /* Responsive */
     @media (max-width: 1024px){
       .hero-overlay{ grid-template-columns: 1fr; }
-      .hero-right{ justify-content:flex-start; padding-left: calc(var(--dock-w) + 12px); margin-top: 8px; }
+      .hero-right{ justify-items:start; padding-left: calc(var(--dock-w) + 12px); margin-top: 8px; }
       #main-chat .chat-wrap{ margin-left: var(--pad); }
     }
   </style>
@@ -199,7 +209,7 @@
 
 <body class="bg-gradient-to-br from-black via-indigo-900 to-purple-900 text-white font-sans">
 
-  <!-- Barra superior (solo con sesión) -->
+  <!-- Barra superior -->
   <header id="auth-bar" class="hidden sticky top-0 z-40 backdrop-blur bg-black/30 border-b border-white/10">
     <div class="max-w-5xl mx-auto flex items-center justify-between px-4 py-2 text-sm">
       <div class="opacity-80">Conectado: <span id="user-email" class="font-semibold"></span></div>
@@ -218,29 +228,23 @@
       <form id="auth-form" class="space-y-3">
         <div>
           <label class="block text-sm mb-1" for="email">Correo</label>
-          <input id="email" name="email" type="email" required
-                 class="w-full p-2 rounded-md bg-gray-800 text-white border border-gray-700"
-                 placeholder="tu@correo.com">
+          <input id="email" name="email" type="email" required class="w-full p-2 rounded-md bg-gray-800 text-white border border-gray-700" placeholder="tu@correo.com">
         </div>
         <div>
           <label class="block text-sm mb-1" for="password">Contraseña</label>
-          <input id="password" name="password" type="password" required
-                 class="w-full p-2 rounded-md bg-gray-800 text-white border border-gray-700"
-                 placeholder="********">
+          <input id="password" name="password" type="password" required class="w-full p-2 rounded-md bg-gray-800 text-white border border-gray-700" placeholder="********">
         </div>
         <button id="auth-submit" class="w-full py-2 rounded-md bg-purple-600 hover:bg-purple-700 font-bold">Ingresar</button>
         <p id="auth-error" class="text-red-400 text-sm min-h-[1.25rem]"></p>
       </form>
 
       <div class="mt-4 text-center">
-        <button id="toggle-auth" class="text-sm text-purple-300 hover:text-purple-200 underline">
-          ¿No tienes cuenta? Crear una
-        </button>
+        <button id="toggle-auth" class="text-sm text-purple-300 hover:text-purple-200 underline">¿No tienes cuenta? Crear una</button>
       </div>
     </div>
   </section>
 
-  <!-- App (se muestra solo cuando hay sesión) -->
+  <!-- App -->
   <main id="landing" class="relative hidden">
 
     <!-- Overlay de encabezado -->
@@ -250,22 +254,20 @@
       </div>
 
       <div class="hero-right">
-        <div class="mira-title">Asistente IA – MIRA</div>
+        <div class="mira-title">
+          <span class="assist">Asistente IA –</span>
+          <span class="mira">MIRA</span>
+        </div>
         <object id="avatar-mira" type="image/svg+xml" data="avatar_mira.svg" class="still" tabindex="-1" aria-hidden="true"></object>
-        <!-- Se eliminó el eslogan como pediste -->
       </div>
     </div>
 
-    <!-- Dock: Spotify + Usuario (sin cambios) -->
+    <!-- Dock lateral -->
     <div class="side-dock">
       <button id="btn-spotify" class="dock-btn" title="Spotify">
         <span class="dock-icon">
           <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-            <defs>
-              <linearGradient id="g" x1="2" y1="2" x2="22" y2="22">
-                <stop stop-color="#22c55e"/><stop offset="1" stop-color="#a855f7"/>
-              </linearGradient>
-            </defs>
+            <defs><linearGradient id="g" x1="2" y1="2" x2="22" y2="22"><stop stop-color="#22c55e"/><stop offset="1" stop-color="#a855f7"/></linearGradient></defs>
             <path d="M12 2.25C6.615 2.25 2.25 6.615 2.25 12S6.615 21.75 12 21.75 21.75 17.385 21.75 12 17.385 2.25 12 2.25Z" fill="url(#g)"/>
             <path d="M7.7 15.55c3.1-1.87 7.02-.99 8.92 0" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" opacity=".9"/>
             <path d="M7.3 13.08c3.7-2.1 7.9-1.1 10 .1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" opacity=".8"/>
@@ -284,7 +286,7 @@
       </button>
     </div>
 
-    <!-- Panel lateral (sin cambios) -->
+    <!-- Panel lateral (Spotify/Chats) -->
     <aside id="side-panel" class="side-panel" data-mode="music">
       <div class="flex items-center justify-between mb-2">
         <h3 id="panel-title" class="text-lg">Música para el aprendizaje</h3>
@@ -293,9 +295,7 @@
 
       <div id="panel-music" class="panel-section active">
         <div id="playlist-list" class="playlist-list"></div>
-        <iframe id="spotify-embed" class="panel-iframe"
-          src="" frameborder="0" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy">
-        </iframe>
+        <iframe id="spotify-embed" class="panel-iframe" src="" frameborder="0" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>
       </div>
 
       <div id="panel-chats" class="panel-section">
@@ -316,25 +316,18 @@
           <div id="chat-shell">
             <div id="chat-box" class="bg-gray-800 p-3 rounded-md mb-2 text-sm space-y-2 text-white"></div>
 
-            <!-- Composer unificado (input grande; botón Enviar pequeño; + flotante con menú) -->
+            <!-- Composer -->
             <div class="composer">
-
-              <!-- Grupo del input: ancla del + y del menú -->
-              <div class="input-group w-full">
+              <div class="input-group">
                 <input aria-label="Escribe tu mensaje"
                        type="text"
                        id="user-input"
                        placeholder="Escribe tu mensaje... (Enter = enviar, Shift+Enter = salto)"
                        class="composer-input"
-                       autocomplete="off">
+                       autocomplete="off"/>
 
-                <!-- Botón + flotante dentro del input -->
-                <button id="attachBtn"
-                        class="plus-btn"
-                        title="Adjuntar"
-                        aria-haspopup="true"
-                        aria-controls="attachMenu"
-                        aria-expanded="false">+</button>
+                <!-- Botón + flotante -->
+                <button id="attachBtn" class="plus-btn" title="Adjuntar" aria-haspopup="true" aria-controls="attachMenu" aria-expanded="false">+</button>
 
                 <!-- Menú del + -->
                 <div id="attachMenu" class="upload-tray hidden" role="menu">
@@ -345,11 +338,10 @@
                 <input id="fileInput" type="file" accept="image/png,image/jpeg,image/webp" multiple hidden>
               </div>
 
-              <!-- Botón Enviar pequeño a la derecha -->
               <button id="send-btn" class="send-btn">Enviar</button>
             </div>
 
-            <!-- Previews/Chips de adjuntos -->
+            <!-- Previews -->
             <div id="attachments" class="attachments" aria-live="polite"></div>
           </div>
         </div>
@@ -357,7 +349,7 @@
     </section>
   </main>
 
-  <!-- Helpers UI (sin cambios relevantes) -->
+  <!-- Helpers UI -->
   <script>
     function toggleMiraInfo(){ const el = document.getElementById("mira-info"); if(!el) return; el.style.display = (el.style.display==="none"||el.style.display==="")?"block":"none"; }
     function toggleAreas(){ const el = document.getElementById('areas-list'); if(el) el.classList.toggle('hidden'); }
@@ -393,19 +385,12 @@
       if (u) document.getElementById('panel-user-email').textContent = u.email || u.uid;
       updateViewportVars();
     }
-    function closePanel(){
-      panel.classList.remove('open');
-      document.body.classList.remove('panel-open');
-    }
+    function closePanel(){ panel.classList.remove('open'); document.body.classList.remove('panel-open'); }
     function selectPlaylist(id) {
-      const p = PLAYLISTS.find(x => x.id === id);
-      if (!p) return;
+      const p = PLAYLISTS.find(x => x.id === id); if (!p) return;
       currentPlaylist = p;
-      document.getElementById('spotify-embed').src =
-        `https://open.spotify.com/embed/playlist/${currentPlaylist.id}?utm_source=generator&theme=0`;
-      document.querySelectorAll('.playlist-item').forEach(el => {
-        el.classList.toggle('active', el.dataset.id === id);
-      });
+      document.getElementById('spotify-embed').src = `https://open.spotify.com/embed/playlist/${currentPlaylist.id}?utm_source=generator&theme=0`;
+      document.querySelectorAll('.playlist-item').forEach(el => el.classList.toggle('active', el.dataset.id === id));
       document.getElementById('btn-spotify')?.classList.add('playing');
     }
     document.getElementById('btn-spotify')?.addEventListener('click', ()=>setPanelMode('music'));
@@ -419,8 +404,7 @@
           const btn = document.createElement('button');
           btn.className = 'playlist-item';
           btn.dataset.id = p.id;
-          btn.innerHTML = `<div class="text-sm font-semibold">${p.title}</div>
-                           <div class="text-xs opacity-80">${p.description}</div>`;
+          btn.innerHTML = `<div class="text-sm font-semibold">${p.title}</div><div class="text-xs opacity-80">${p.description}</div>`;
           btn.addEventListener('click', () => selectPlaylist(p.id));
           list.appendChild(btn);
         });
@@ -438,16 +422,9 @@
   <!-- ================= Firebase (módulo) + Auth + Firestore ================= -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
-    import {
-      getAuth, setPersistence, browserLocalPersistence,
-      createUserWithEmailAndPassword, signInWithEmailAndPassword,
-      signOut, onAuthStateChanged
-    } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
+    import { getAuth, setPersistence, browserLocalPersistence, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
     import { getAnalytics, isSupported } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-analytics.js";
-    import {
-      getFirestore, collection, doc, addDoc, setDoc, getDoc, getDocs,
-      query, orderBy, serverTimestamp, arrayUnion
-    } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
+    import { getFirestore, collection, doc, addDoc, setDoc, getDoc, getDocs, query, orderBy, serverTimestamp, arrayUnion } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyCPNds1Tc_BYM5DYroW9-3ZzgeQV1pv0KI",
@@ -468,7 +445,6 @@
     window.ChatStore = (function(){
       let currentChatId = null;
       let currentUser   = null;
-
       function userChatsCol(uid){ return collection(db, 'users', uid, 'chats'); }
       function chatDocRef(uid, chatId){ return doc(db, 'users', uid, 'chats', chatId); }
       function setUser(u){ currentUser = u || null; window._currentUser = currentUser; if(!u) currentChatId = null; }
@@ -482,10 +458,7 @@
           localStorage.setItem('mira_guest_chats', JSON.stringify(all));
           renderGuestList(); return currentChatId;
         }
-        const ref = await addDoc(userChatsCol(currentUser.uid), {
-          title: "Nuevo chat", createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(), messages: []
-        });
+        const ref = await addDoc(userChatsCol(currentUser.uid), { title: "Nuevo chat", createdAt: serverTimestamp(), updatedAt: serverTimestamp(), messages: [] });
         currentChatId = ref.id; await loadChatList(); return currentChatId;
       }
 
@@ -501,16 +474,11 @@
           return;
         }
         const ref = chatDocRef(currentUser.uid, id);
-        await setDoc(ref, {
-          updatedAt: serverTimestamp(),
-          ...(role === "user" ? { title: content.slice(0,40) } : {} ),
-          messages: arrayUnion({ role, content, ts: Date.now() })
-        }, { merge: true });
+        await setDoc(ref, { updatedAt: serverTimestamp(), ...(role === "user" ? { title: content.slice(0,40) } : {} ), messages: arrayUnion({ role, content, ts: Date.now() }) }, { merge: true });
       }
 
       async function loadChatList(){
-        const list = document.getElementById('chat-list');
-        if (!list) return;
+        const list = document.getElementById('chat-list'); if (!list) return;
         list.innerHTML = "";
         if (!currentUser){ return renderGuestList(); }
         const q = query(userChatsCol(currentUser.uid), orderBy('updatedAt','desc'));
@@ -519,8 +487,7 @@
           const d = docSnap.data();
           const btn = document.createElement('button');
           btn.className = 'playlist-item';
-          btn.innerHTML = `<div class="text-sm font-semibold">${d.title || "Chat"}</div>
-                           <div class="text-xs opacity-70">${docSnap.id}</div>`;
+          btn.innerHTML = `<div class="text-sm font-semibold">${d.title || "Chat"}</div><div class="text-xs opacity-70">${docSnap.id}</div>`;
           btn.onclick = ()=>loadChat(docSnap.id);
           list.appendChild(btn);
         });
@@ -534,7 +501,10 @@
           const c = getGuestAll().find(x=>x.id===chatId);
           (c?.messages||[]).forEach(m=>{
             const html = (typeof marked!=="undefined")? marked.parse(m.content) : m.content;
-            appendMessage(m.role==="user"?"user":"assistant", html);
+            const div = document.createElement("div");
+            div.className = "msg " + (m.role === "user" ? "user" : "assistant");
+            div.innerHTML = `<div class="bubble chat-markdown">${html}</div>`;
+            chatBox.appendChild(div);
           });
           if (window.MathJax?.typesetPromise) MathJax.typesetPromise();
           document.getElementById('side-panel')?.classList.remove('open');
@@ -545,7 +515,10 @@
         const snap = await getDoc(ref);
         (snap.data()?.messages||[]).forEach(m=>{
           const html = (typeof marked!=="undefined")? marked.parse(m.content) : m.content;
-          appendMessage(m.role==="user"?"user":"assistant", html);
+          const div = document.createElement("div");
+          div.className = "msg " + (m.role === "user" ? "user" : "assistant");
+          div.innerHTML = `<div class="bubble chat-markdown">${html}</div>`;
+          chatBox.appendChild(div);
         });
         if (window.MathJax?.typesetPromise) MathJax.typesetPromise();
         document.getElementById('side-panel')?.classList.remove('open');
@@ -557,7 +530,11 @@
         const chatBox = document.getElementById('chat-box');
         chatBox.innerHTML = "";
         const saludo = "¡Nuevo chat iniciado! ¿Sobre qué tema quieres conversar?";
-        appendMessage("assistant", (typeof marked!=="undefined")? marked.parse(saludo) : saludo);
+        const html = (typeof marked!=="undefined")? marked.parse(saludo) : saludo;
+        const div = document.createElement("div");
+        div.className = "msg assistant";
+        div.innerHTML = `<div class="bubble chat-markdown">${html}</div>`;
+        chatBox.appendChild(div);
         document.getElementById('side-panel')?.classList.remove('open');
         document.body.classList.remove('panel-open');
       }
@@ -569,8 +546,7 @@
         getGuestAll().sort((a,b)=>b.updatedAt-a.updatedAt).forEach(c=>{
           const btn = document.createElement('button');
           btn.className = 'playlist-item';
-          btn.innerHTML = `<div class="text-sm font-semibold">${c.title||"Chat"}</div>
-                           <div class="text-xs opacity-70">${c.id}</div>`;
+          btn.innerHTML = `<div class="text-sm font-semibold">${c.title||"Chat"}</div><div class="text-xs opacity-70">${c.id}</div>`;
           btn.onclick = ()=>loadChat(c.id);
           list.appendChild(btn);
         });
@@ -595,15 +571,8 @@
 
     let mode = 'login';
     function renderMode(){
-      if (mode === 'login') {
-        $authTitle.textContent = 'Iniciar sesión';
-        $authSubmit.textContent = 'Ingresar';
-        $toggleAuth.textContent = '¿No tienes cuenta? Crear una';
-      } else {
-        $authTitle.textContent = 'Crear cuenta';
-        $authSubmit.textContent = 'Registrarse';
-        $toggleAuth.textContent = '¿Ya tienes cuenta? Inicia sesión';
-      }
+      if (mode === 'login') { $authTitle.textContent = 'Iniciar sesión'; $authSubmit.textContent = 'Ingresar'; $toggleAuth.textContent = '¿No tienes cuenta? Crear una'; }
+      else { $authTitle.textContent = 'Crear cuenta'; $authSubmit.textContent = 'Registrarse'; $toggleAuth.textContent = '¿Ya tienes cuenta? Inicia sesión'; }
       $authError.textContent = '';
     }
     renderMode();
@@ -633,6 +602,7 @@
 
     $logoutTop?.addEventListener('click', ()=>signOut(auth));
     $logoutPanel?.addEventListener('click', ()=>signOut(auth));
+
     document.getElementById('btn-new-chat')?.addEventListener('click', ()=>window.ChatStore.newChat());
 
     onAuthStateChanged(auth, async (user)=>{
