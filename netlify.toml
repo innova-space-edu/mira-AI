@@ -1,18 +1,19 @@
 [build]
   publish = "."
-  # Si usas functions en la carpeta "netlify/functions", Netlify las detecta automáticamente.
+  functions = "netlify/functions"
 
-# Redirige cualquier llamada /api/* a las Netlify Functions
 [[redirects]]
-  from = "/api/*"
-  to = "/.netlify/functions/:splat"
+  from = "/api/chat"
+  to   = "/.netlify/functions/chat"
   status = 200
-  force = true
 
-# Headers útiles (CORS básico para las funciones si las llamas desde otros orígenes)
-[[headers]]
-  for = "/.netlify/functions/*"
-  [headers.values]
-    Access-Control-Allow-Origin = "*"
-    Access-Control-Allow-Methods = "GET, POST, OPTIONS"
-    Access-Control-Allow-Headers = "Content-Type, Authorization"
+[[redirects]]
+  from = "/api/vision"
+  to   = "/.netlify/functions/vision"
+  status = 200
+
+# Si usas OCR (tu ocr.js existente)
+[[redirects]]
+  from = "/api/ocrspace"
+  to   = "/.netlify/functions/ocrspace"
+  status = 200
