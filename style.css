@@ -65,6 +65,96 @@ body.panel-open #landing{ padding-left: calc(var(--panel-w) + 20px); }
   padding-bottom: max(6px, var(--safe-bottom));
 }
 
+/* NUEVO: grupo del input para alojar el "+" y la bandeja */
+.input-group{
+  position: relative;
+  display: grid;
+  align-items: center;
+}
+
+/* Botón + pequeño, sin fondo, dentro del input (esquina derecha-inferior) */
+.plus-btn{
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  border: none;
+  background: transparent; /* sin fondo */
+  color: #fff;
+  font-size: 1.25rem; /* tamaño del símbolo */
+  line-height: 1;
+  cursor: pointer;
+  padding: .15rem .25rem;
+  opacity: .85;
+}
+.plus-btn:hover{ opacity: 1; }
+
+/* Bandeja que se abre hacia ARRIBA, anclada al grupo */
+.upload-tray{
+  position: absolute;
+  bottom: calc(100% + .55rem);
+  right: 0;
+  min-width: 260px;
+  max-width: min(420px, 92vw);
+  background: #111827; /* gris-900 */
+  border: 1px solid #4c1d95; /* púrpura oscuro, consistente con tema */
+  border-radius: .9rem;
+  padding: .75rem;
+  box-shadow: 0 14px 34px rgba(0,0,0,.35);
+  display: none;
+  z-index: 40;
+}
+.upload-tray.open{ display: block; }
+
+.upload-item{
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+  font-size: .95rem;
+  cursor: pointer;
+  user-select: none;
+  color: #e5e7eb;
+}
+
+/* Preview */
+.img-preview{
+  margin-top: .6rem;
+  border: 1px dashed #7c3aed80; /* lila translúcido */
+  border-radius: .55rem;
+  padding: .5rem;
+  max-height: 180px;
+  overflow: auto;
+  background: #0f172a; /* slate-900 */
+}
+.img-preview img{ max-width: 100%; height: auto; display: block; border-radius: .25rem; }
+
+/* Acciones */
+.tray-actions{
+  display: grid;
+  grid-template-columns: repeat(3, auto);
+  gap: .5rem;
+  align-items: center;
+  margin-top: .6rem;
+}
+.tray-btn{
+  border: 1px solid #4c1d95;
+  background: #1f2937;
+  color: #e5e7eb;
+  border-radius: .5rem;
+  padding: .38rem .55rem;
+  cursor: pointer;
+  font-size: .85rem;
+}
+.tray-btn:hover{ background: #303a4a; }
+.tray-q{
+  grid-column: 1 / -1;
+  border: 1px solid #374151;
+  background: #111827;
+  color: #e5e7eb;
+  border-radius: .5rem;
+  padding: .45rem .55rem;
+  font-size: .92rem;
+}
+
 /* Ocultamos secciones extra para 1 pantalla */
 #areas-section, #about-section, #contact-section, .credits-wrapper{ display: none !important; }
 
