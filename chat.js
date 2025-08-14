@@ -1,3 +1,4 @@
+<script>
 // =============== CONFIGURACIÓN ===============
 const MODEL = "meta-llama/llama-4-scout-17b-16e-instruct";
 const PREFERRED_VOICE_NAME = "Microsoft Helena - Spanish (Spain)";
@@ -459,8 +460,16 @@ async function sendMessage() {
 window.sendMessage = sendMessage;
 
 // ============ INICIALIZACIÓN ============
+function setDynamicHeights(){
+  const hdr = document.getElementById("page-header");
+  const h = hdr ? hdr.offsetHeight : 0;
+  document.documentElement.style.setProperty("--header-h", h + "px");
+}
 function initChat() {
   hookAvatarInnerSvg();
+  setDynamicHeights();
+  window.addEventListener("resize", setDynamicHeights);
+
   const saludo = "¡Hola! Soy MIRA. ¿En qué puedo ayudarte hoy?";
   appendMessage("assistant", renderMarkdown(saludo));
   try { speakAfterVoices(saludo); } catch {}
@@ -468,3 +477,4 @@ function initChat() {
   setAvatarTalking(false);
 }
 window.addEventListener("DOMContentLoaded", initChat);
+</script>
