@@ -53,8 +53,7 @@ function showThinking(text = "MIRA está pensando…") {
 }
 function hideThinking() { document.getElementById("thinking")?.remove(); }
 
-// ============ TTS (femenina + lenta + fluida) ============
-// Limpieza: no leer emojis, código ni LaTeX
+// ============ TTS ============
 function stripEmojis(s) {
   try { return s.replace(/[\p{Extended_Pictographic}\uFE0F\u200D]/gu, ""); }
   catch { return s.replace(/[\u{1F1E6}-\u{1F1FF}\u{1F300}-\u{1FAFF}\u{2600}-\u{26FF}]/gu, ""); }
@@ -147,7 +146,7 @@ function speakAfterVoices(md){
       const once = () => { window.speechSynthesis.removeEventListener("voiceschanged", once); speakMarkdown(md); };
       window.speechSynthesis?.addEventListener("voiceschanged", once);
     }
-  }catch(e){ /* no romper flujo en móvil */ }
+  }catch(e){ }
 }
 
 // ============ RENDER ============
@@ -187,7 +186,6 @@ async function callChatAPI_base(url, messages, temperature) {
   return data?.choices?.[0]?.message?.content?.trim() || "";
 }
 
-// Intenta /api/chat y si no existe, cae a /.netlify/functions/chat
 async function callChatAPI(messages, temperature = 0.7) {
   try {
     return await callChatAPI_base("/api/chat", messages, temperature);
@@ -249,7 +247,7 @@ async function sendMessage() {
 
   try { speakMarkdown(aiReply); } catch (e) { console.warn("TTS no disponible en este dispositivo:", e); }
 }
-window.sendMessage = sendMessage; // expone para index.html
+window.sendMessage = sendMessage;
 
 // ============ PIPELINE DESDE VISIÓN ============
 let __visionCtx = { ocrText: "" };
@@ -257,9 +255,6 @@ window.setVisionContext = function ({ ocrText = "" } = {}) { __visionCtx.ocrText
 
 /**
  * Encadena explicación con el LLM usando la respuesta del VQA.
- * @param {string} answerFromVision - Texto devuelto por /api/vision/qa
- * @param {string} question - Pregunta que escribió el usuario en “¿Qué quieres saber?”
- * @param {object} extras - { ocrText?: string, userMessage?: string }
  */
 window.pipelineFromVision = async function (answerFromVision, question = "", extras = {}) {
   const ocrText = (extras.ocrText ?? __visionCtx.ocrText ?? "").trim();
