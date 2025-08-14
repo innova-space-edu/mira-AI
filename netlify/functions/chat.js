@@ -1,79 +1,57 @@
-// netlify/functions/chat.js
-// Función serverless que llama a Groq usando la API Key guardada en Netlify
+// Function: /api/chat  → proxy a Groq Chat Completions
+// Env requerida: GROQ_API_KEY
+
+function cors() {
+  return {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "POST,OPTIONS",
+    "Access-Control-Allow-Headers": "content-type"
+  };
+}
 
 exports.handler = async (event) => {
-  // CORS / preflight por si lo abres desde otro origen en el futuro
+  // CORS preflight
   if (event.httpMethod === "OPTIONS") {
-    return {
-      statusCode: 200,
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization",
-      },
-      body: "",
-    };
+    return { statusCode: 200, headers: cors(), body: "" };
   }
-
-  if (event.httpMethod !== "POST") {
-    return {
-      statusCode: 405,
-      headers: { "Allow": "POST" },
-      body: JSON.stringify({ error: "Method Not Allowed. Use POST." }),
-    };
-  }
-
-  const API_KEY = process.env.GROQ_API_KEY;
-  if (!API_KEY) {
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: "Falta GROQ_API_KEY en variables de entorno de Netlify" }),
-    };
-  }
-
-  let payload;
-  try {
-    payload = JSON.parse(event.body || "{}");
-  } catch {
-    return { statusCode: 400, body: JSON.stringify({ error: "JSON inválido" }) };
-  }
-
-  // Valores por defecto
-  const model = payload.model || "meta-llama/llama-4-scout-17b-16e-instruct";
-  const messages = payload.messages || [{ role: "user", content: "Hola" }];
-  const temperature = typeof payload.temperature === "number" ? payload.temperature : 0.7;
 
   try {
-    const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${API_KEY}`,
-      },
-      body: JSON.stringify({ model, messages, temperature }),
-    });
-
-    const text = await groqRes.text();
-
-    if (!groqRes.ok) {
-      return {
-        statusCode: groqRes.status,
-        body: text || JSON.stringify({ error: "Error desde Groq" }),
-      };
+    if (event.httpMethod !== "POST") {
+      return { statusCode: 405, headers: cors(), body: "Method Not Allowed" };
     }
 
-    return {
-      statusCode: 200,
+    const apiKey = process.env.GROQ_API_KEY;
+    if (!apiKey) {
+      return { statusCode: 500, headers: cors(), body: "Falta GROQ_API_KEY en variables de entorno." };
+    }
+
+    const { model, messages, temperature = 0.7 } = JSON.parse(event.body || "{}");
+
+    const resp = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
       headers: {
-        "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "*",
+        "Authorization": `Bearer ${apiKey}`,
+        "Content-Type": "application/json"
       },
-      body: text,
+      body: JSON.stringify({
+        model: model || "meta-llama/llama-4-scout-17b-16e-instruct",
+        messages,
+        temperature
+      })
+    });
+
+    const text = await resp.text();
+
+    return {
+      statusCode: resp.ok ? 200 : resp.status,
+      headers: { ...cors(), "Content-Type": "application/json" },
+      body: text || ""
     };
   } catch (err) {
     return {
-      statusCode: 502,
-      body: JSON.stringify({ error: "Fallo de red al llamar a Groq", details: String(err) }),
+      statusCode: 500,
+      headers: cors(),
+      body: JSON.stringify({ error: "chat function failed", detail: String(err && err.message || err) })
     };
   }
 };
