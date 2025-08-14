@@ -1,0 +1,7 @@
+{
+  "name": "innova-space-education",
+  "version": "1.0.0",
+  "private": true,
+  "description": "MIRA - Innova Space Education (frontend estático con Netlify Functions)",
+  "engines": { "node": ">=18" }
+}
