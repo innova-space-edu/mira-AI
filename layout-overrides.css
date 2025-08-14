@@ -1,0 +1,152 @@
+:root{
+  --topbar-h: 48px;     /* alto de la barra superior */
+  --dock-w: 72px;       /* ancho de la barrita lateral de iconos */
+  --pad: 16px;
+}
+
+/* ===== Overlay de encabezado (no ocupa alto real) ===== */
+.hero-overlay{
+  position: absolute;
+  top: var(--topbar-h);
+  left: 0;
+  right: 0;
+  height: 0;
+  pointer-events: none;
+  z-index: 2;
+  padding: 0 var(--pad);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+.hero-left{
+  display: flex;
+  justify-content: flex-start;
+  padding-left: calc(var(--dock-w) + 12px);
+}
+
+.brand-mini{
+  font-size: clamp(18px, 2.2vw, 28px);
+  font-weight: 700;
+  margin: 8px 0 0 24px;   /* “no tan pegado” al borde */
+  opacity: .9;
+}
+
+.hero-right{
+  display: grid;
+  grid-template-rows: auto auto 1fr;
+  justify-items: start;
+  padding-right: 24px;
+}
+
+.mira-title{
+  font-size: clamp(18px, 2.2vw, 26px);
+  font-weight: 800;
+  margin-top: 6px;
+  letter-spacing: .3px;
+}
+
+.mira-avatar{
+  width: clamp(56px, 6vw, 78px);
+  margin-top: 6px;
+  filter: drop-shadow(0 2px 6px rgba(0,0,0,.25));
+}
+
+.tagline{
+  margin-top: 18vh;       /* “un poco más abajo de la mitad” */
+  max-width: 520px;
+  font-size: clamp(14px, 1.5vw, 18px);
+  opacity: .85;
+}
+
+/* ===== Contenedor del chat: sube hasta casi el tope y respeta el dock lateral ===== */
+.chat-shell{
+  position: relative;
+  z-index: 1;
+  margin-left: calc(var(--dock-w) + 12px); /* no tapar íconos */
+  margin-right: var(--pad);
+  margin-top: 8px;
+  height: calc(100vh - var(--topbar-h) - 16px);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 8px 20px rgba(0,0,0,.25);
+  background: rgba(255,255,255,.04);
+}
+
+/* ===== Mensajes y burbujas ===== */
+.messages{ backdrop-filter: blur(2px); }
+.bubble{
+  max-width: 860px;
+  padding: .75rem .9rem;
+  border-radius: 14px;
+  margin: .35rem 0;
+  line-height: 1.45;
+  word-wrap: break-word;
+}
+.bubble.user{ margin-left: auto; background: rgba(255,255,255,.08); }
+.bubble.bot{  margin-right: auto; background: rgba(0,0,0,.28);  }
+
+/* ===== Composer unificado ===== */
+.composer {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: .5rem;
+  align-items: center;
+  padding: .6rem .8rem;
+  border-top: 1px solid rgba(255,255,255,.1);
+  background: rgba(0,0,0,.35);
+}
+
+.icon-btn, .send-btn {
+  border: none;
+  border-radius: 12px;
+  padding: .5rem .7rem;
+  cursor: pointer;
+  background: rgba(255,255,255,.08);
+  color: inherit;
+}
+.icon-btn { font-size: 1.2rem; width: 38px; height: 38px; line-height: 1; }
+.icon-btn:active, .send-btn:active { transform: translateY(1px); }
+
+.composer-input {
+  width: 100%;
+  max-height: 120px;
+  resize: none;
+  background: transparent;
+  color: inherit;
+  border: none;
+  outline: none;
+  padding: .3rem .2rem;
+}
+
+.attachments {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: .4rem;
+  flex-wrap: wrap;
+  margin-top: .2rem;
+}
+
+.attachment-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  padding: .25rem .5rem;
+  border-radius: 999px;
+  background: rgba(255,255,255,.10);
+  border: 1px solid rgba(255,255,255,.12);
+  font-size: .85rem;
+}
+.attachment-chip img {
+  width: 24px; height: 24px; object-fit: cover; border-radius: 6px;
+}
+.attachment-chip button {
+  background: transparent; border: none; color: inherit; cursor: pointer; font-size: 1rem;
+}
+
+/* ===== Responsive ===== */
+@media (max-width: 1024px){
+  .hero-overlay{ grid-template-columns: 1fr; }
+  .hero-right{ margin-top: 6px; }
+  .tagline{ margin-top: 10vh; }
+  .chat-shell{ margin-left: var(--pad); }
+}
