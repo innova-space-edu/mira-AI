@@ -42,13 +42,13 @@ function appendHTML(html) {
 function appendMessage(role, contentHTML) {
   appendHTML(`<div class="msg ${role}"><div class="bubble chat-markdown">${contentHTML}</div></div>`);
 }
-function showThinking() {
+function showThinking(text = "MIRA está pensando…") {
   const box = document.getElementById("chat-box");
   if (document.getElementById("thinking")) return;
   const div = document.createElement("div");
   div.id = "thinking";
   div.className = "msg assistant";
-  div.innerHTML = `<div class="bubble">MIRA está pensando…</div>`;
+  div.innerHTML = `<div class="bubble">${text}</div>`;
   box.appendChild(div); box.scrollTop = box.scrollHeight;
 }
 function hideThinking() { document.getElementById("thinking")?.remove(); }
@@ -166,7 +166,34 @@ async function saveMsg(role, content){
   try{ await window.ChatStore?.saveMessage?.(role, content); }catch{}
 }
 
-// ============ ENVÍO MENSAJE ============
+// ============ CLIENTE /api/chat ============
+async function callChatAPI(messages, temperature = 0.7) {
+  const response = await fetch("/api/chat", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Accept": "application/json" },
+    body: JSON.stringify({ model: MODEL, messages, temperature })
+  });
+  const raw = await response.text();
+  if (!response.ok) {
+    let msg = "Error al conectar con la IA.";
+    if (response.status === 401) msg += " (401: clave inválida o expirada)";
+    else if (response.status === 403) msg += " (403: CORS o acceso denegado)";
+    else if (response.status === 429) msg += " (429: límite de uso alcanzado)";
+    else msg += ` (HTTP ${response.status})`;
+    throw new Error(msg + `\n${raw || ""}`);
+  }
+  const data = JSON.parse(raw);
+  const content = data?.choices?.[0]?.message?.content?.trim() || "";
+  return content;
+}
+async function callLLMFromText(userText){
+  return callChatAPI([
+    { role: "system", content: SYSTEM_PROMPT },
+    { role: "user", content: userText }
+  ]);
+}
+
+// ============ ENVÍO MENSAJE (texto) ============
 async function sendMessage() {
   const input = document.getElementById("user-input");
   const userMessage = (input.value || "").trim();
@@ -183,37 +210,9 @@ async function sendMessage() {
   let aiReply = "";
   let requestSucceeded = false;
 
-  // ---- 1) SOLO red/IA dentro de este try ----
   try {
-    const response = await fetch("/api/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "Accept": "application/json" },
-      body: JSON.stringify({
-        model: MODEL,
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: userMessage }
-        ],
-        temperature: 0.7
-      })
-    });
-
-    const raw = await response.text();
+    aiReply = await callLLMFromText(userMessage);
     hideThinking();
-
-    if (!response.ok) {
-      let msg = "Error al conectar con la IA.";
-      if (response.status === 401) msg += " (401: clave inválida o expirada)";
-      else if (response.status === 403) msg += " (403: CORS o acceso denegado)";
-      else if (response.status === 429) msg += " (429: límite de uso alcanzado)";
-      else msg += ` (HTTP ${response.status})`;
-      appendMessage("assistant", msg);
-      saveMsg("assistant", msg);
-      return;
-    }
-
-    const data = JSON.parse(raw);
-    aiReply = data?.choices?.[0]?.message?.content?.trim() || "";
 
     if (!aiReply) {
       aiReply = (await wikiFallback(userMessage)) || "Lo siento, no encontré una respuesta adecuada.";
@@ -223,12 +222,10 @@ async function sendMessage() {
     appendMessage("assistant", html);
     saveMsg("assistant", aiReply);
     if (window.MathJax?.typesetPromise) MathJax.typesetPromise();
-
     requestSucceeded = true;
   } catch (err) {
     hideThinking();
     console.error("Chat request error:", err);
-    // Sólo mostramos error de red si la petición realmente falló
     if (!requestSucceeded) {
       const msg = "Error de red o CORS al conectar con la IA.";
       appendMessage("assistant", msg);
@@ -237,13 +234,59 @@ async function sendMessage() {
     return;
   }
 
-  // ---- 2) TTS aparte: si falla, no mostramos mensaje de error de red ----
-  try {
-    speakMarkdown(aiReply);
-  } catch (e) {
-    console.warn("TTS no disponible en este dispositivo:", e);
-  }
+  try { speakMarkdown(aiReply); } catch (e) { console.warn("TTS no disponible en este dispositivo:", e); }
 }
+window.sendMessage = sendMessage; // expone para index.html
+
+// ============ PIPELINE DESDE VISIÓN ============
+let __visionCtx = { ocrText: "" };
+window.setVisionContext = function ({ ocrText = "" } = {}) { __visionCtx.ocrText = ocrText; };
+
+/**
+ * Encadena explicación con el LLM usando la respuesta del VQA.
+ * @param {string} answerFromVision - Texto devuelto por /api/vision/qa
+ * @param {string} question - Pregunta que escribió el usuario en “¿Qué quieres saber?”
+ * @param {object} extras - { ocrText?: string, userMessage?: string }
+ */
+window.pipelineFromVision = async function (answerFromVision, question = "", extras = {}) {
+  const ocrText = (extras.ocrText ?? __visionCtx.ocrText ?? "").trim();
+  const userMessage = (extras.userMessage || "").trim();
+
+  // Construimos prompt claro y dirigido a resolución/explicación
+  const prompt =
+`Tenemos una consulta basada en una imagen.
+${userMessage ? `Mensaje del usuario: """${userMessage}"""\n` : ""}
+Pregunta específica sobre la imagen: """${question || "Resume el enunciado, datos clave y resuelve brevemente."}"""
+Observaciones del modelo de visión (VQA): """${answerFromVision || "(vacío)"}"""
+${ocrText ? `Texto reconocido (OCR): """${ocrText}"""\n` : ""}
+
+Por favor:
+1) Resume en 2–3 líneas el enunciado/datos relevantes.
+2) Explica la estrategia de resolución (pasos, fórmulas si aplica).
+3) Resuelve paso a paso con claridad.
+4) Da el resultado final y una verificación breve.
+Recuerda: usa LaTeX grande para fórmulas con $$ ... $$ cuando apliquen. Responde en español.`;
+
+  showThinking("Analizando lo que aparece en la imagen…");
+
+  try {
+    const reply = await callChatAPI([
+      { role: "system", content: SYSTEM_PROMPT },
+      ...(userMessage ? [{ role: "user", content: userMessage }] : []),
+      { role: "user", content: prompt }
+    ], 0.7);
+
+    hideThinking();
+    appendMessage("assistant", renderMarkdown(reply));
+    saveMsg("assistant", reply);
+    if (window.MathJax?.typesetPromise) MathJax.typesetPromise();
+    try { speakMarkdown(reply); } catch {}
+  } catch (err) {
+    hideThinking();
+    const detail = String(err?.message || err || "Error");
+    appendMessage("assistant", `⚠️ No se pudo generar la explicación a partir de la imagen.\n\n\`\`\`\n${detail}\n\`\`\``);
+  }
+};
 
 // ============ INICIO ============
 function initChat() {
