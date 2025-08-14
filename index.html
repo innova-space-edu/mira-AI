@@ -45,8 +45,89 @@
     document.addEventListener('DOMContentLoaded', updateViewportVars);
   </script>
 
-  <!-- Estilos -->
+  <!-- Estilos base -->
   <link rel="stylesheet" href="style.css" />
+
+  <!-- Estilos específicos del overlay y del composer (integrados aquí) -->
+  <style>
+    :root{
+      --topbar-h: 48px;   /* se actualiza en runtime */
+      --dock-w: 72px;     /* ancho barra lateral íconos */
+      --pad: 16px;
+    }
+    /* Overlay decorativo (no ocupa alto, no tapa clics) */
+    .hero-overlay{
+      position: absolute;
+      top: var(--topbar-h);
+      left: 0; right: 0;
+      height: 0;
+      pointer-events: none;
+      z-index: 2;
+      padding: 0 var(--pad);
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+    }
+    .hero-left{ display:flex; justify-content:flex-start; padding-left: calc(var(--dock-w) + 12px); }
+    .brand-mini{ font-size: clamp(18px, 2.2vw, 28px); font-weight:700; margin: 8px 0 0 24px; opacity:.9; }
+    .hero-right{ display:grid; grid-template-rows:auto auto 1fr; justify-items:start; padding-right:24px; }
+    .mira-title{ font-size: clamp(18px, 2.2vw, 26px); font-weight:800; margin-top:6px; letter-spacing:.3px; }
+    #avatar-mira{ width: clamp(56px, 6vw, 78px); margin-top:6px; filter: drop-shadow(0 2px 6px rgba(0,0,0,.25)); }
+    .tagline{ margin-top: 18vh; max-width: 520px; font-size: clamp(14px, 1.5vw, 18px); opacity:.85; }
+
+    /* Chat: subida casi al tope y sin tapar dock lateral */
+    #main-chat .chat-wrap{
+      margin-left: calc(var(--dock-w) + 12px);
+      margin-right: var(--pad);
+      margin-top: 8px;
+    }
+    /* Panel de mensajes alto */
+    #chat-box{
+      max-height: calc(100vh - var(--topbar-h) - 160px);
+      overflow: auto;
+    }
+
+    /* Composer unificado (input + botón + chips) */
+    .composer {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: .5rem;
+      align-items: center;
+      padding: .6rem .8rem;
+      border-top: 1px solid rgba(255,255,255,.1);
+      background: rgba(0,0,0,.35);
+      border-radius: .5rem;
+    }
+    .icon-btn, .send-btn {
+      border: none; border-radius: 12px;
+      padding: .5rem .7rem; cursor: pointer;
+      background: rgba(255,255,255,.08); color: inherit;
+    }
+    .icon-btn { font-size: 1.2rem; width: 38px; height: 38px; line-height: 1; }
+    .composer-input {
+      width: 100%; max-height: 120px; background: #374151;
+      color: #fff; border: 1px solid #4b5563; outline: none;
+      border-radius: .5rem; padding: .5rem .6rem;
+    }
+    .attachments {
+      grid-column: 1 / -1; display: flex; gap: .4rem; flex-wrap: wrap; margin-top: .2rem;
+    }
+    .attachment-chip { display: inline-flex; align-items: center; gap: .4rem; padding: .25rem .5rem;
+      border-radius: 999px; background: rgba(255,255,255,.10); border: 1px solid rgba(255,255,255,.12); font-size: .85rem; }
+    .attachment-chip img { width: 24px; height: 24px; object-fit: cover; border-radius: 6px; }
+    .attachment-chip button { background: transparent; border: none; color: inherit; cursor: pointer; font-size: 1rem; }
+
+    /* Burbujas (por si tu style.css no las define) */
+    .bubble{ max-width: 860px; padding:.75rem .9rem; border-radius:14px; margin:.35rem 0; line-height:1.45; word-wrap:break-word; }
+    .msg.user .bubble{ margin-left:auto; background: rgba(255,255,255,.08); }
+    .msg.assistant .bubble{ margin-right:auto; background: rgba(0,0,0,.28); }
+
+    /* Responsive */
+    @media (max-width: 1024px){
+      .hero-overlay{ grid-template-columns: 1fr; }
+      #main-chat .chat-wrap{ margin-left: var(--pad); }
+      .tagline{ margin-top: 10vh; }
+    }
+  </style>
 </head>
 
 <body class="bg-gradient-to-br from-black via-indigo-900 to-purple-900 text-white font-sans">
@@ -94,6 +175,18 @@
 
   <!-- App (se muestra solo cuando hay sesión) -->
   <main id="landing" class="relative hidden">
+
+    <!-- Overlay de encabezado (no ocupa alto) -->
+    <div class="hero-overlay" aria-hidden="true">
+      <div class="hero-left">
+        <h1 class="brand-mini">Innova Space Education</h1>
+      </div>
+      <div class="hero-right">
+        <div class="mira-title">Asistente IA – MIRA</div>
+        <object id="avatar-mira" type="image/svg+xml" data="avatar_mira.svg" class="still" tabindex="-1" aria-hidden="true"></object>
+        <p class="tagline">Educación del futuro. Conectando estudiantes con IA.</p>
+      </div>
+    </div>
 
     <!-- Dock: Spotify + Usuario -->
     <div class="side-dock">
@@ -148,60 +241,28 @@
       </div>
     </aside>
 
-    <!-- Cabecera -->
-    <section id="hero" class="text-center">
-      <h1 class="hero-title">Innova Space Education</h1>
-      <p id="hero-subtitle-app" class="text-lg text-gray-300 mt-3">Educación del futuro. Conectando estudiantes con IA.</p>
-    </section>
-
     <!-- Chat -->
     <section id="main-chat" class="px-4">
       <div class="chat-wrap max-w-3xl mx-auto relative mt-2 w-full">
-        <div class="flex items-center justify-center mb-4 gap-2">
-          <h2 class="text-3xl md:text-4xl font-bold text-center m-0">Asistente IA - MIRA</h2>
-          <object id="avatar-mira" type="image/svg+xml" data="avatar_mira.svg" class="still" tabindex="-1" aria-hidden="true"></object>
-        </div>
+        <!-- Título dentro del overlay; aquí ya no repetimos h2 ni avatar -->
 
         <div id="chat-card" class="bg-gray-900 border border-purple-500 rounded-xl p-4 shadow-xl relative">
           <div id="chat-shell">
             <div id="chat-box" class="bg-gray-800 p-3 rounded-md mb-2 text-sm space-y-2 text-white"></div>
 
-            <!-- Input + botones -->
-            <div class="input-row flex gap-2 items-stretch">
-              <button id="btn-attach" title="Adjuntar imagen" class="px-3 rounded-md border border-gray-600 bg-gray-700 hover:bg-gray-600 text-xl leading-none">📎</button>
-              <input aria-label="Escribe tu mensaje" type="text" id="user-input" placeholder="Escribe tu mensaje..."
-                     class="flex-1 p-2 rounded-md bg-gray-700 text-white border border-gray-600"
-                     autocomplete="off">
-              <button id="send-btn" class="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-md text-white font-bold">
-                Enviar
-              </button>
+            <!-- Composer unificado -->
+            <div class="composer">
+              <button id="attachBtn" class="icon-btn" title="Adjuntar imagen" aria-label="Adjuntar imagen">+</button>
+              <input id="fileInput" type="file" accept="image/png,image/jpeg,image/webp" multiple hidden>
+              <div id="attachments" class="attachments" aria-live="polite"></div>
+
+              <input aria-label="Escribe tu mensaje" type="text" id="user-input" placeholder="Escribe tu mensaje… (Shift+Enter = salto)"
+                     class="composer-input" autocomplete="off">
+
+              <button id="send-btn" class="send-btn">Enviar</button>
             </div>
           </div>
         </div>
-      </div>
-
-      <!-- Bandeja de adjunto (sube desde el input) -->
-      <div id="uploadTray" class="fixed left-0 right-0 bottom-20 mx-auto w-[min(640px,92vw)] bg-gray-900/95 border border-purple-500/50 rounded-2xl shadow-2xl p-4 z-50 hidden">
-        <div class="flex items-center gap-2 text-lg mb-3">
-          <span class="text-purple-300">📎</span>
-          <span class="font-semibold">Adjuntar imagen</span>
-          <div class="ml-auto">
-            <button id="closeTray" class="text-sm text-purple-300 hover:text-purple-200">Cerrar ✕</button>
-          </div>
-        </div>
-
-        <div class="rounded-xl border border-purple-500/40 p-2 bg-gray-800/70">
-          <input id="imgPicker" type="file" accept="image/*" class="hidden" />
-          <div id="imgPreview" class="w-full max-h-72 overflow-auto grid place-items-center rounded-lg bg-black/40" hidden></div>
-          <div class="flex items-center gap-2 mt-2">
-            <button id="chooseImg" class="px-3 py-1 rounded-md bg-gray-700 hover:bg-gray-600 border border-gray-600">Elegir imagen…</button>
-            <span class="text-xs opacity-70">PNG, JPG, WEBP</span>
-          </div>
-        </div>
-
-        <!-- Solo texto de pregunta (sin botones OCR/Describir/Preguntar) -->
-        <input id="vqaQ" type="text" class="mt-3 w-full p-2 rounded-md bg-gray-800 text-white border border-gray-600"
-               placeholder="¿Qué quieres saber? (opcional: si lo dejas vacío, describo la imagen)">
       </div>
     </section>
   </main>
@@ -520,154 +581,6 @@
         document.body.classList.remove('panel-open');
       }
     });
-  </script>
-
-  <!-- ======== Adjuntar imagen: lógica de bandeja + envío ======== -->
-  <script>
-    const $ = (id)=>document.getElementById(id);
-
-    const tray    = $("uploadTray");
-    const btnAtt  = $("btn-attach");
-    const closeT  = $("closeTray");
-    const picker  = $("imgPicker");
-    const choose  = $("chooseImg");
-    const preview = $("imgPreview");
-    const vqaQ    = $("vqaQ");
-
-    let lastImage = null;      // { base64, mime }
-    let lastImageURL = null;   // blob URL para preview
-
-    function openTray(){ tray.classList.remove("hidden"); tray.classList.add("block"); tray.setAttribute("aria-hidden","false"); }
-    function closeTray(){ tray.classList.add("hidden"); tray.classList.remove("block"); tray.setAttribute("aria-hidden","true"); }
-
-    btnAtt?.addEventListener("click", (e)=>{ e.preventDefault(); openTray(); });
-    closeT?.addEventListener("click", (e)=>{ e.preventDefault(); closeTray(); });
-
-    choose?.addEventListener("click", (e)=>{ e.preventDefault(); picker?.click(); });
-
-    function showPreview(file){
-      preview.hidden = false;
-      if (lastImageURL) URL.revokeObjectURL(lastImageURL);
-      lastImageURL = URL.createObjectURL(file);
-      preview.innerHTML = `<img src="${lastImageURL}" alt="imagen seleccionada" class="max-h-72 rounded-lg border border-purple-700" />`;
-    }
-
-    function clearAttachment(){
-      lastImage = null;
-      if (lastImageURL) { URL.revokeObjectURL(lastImageURL); lastImageURL = null; }
-      preview.hidden = true;
-      preview.innerHTML = "";
-      if (picker) picker.value = "";
-    }
-
-    function fileToBase64(file){
-      return new Promise((resolve, reject)=>{
-        const reader = new FileReader();
-        reader.onload = ()=> resolve(String(reader.result).split(",")[1]);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-    }
-
-    picker?.addEventListener("change", async (e)=>{
-      const f = e.target.files?.[0];
-      if (!f) return;
-      showPreview(f);
-      try {
-        const b64 = await fileToBase64(f);
-        lastImage = { base64: b64, mime: f.type || "image/png" };
-      } catch {
-        lastImage = null; clearAttachment();
-      }
-    });
-
-    function escapeHTML(s){ return (s||"").replace(/[&<>\"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-
-    async function postJSON(path, body) {
-      async function doFetch(url) {
-        const r = await fetch(url, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        });
-        const txt = await r.text();
-        if (!r.ok) throw new Error(txt || `HTTP ${r.status}`);
-        try { return JSON.parse(txt); } catch { return {}; }
-      }
-      try {
-        return await doFetch(path);
-      } catch (e) {
-        const msg = String(e.message || "");
-        if (/not\s*found/i.test(msg) || /404/.test(msg)) {
-          const fn = path.replace(/^\/api\//, "/.netlify/functions/");
-          return await doFetch(fn);
-        }
-        throw e;
-      }
-    }
-
-    // Sobreescribimos sendMessage para manejar imagen
-    const originalSendMessage = window.sendMessage;
-
-    window.sendMessage = async function(){
-      const inputEl = $("user-input");
-      const userText = (inputEl.value || "").trim();
-      const question = (vqaQ?.value || "").trim();
-
-      // pintar mensaje del usuario (texto + preview si aplica)
-      let htmlUser = "";
-      if (userText) htmlUser += `<div>${escapeHTML(userText)}</div>`;
-      if (lastImageURL) {
-        htmlUser += `<div class="mt-2"><img src="${lastImageURL}" alt="adjunto" class="max-w-[240px] rounded-lg border border-purple-800"/></div>`;
-      }
-      if (!htmlUser) htmlUser = "(mensaje vacío)";
-      appendMessage("user", htmlUser);
-
-      // lógica de envío
-      try {
-        if (lastImage) {
-          if (question) {
-            // VQA (pregunta sobre la imagen)
-            const data = await postJSON("/api/vision/qa", {
-              image_base64: lastImage.base64,
-              mime: lastImage.mime,
-              question
-            });
-            appendMessage("assistant", marked.parse("🔍 **Respuesta sobre la imagen:**\n\n" + (data.answer || "(sin respuesta)")));
-            // Pipeline hacia el LLM para explicación completa
-            try {
-              window.pipelineFromVision?.(String(data.answer || ""), question, { userMessage: userText });
-            } catch {}
-          } else {
-            // Solo imagen: describir
-            const data = await postJSON("/api/vision/caption", {
-              image_base64: lastImage.base64,
-              mime: lastImage.mime
-            });
-            appendMessage("assistant", marked.parse("🖼️ **Descripción de la imagen:**\n\n" + (data.caption || "(sin descripción)")));
-            // Puedes encadenar si quieres que razone a partir de la descripción
-            try {
-              window.pipelineFromVision?.(String(data.caption || ""), "Describe brevemente el contenido y posibles usos educativos.", { userMessage: userText });
-            } catch {}
-          }
-        } else {
-          // Sin imagen → chat normal
-          if (typeof originalSendMessage === "function") {
-            await originalSendMessage();
-          }
-        }
-      } catch (e) {
-        let detail = "";
-        try { detail = (JSON.parse(String(e.message))?.detail) || ""; } catch {}
-        appendMessage("assistant", "⚠️ Error en análisis visual." + (detail ? " Detalle: " + detail : ""));
-      } finally {
-        // limpiar SIEMPRE para que la imagen no quede pegada
-        inputEl.value = "";
-        if (vqaQ) vqaQ.value = "";
-        clearAttachment();
-        closeTray();
-      }
-    };
   </script>
 </body>
 </html>
