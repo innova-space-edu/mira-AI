@@ -4,6 +4,7 @@
   --topbar-h: 0px;
   --panel-w: 320px;
   --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --header-h: 0px; /* se calcula en runtime según #page-header */
 }
 
 /* Todo dentro del viewport, sin desbordes */
@@ -36,7 +37,7 @@ body.panel-open #landing{ padding-left: calc(var(--panel-w) + 20px); }
   body.panel-open #landing{ padding-left: 0; }
 }
 
-/* =================== Tipografía y cabecera =================== */
+/* =================== Tipografía / Encabezado =================== */
 .hero-title{
   font-weight: 800;
   font-size: clamp(28px, 6.8vw, 64px);
@@ -46,64 +47,115 @@ body.panel-open #landing{ padding-left: calc(var(--panel-w) + 20px); }
   background-clip: text;
   color: transparent;
 }
-#hero{ padding-top: clamp(8px, 2vh, 18px); margin-bottom: 10px; }
+
+/* Encabezado estático fuera del chat */
+.page-header{
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.ph-left{ display:flex; align-items:center; }
+.brand-mini{
+  font-size: clamp(20px, 2.4vw, 34px);
+  font-weight: 800;
+  letter-spacing: .3px;
+  background-image: linear-gradient(90deg,#22c55e, #a855f7, #38bdf8);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 2px 10px rgba(168,85,247,.35));
+}
+.ph-right{ display:grid; grid-template-rows:auto auto auto; justify-items:end; }
+.mira-title{
+  font-size: clamp(18px, 2.2vw, 28px);
+  font-weight: 800;
+  margin-top: 4px;
+  letter-spacing: .3px;
+}
+#avatar-mira{
+  width: clamp(56px, 6vw, 78px);
+  height: auto;
+  filter: drop-shadow(0 2px 6px rgba(0,0,0,.25));
+  margin: 6px 0 2px 0;
+}
+.tagline{
+  max-width: 520px;
+  font-size: clamp(14px, 1.5vw, 18px);
+  opacity:.9;
+}
 
 /* =================== Chat =================== */
-#main-chat{ display: flex; justify-content: center; align-items: center; padding: 10px 12px 18px; }
+#main-chat{ display: flex; justify-content: center; align-items: stretch; padding: 6px 12px 16px; }
 .chat-wrap{ width: min(960px, 94vw); margin-inline: auto; }
 
-#chat-card{ padding: 1rem; }
-#chat-shell{ display: flex; flex-direction: column; height: min(64vh, 560px); }
+#chat-card{ padding: 1rem; height: 100%; }
+#chat-shell{
+  display: flex; flex-direction: column;
+  /* Altura total del viewport menos topbar y menos encabezado */
+  height: calc(100dvh - var(--topbar-h) - var(--header-h) - 16px);
+}
 #chat-box{ flex: 1 1 auto; overflow-y: auto; }
 
-/* Fila del input siempre visible */
+/* Fila del input fija al fondo del card */
 .input-row{
   position: sticky;
   bottom: 0;
   padding-top: 8px;
   background: linear-gradient(180deg, rgba(17,24,39,0) 0%, rgba(17,24,39,.65) 40%, rgba(17,24,39,.85) 100%);
   padding-bottom: max(6px, var(--safe-bottom));
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
 }
 
-/* NUEVO: grupo del input para alojar el "+" y la bandeja */
+/* Input grande + botón “+” flotante */
 .input-group{
   position: relative;
   display: grid;
   align-items: center;
 }
-
-/* Botón + pequeño, sin fondo, dentro del input (esquina derecha-inferior) */
+.composer-input{
+  width: 100%;
+  min-height: 52px;
+  font-size: 1rem;
+  background: #374151;
+  color: #fff;
+  border: 1px solid #4b5563;
+  border-radius: .75rem;
+  outline: none;
+  padding: .7rem 2.4rem .7rem .8rem; /* espacio para + */
+}
 .plus-btn{
   position: absolute;
   right: 8px;
   bottom: 8px;
   border: none;
-  background: transparent; /* sin fondo */
+  background: #6d28d9;
   color: #fff;
-  font-size: 1.25rem; /* tamaño del símbolo */
+  font-size: 1.05rem;
   line-height: 1;
   cursor: pointer;
-  padding: .15rem .25rem;
-  opacity: .85;
+  padding: .35rem .55rem;
+  border-radius: .6rem;
+  box-shadow: 0 4px 10px rgba(0,0,0,.25);
 }
-.plus-btn:hover{ opacity: 1; }
+.plus-btn:hover{ background:#7c3aed; }
 
-/* Bandeja que se abre hacia ARRIBA, anclada al grupo */
+/* Menú desplegable para adjuntar */
 .upload-tray{
   position: absolute;
   bottom: calc(100% + .55rem);
   right: 0;
-  min-width: 260px;
+  min-width: 240px;
   max-width: min(420px, 92vw);
-  background: #111827; /* gris-900 */
-  border: 1px solid #4c1d95; /* púrpura oscuro, consistente con tema */
+  background: #111827;
+  border: 1px solid #4c1d95;
   border-radius: .9rem;
-  padding: .75rem;
+  padding: .6rem;
   box-shadow: 0 14px 34px rgba(0,0,0,.35);
-  display: none;
   z-index: 40;
 }
-.upload-tray.open{ display: block; }
+.hidden{ display:none; }
 
 .upload-item{
   display: inline-flex;
@@ -113,69 +165,22 @@ body.panel-open #landing{ padding-left: calc(var(--panel-w) + 20px); }
   cursor: pointer;
   user-select: none;
   color: #e5e7eb;
+  background: transparent;
+  border: none;
+  padding: .3rem .25rem;
 }
 
-/* Preview */
-.img-preview{
-  margin-top: .6rem;
-  border: 1px dashed #7c3aed80; /* lila translúcido */
-  border-radius: .55rem;
-  padding: .5rem;
-  max-height: 180px;
-  overflow: auto;
-  background: #0f172a; /* slate-900 */
+/* Botón Enviar pequeño a la derecha */
+.send-btn{
+  border: none;
+  background: #7c3aed;
+  color: #fff;
+  border-radius: .6rem;
+  padding: .55rem .8rem;
+  font-size: .95rem;
+  min-width: 86px;
 }
-.img-preview img{ max-width: 100%; height: auto; display: block; border-radius: .25rem; }
-
-/* Acciones */
-.tray-actions{
-  display: grid;
-  grid-template-columns: repeat(3, auto);
-  gap: .5rem;
-  align-items: center;
-  margin-top: .6rem;
-}
-.tray-btn{
-  border: 1px solid #4c1d95;
-  background: #1f2937;
-  color: #e5e7eb;
-  border-radius: .5rem;
-  padding: .38rem .55rem;
-  cursor: pointer;
-  font-size: .85rem;
-}
-.tray-btn:hover{ background: #303a4a; }
-.tray-q{
-  grid-column: 1 / -1;
-  border: 1px solid #374151;
-  background: #111827;
-  color: #e5e7eb;
-  border-radius: .5rem;
-  padding: .45rem .55rem;
-  font-size: .92rem;
-}
-
-/* Ocultamos secciones extra para 1 pantalla */
-#areas-section, #about-section, #contact-section, .credits-wrapper{ display: none !important; }
-
-/* =================== Avatar =================== */
-#avatar-mira{
-  width: clamp(44px, 10vw, 76px);
-  height: auto;
-  display: inline-block; vertical-align: middle;
-  margin-left: 12px; margin-bottom: 6px;
-  transition: filter .3s, opacity .3s;
-  opacity: 1; filter: grayscale(.4) brightness(.8);
-}
-#avatar-mira.pulse{
-  animation: halo-glow 1.2s infinite alternate;
-  filter: drop-shadow(0 0 16px #a855f7) brightness(1.25);
-  opacity: 1;
-}
-@keyframes halo-glow{
-  from { filter: drop-shadow(0 0 12px #4f46e5) brightness(1.18); }
-  to   { filter: drop-shadow(0 0 36px #38bdf8) brightness(1.45); }
-}
+.send-btn:hover{ background:#6d28d9; }
 
 /* =================== Mensajes tipo chat =================== */
 .msg{ display:flex; gap:8px; margin:8px 0; }
@@ -249,14 +254,12 @@ mjx-container[jax="CHTML"]{
 .dock-label{ display:block; font-size:.78rem; color:#dbeafe; letter-spacing:.2px; }
 .dock-btn:hover{ transform: translateY(-2px) scale(1.04); }
 
-/* Contenedor del icono (ahí va el halo) */
+/* Contenedor del icono (halo Spotify) */
 .dock-icon{
   width: 44px; height: 44px; display:grid; place-items:center;
   position: relative; border-radius: 9999px;
 }
 .dock-icon svg{ width: 28px; height: 28px; opacity:.98; }
-
-/* 🌟 Halo SOLO en el icono de Spotify */
 .dock-btn.playing .dock-icon::before{
   content:"";
   position:absolute; inset:-10px; border-radius:9999px;
@@ -300,56 +303,22 @@ mjx-container[jax="CHTML"]{
 }
 
 /* Scroll solo en la lista si hay muchas playlists */
-.playlist-list {
-  overflow-y: auto;
-  max-height: calc((var(--vh) * 100) - 420px);
-}
+.playlist-list { overflow-y: auto; max-height: calc((var(--vh) * 100) - 420px); }
 @supports (height: 100dvh){
   .playlist-list{ max-height: calc(100dvh - 420px); }
 }
 
 /* =================== Responsive móvil =================== */
 @media (max-width: 480px), (max-height: 640px){
-  /* Ocultar subtítulo SOLO en móvil (login y app) */
   #hero-subtitle, #hero-subtitle-app { display: none; }
 
-  /* Chat más compacto y centrado */
   .chat-wrap{ width: min(92vw, 560px); margin-inline: auto; }
   #chat-card{ padding: 10px; }
-  #chat-shell{ height: min(50vh, 420px); }
+  #chat-shell{ height: calc(100dvh - var(--topbar-h) - var(--header-h) - 8px); }
   #chat-box{ font-size: .92rem; }
 
-  /* Input más pequeño y con espacio extra para el dock */
-  .input-row{
-    padding-top: 6px;
-    padding-bottom: calc(max(6px, var(--safe-bottom)) + 44px);
-  }
-  .input-row input{ padding: 8px 10px; font-size: .9rem; }
-  .input-row button{ padding: 8px 12px; font-size: .9rem; }
-
-  /* Burbujas un poquito más estrechas */
-  .bubble{ max-width: 84%; }
-
-  .side-panel{ width: 88vw; }
-
-  /* === Dock: bajo el input, abajo-izquierda === */
-  .side-dock{
-    position: fixed;
-    bottom: calc(10px + var(--safe-bottom));
-    left: 12px;
-    right: auto; top: auto;
-    transform: none;
-    background: transparent !important;
-    border: none !important;
-    padding: 0;
-    gap: 12px;
-    flex-direction: row;
-    align-items: center;
-    z-index: 80;
-  }
-  .dock-label{ display: none; }
-  .dock-icon{ width: 34px; height: 34px; }
-  .dock-icon svg{ width: 20px; height: 20px; }
+  .send-btn{ min-width: 74px; padding: .45rem .6rem; font-size: .9rem; }
+  .composer-input{ min-height: 48px; padding-right: 2.2rem; }
 }
 
 /* Ocultar completamente el main cuando está hidden */
