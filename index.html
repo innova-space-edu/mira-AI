@@ -185,15 +185,13 @@
                 <div id="uploadTray" class="upload-tray" aria-hidden="true">
                   <label class="upload-item">
                     <input id="imgPicker" type="file" accept="image/*" hidden />
-                    📷 Subir imagen
+                    📎 Adjuntar imagen
                   </label>
 
                   <div id="imgPreview" class="img-preview" hidden></div>
 
                   <div class="tray-actions">
-                    <button id="doOCR" class="tray-btn">OCR</button>
-                    <button id="doCaption" class="tray-btn">Describir</button>
-                    <button id="doVQA" class="tray-btn">Preguntar</button>
+                    <!-- SIN botones OCR/Describir/Preguntar -->
                     <input id="vqaQ" class="tray-q" placeholder="¿Qué quieres saber?" />
                   </div>
                 </div>
@@ -216,7 +214,7 @@
     function toggleAreas(){ const el = document.getElementById("areas-list"); if(el) el.classList.toggle("hidden"); }
   </script>
 
-  <!-- Lógica del chat -->
+  <!-- Lógica del chat (tuya) -->
   <script src="chat.js"></script>
 
   <!-- Markdown + LaTeX helper -->
@@ -528,7 +526,7 @@
     });
   </script>
 
-  <!-- ======== OCR + Visión: lógica del botón "+" y llamadas a /api ======== -->
+  <!-- ======== OCR/Visión: sólo adjuntar + campo de pregunta + envío ======== -->
   <script>
     const $ = (id) => document.getElementById(id);
     const chatBox = $("chat-box");
@@ -537,9 +535,13 @@
     const tray = $("uploadTray");
     const picker = $("imgPicker");
     const preview = $("imgPreview");
-    let lastImage = null; // { base64, mime }
+    const vqaQ = $("vqaQ");
 
-    // Abrir/cerrar la bandeja (despliega hacia arriba). Al abrir, abre selector inmediato
+    // Guardamos imagen y URL para mostrar miniatura
+    let lastImage = null;      // { base64, mime }
+    let lastImageURL = null;   // blob url para preview
+
+    // Abrir bandeja y abrir selector
     plusBtn?.addEventListener("click", () => {
       const open = tray.classList.toggle("open");
       tray.setAttribute("aria-hidden", String(!open));
@@ -555,8 +557,9 @@
 
     function showPreview(file) {
       preview.hidden = false;
-      const url = URL.createObjectURL(file);
-      preview.innerHTML = `<img src="${url}" alt="imagen seleccionada" />`;
+      if (lastImageURL) URL.revokeObjectURL(lastImageURL);
+      lastImageURL = URL.createObjectURL(file);
+      preview.innerHTML = `<img src="${lastImageURL}" alt="imagen seleccionada" />`;
     }
 
     function fileToBase64(file) {
@@ -564,7 +567,7 @@
         const fr = new FileReader();
         fr.onload = () => {
           const res = String(fr.result);
-          const base64 = res.split(",")[1]; // data:*/*;base64,XXXX
+          const base64 = res.split(",")[1];
           resolve({ base64, mime: file.type || "image/jpeg" });
         };
         fr.onerror = reject;
@@ -578,7 +581,10 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      if (!r.ok) throw new Error(await r.text());
+      if (!r.ok) {
+        const txt = await r.text();
+        throw new Error(txt);
+      }
       return r.json();
     }
 
@@ -592,7 +598,6 @@
       chatBox.appendChild(el);
       chatBox.scrollTop = chatBox.scrollHeight;
       if (window.MathJax?.typesetPromise) setTimeout(()=>MathJax.typesetPromise(), 40);
-      // Persistir en store (opcional)
       try { window.ChatStore?.saveMessage(role==="user"?"user":"assistant", inner.textContent ? inner.textContent : html); } catch {}
     }
 
@@ -600,43 +605,51 @@
       return s.replace(/[&<>"']/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
     }
 
-    // === Acciones OCR / Caption / VQA ===
-    $("doOCR")?.addEventListener("click", async () => {
-      if (!lastImage) return alert("Adjunta una imagen primero.");
-      appendMessage("user", "Haciendo **OCR** sobre la imagen…");
-      try {
-        const data = await postJSON("/api/ocr", { image_base64: lastImage.base64, mime: lastImage.mime, language: "spa" });
-        const txt = data.text || "(sin texto)";
-        appendMessage("assistant", `📝 **OCR:**\n\n${escapeHTML(txt).replace(/\n/g,"<br>")}`, true);
-      } catch (e) {
-        appendMessage("assistant", "⚠️ Error en OCR.");
-      }
-    });
+    // Guardamos la función original de tu chat (si existe)
+    const originalSendMessage = window.sendMessage;
 
-    $("doCaption")?.addEventListener("click", async () => {
-      if (!lastImage) return alert("Adjunta una imagen primero.");
-      appendMessage("user", "Describiendo la imagen…");
-      try {
-        const data = await postJSON("/api/vision/caption", { image_base64: lastImage.base64 });
-        appendMessage("assistant", "🖼️ **Descripción:** " + escapeHTML(data.caption || "(sin descripción)"));
-      } catch (e) {
-        appendMessage("assistant", "⚠️ Error al describir la imagen.");
-      }
-    });
+    // Reemplazamos sendMessage para manejar imagen + pregunta
+    window.sendMessage = async function(){
+      const userText = (inputEl.value || "").trim();
+      const question = (vqaQ.value || "").trim();
 
-    $("doVQA")?.addEventListener("click", async () => {
-      if (!lastImage) return alert("Adjunta una imagen primero.");
-      const q = $("vqaQ").value.trim() || "Resume el enunciado y los datos clave y sugiere cómo resolverlo.";
-      appendMessage("user", "Preguntando sobre la imagen: " + escapeHTML(q));
-      try {
-        const data = await postJSON("/api/vision/qa", { image_base64: lastImage.base64, mime: lastImage.mime, question: q });
-        appendMessage("assistant", "🔍 **Respuesta sobre la imagen:** " + escapeHTML(data.answer || "(sin respuesta)"));
-      } catch (e) {
-        appendMessage("assistant", "⚠️ Error en análisis visual (VQA).");
-      }
-    });
+      // 1) Mostrar mensaje del usuario (texto + imagen si hay)
+      let htmlUser = "";
+      if (userText) htmlUser += `<div>${escapeHTML(userText)}</div>`;
+      if (lastImageURL) htmlUser += `<div style="margin-top:.4rem"><img src="${lastImageURL}" alt="adjunto" style="max-width:220px;border-radius:8px;border:1px solid #4c1d95"/></div>`;
+      if (!htmlUser) htmlUser = "(mensaje vacío)";
+      appendMessage("user", htmlUser, true);
 
-    // Opcional: cerrar bandeja si se hace click fuera
+      // 2) Si hay imagen → hacemos VQA con la pregunta (o genérica)
+      if (lastImage) {
+        const q = question || "Resume el enunciado, datos clave y da una respuesta breve.";
+        try{
+          const data = await postJSON("/api/vision/qa", {
+            image_base64: lastImage.base64,
+            mime: lastImage.mime,
+            question: q
+          });
+          appendMessage("assistant", "🔍 **Respuesta sobre la imagen:** " + escapeHTML(data.answer || "(sin respuesta)"));
+        }catch(e){
+          let detail="";
+          try{ detail = (JSON.parse(String(e.message))?.detail) || ""; }catch{}
+          appendMessage("assistant", "⚠️ Error en análisis visual." + (detail? " Detalle: " + detail : ""));
+        }
+      } else {
+        // 3) Sin imagen → delega a tu lógica original si existe
+        if (typeof originalSendMessage === "function") {
+          try { originalSendMessage(); } catch {}
+        }
+      }
+
+      // 4) Limpieza parcial (NO borramos la preview por si deseas reusar la imagen)
+      inputEl.value = "";
+      // Si quieres limpiar la imagen tras enviar, descomenta:
+      // lastImage = null; if (lastImageURL) { URL.revokeObjectURL(lastImageURL); lastImageURL = null; preview.hidden = true; preview.innerHTML = ""; }
+      tray.classList.remove("open"); tray.setAttribute("aria-hidden","true");
+    };
+
+    // Cerrar bandeja si se hace click fuera
     document.addEventListener("click", (ev)=>{
       if (!tray) return;
       const within = tray.contains(ev.target) || plusBtn.contains(ev.target);
@@ -647,3 +660,4 @@
   </script>
 </body>
 </html>
+
