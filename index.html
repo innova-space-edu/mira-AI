@@ -31,7 +31,7 @@
   </script>
   <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 
-  <!-- Altura real del viewport + safe areas -->
+  <!-- Variables viewport -->
   <script>
     function updateViewportVars(){
       document.documentElement.style.setProperty('--vh', (window.innerHeight * 0.01) + 'px');
@@ -45,96 +45,14 @@
     document.addEventListener('DOMContentLoaded', updateViewportVars);
   </script>
 
-  <!-- Estilos base -->
   <link rel="stylesheet" href="style.css" />
-
-  <!-- Estilos específicos del overlay y del composer (integrados aquí) -->
-  <style>
-    :root{
-      --topbar-h: 48px;   /* se actualiza en runtime */
-      --dock-w: 72px;     /* ancho barra lateral íconos */
-      --pad: 16px;
-    }
-    /* Overlay decorativo (no ocupa alto, no tapa clics) */
-    .hero-overlay{
-      position: absolute;
-      top: var(--topbar-h);
-      left: 0; right: 0;
-      height: 0;
-      pointer-events: none;
-      z-index: 2;
-      padding: 0 var(--pad);
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-    }
-    .hero-left{ display:flex; justify-content:flex-start; padding-left: calc(var(--dock-w) + 12px); }
-    .brand-mini{ font-size: clamp(18px, 2.2vw, 28px); font-weight:700; margin: 8px 0 0 24px; opacity:.9; }
-    .hero-right{ display:grid; grid-template-rows:auto auto 1fr; justify-items:start; padding-right:24px; }
-    .mira-title{ font-size: clamp(18px, 2.2vw, 26px); font-weight:800; margin-top:6px; letter-spacing:.3px; }
-    #avatar-mira{ width: clamp(56px, 6vw, 78px); margin-top:6px; filter: drop-shadow(0 2px 6px rgba(0,0,0,.25)); }
-    .tagline{ margin-top: 18vh; max-width: 520px; font-size: clamp(14px, 1.5vw, 18px); opacity:.85; }
-
-    /* Chat: subida casi al tope y sin tapar dock lateral */
-    #main-chat .chat-wrap{
-      margin-left: calc(var(--dock-w) + 12px);
-      margin-right: var(--pad);
-      margin-top: 8px;
-    }
-    /* Panel de mensajes alto */
-    #chat-box{
-      max-height: calc(100vh - var(--topbar-h) - 160px);
-      overflow: auto;
-    }
-
-    /* Composer unificado (input + botón + chips) */
-    .composer {
-      display: grid;
-      grid-template-columns: auto 1fr auto;
-      gap: .5rem;
-      align-items: center;
-      padding: .6rem .8rem;
-      border-top: 1px solid rgba(255,255,255,.1);
-      background: rgba(0,0,0,.35);
-      border-radius: .5rem;
-    }
-    .icon-btn, .send-btn {
-      border: none; border-radius: 12px;
-      padding: .5rem .7rem; cursor: pointer;
-      background: rgba(255,255,255,.08); color: inherit;
-    }
-    .icon-btn { font-size: 1.2rem; width: 38px; height: 38px; line-height: 1; }
-    .composer-input {
-      width: 100%; max-height: 120px; background: #374151;
-      color: #fff; border: 1px solid #4b5563; outline: none;
-      border-radius: .5rem; padding: .5rem .6rem;
-    }
-    .attachments {
-      grid-column: 1 / -1; display: flex; gap: .4rem; flex-wrap: wrap; margin-top: .2rem;
-    }
-    .attachment-chip { display: inline-flex; align-items: center; gap: .4rem; padding: .25rem .5rem;
-      border-radius: 999px; background: rgba(255,255,255,.10); border: 1px solid rgba(255,255,255,.12); font-size: .85rem; }
-    .attachment-chip img { width: 24px; height: 24px; object-fit: cover; border-radius: 6px; }
-    .attachment-chip button { background: transparent; border: none; color: inherit; cursor: pointer; font-size: 1rem; }
-
-    /* Burbujas (por si tu style.css no las define) */
-    .bubble{ max-width: 860px; padding:.75rem .9rem; border-radius:14px; margin:.35rem 0; line-height:1.45; word-wrap:break-word; }
-    .msg.user .bubble{ margin-left:auto; background: rgba(255,255,255,.08); }
-    .msg.assistant .bubble{ margin-right:auto; background: rgba(0,0,0,.28); }
-
-    /* Responsive */
-    @media (max-width: 1024px){
-      .hero-overlay{ grid-template-columns: 1fr; }
-      #main-chat .chat-wrap{ margin-left: var(--pad); }
-      .tagline{ margin-top: 10vh; }
-    }
-  </style>
 </head>
 
 <body class="bg-gradient-to-br from-black via-indigo-900 to-purple-900 text-white font-sans">
 
   <!-- Barra superior (solo con sesión) -->
   <header id="auth-bar" class="hidden sticky top-0 z-40 backdrop-blur bg-black/30 border-b border-white/10">
-    <div class="max-w-5xl mx-auto flex items-center justify-between px-4 py-2 text-sm">
+    <div class="max-w-6xl mx-auto flex items-center justify-between px-4 py-2 text-sm">
       <div class="opacity-80">Conectado: <span id="user-email" class="font-semibold"></span></div>
       <button id="logout-btn" class="px-3 py-1 rounded-md bg-purple-600 hover:bg-purple-700 font-semibold">Salir</button>
     </div>
@@ -175,16 +93,17 @@
 
   <!-- App (se muestra solo cuando hay sesión) -->
   <main id="landing" class="relative hidden">
-
-    <!-- Overlay de encabezado (no ocupa alto) -->
-    <div class="hero-overlay" aria-hidden="true">
-      <div class="hero-left">
+    <!-- Encabezado estático (FUERA del cuadro de chat) -->
+    <div id="page-header" class="page-header max-w-6xl mx-auto px-4 pt-3">
+      <div class="ph-left">
         <h1 class="brand-mini">Innova Space Education</h1>
       </div>
-      <div class="hero-right">
-        <div class="mira-title">Asistente IA – MIRA</div>
-        <object id="avatar-mira" type="image/svg+xml" data="avatar_mira.svg" class="still" tabindex="-1" aria-hidden="true"></object>
-        <p class="tagline">Educación del futuro. Conectando estudiantes con IA.</p>
+      <div class="ph-right">
+        <div class="mira-title text-right">Asistente IA – MIRA</div>
+        <div class="flex justify-center w-full">
+          <object id="avatar-mira" type="image/svg+xml" data="avatar_mira.svg" class="still" tabindex="-1" aria-hidden="true"></object>
+        </div>
+        <p class="tagline text-left md:text-right">Educación del futuro. Conectando estudiantes con IA.</p>
       </div>
     </div>
 
@@ -248,16 +167,22 @@
           <div id="chat-shell">
             <div id="chat-box" class="bg-gray-800 p-3 rounded-md mb-2 text-sm space-y-2 text-white"></div>
 
-            <!-- Composer unificado -->
-            <div class="composer">
-              <button id="attachBtn" class="icon-btn" title="Adjuntar imagen" aria-label="Adjuntar imagen">+</button>
-              <input id="fileInput" type="file" accept="image/png,image/jpeg,image/webp" multiple hidden>
-              <div id="attachments" class="attachments" aria-live="polite"></div>
+            <!-- Input fila (input grande + + flotante + botón pequeño) -->
+            <div class="input-row">
+              <div class="input-group">
+                <input aria-label="Escribe tu mensaje" type="text" id="user-input"
+                       placeholder="Escribe tu mensaje… (Enter = enviar, Shift+Enter = salto)"
+                       class="composer-input" autocomplete="off">
+                <!-- botón + flotante -->
+                <button id="attachBtn" class="plus-btn" title="Adjuntar">+</button>
+                <!-- menú desplegable -->
+                <div id="attachMenu" class="upload-tray hidden">
+                  <button id="attachImageOption" class="upload-item">📎 Adjuntar imagen</button>
+                </div>
+                <input id="fileInput" type="file" accept="image/png,image/jpeg,image/webp" multiple hidden>
+              </div>
 
-              <input aria-label="Escribe tu mensaje" type="text" id="user-input" placeholder="Escribe tu mensaje… (Shift+Enter = salto)"
-                     class="composer-input" autocomplete="off">
-
-              <button id="send-btn" class="send-btn">Enviar</button>
+              <button id="send-btn" class="send-btn px-3 py-2 rounded-md bg-purple-700 hover:bg-purple-800">Enviar</button>
             </div>
           </div>
         </div>
@@ -266,15 +191,6 @@
   </main>
 
   <!-- Helpers UI -->
-  <script>
-    function toggleMiraInfo(){ const el = document.getElementById("mira-info"); if(!el) return; el.style.display = (el.style.display==="none"||el.style.display==="")?"block":"none"; }
-    function toggleAreas(){ const el = document.getElementById('areas-list'); if(el) el.classList.toggle('hidden'); }
-  </script>
-
-  <!-- Lógica del chat -->
-  <script src="chat.js"></script>
-
-  <!-- Markdown + LaTeX helper -->
   <script>
     function addAssistantMessage(text) {
       const chatBox = document.getElementById('chat-box');
@@ -580,5 +496,10 @@
       }
     });
   </script>
+
+  <!-- Lógica del chat -->
+  <!-- (se inyecta el script de chat completo aquí) -->
+  <!-- Pega el contenido del archivo chat.js o enlázalo externamente -->
+  <script src="chat.js"></script>
 </body>
 </html>
