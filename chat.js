@@ -1,8 +1,8 @@
-// =============== CONFIG ===============
+// =============== CONFIGURACIÓN ===============
 const MODEL = "meta-llama/llama-4-scout-17b-16e-instruct";
 const PREFERRED_VOICE_NAME = "Microsoft Helena - Spanish (Spain)";
 
-// Prompt
+// Prompt inicial para el LLM
 const SYSTEM_PROMPT = `
 Eres MIRA (Modular Intelligent Responsive Assistant), creada por Innova Space.
 Habla SIEMPRE en español, clara y estructurada.
@@ -13,16 +13,18 @@ Habla SIEMPRE en español, clara y estructurada.
 - Cuando pidan “la fórmula”, da explicación breve, fórmula y define variables en texto.
 `;
 
-// ===== Endpoints de visión (backend) =====
-const BLIP_ENDPOINT = "/api/vision";      // POST JSON { mode:"caption", image_base64 }
-const OCR_ENDPOINT  = "/api/ocrspace";    // POST JSON { image_base64, language? }
+// Endpoints del backend (Netlify Functions)
+const BLIP_ENDPOINT = "/api/vision";    // imagen → caption (modo caption)
+const OCR_ENDPOINT  = "/api/ocrspace";  // imagen → OCR
 
 // ============ AVATAR ============
 let __innerAvatarSvg = null;
 function hookAvatarInnerSvg() {
   const obj = document.getElementById("avatar-mira");
   if (!obj) return;
-  const connect = () => { try { __innerAvatarSvg = obj.contentDocument?.documentElement || null; } catch { __innerAvatarSvg = null; } };
+  const connect = () => {
+    try { __innerAvatarSvg = obj.contentDocument?.documentElement || null; } catch { __innerAvatarSvg = null; }
+  };
   if (obj.contentDocument) connect();
   obj.addEventListener("load", connect);
 }
@@ -37,7 +39,7 @@ function setAvatarTalking(v) {
   }
 }
 
-// ============ UI ============
+// ============ UI helpers ============
 function appendHTML(html) {
   const chatBox = document.getElementById("chat-box");
   chatBox.insertAdjacentHTML("beforeend", html);
@@ -53,11 +55,12 @@ function showThinking(text = "MIRA está pensando…") {
   div.id = "thinking";
   div.className = "msg assistant";
   div.innerHTML = `<div class="bubble">${text}</div>`;
-  box.appendChild(div); box.scrollTop = box.scrollHeight;
+  box.appendChild(div);
+  box.scrollTop = box.scrollHeight;
 }
 function hideThinking() { document.getElementById("thinking")?.remove(); }
 
-// ============ TTS ============
+// ============ Conversión TTS ============
 function stripEmojis(s) {
   try { return s.replace(/[\p{Extended_Pictographic}\uFE0F\u200D]/gu, ""); }
   catch { return s.replace(/[\u{1F1E6}-\u{1F1FF}\u{1F300}-\u{1FAFF}\u{2600}-\u{26FF}]/gu, ""); }
@@ -69,7 +72,7 @@ function sanitizeForTTS(md) {
   t = t.replace(/\$\$[\s\S]*?\$\$/g, " ");
   t = t.replace(/\$[^$]*\$/g, " ");
   t = t.replace(/https?:\/\/\S+/g, " ");
-  t = t.replace(/(^|\s)[#/][^\s]+/g, " ");
+  t = t.replace(/(^|\s)[#\/][^\s]+/g, " ");
   t = t.replace(/[>*_~`{}\[\]()<>|]/g, " ");
   t = t.replace(/[•·\-] /g, " ");
   t = stripEmojis(t);
@@ -107,12 +110,19 @@ function pickVoice(){
 }
 
 function splitIntoChunks(text, maxLen = 200) {
-  const parts = text.split(/(?<=[\.\!\?\:\;])\s+|\n+/g);
-  const chunks = []; let buf = "";
+  const parts = text.split(/(?<=[\.!?;:])\s+|\n+/g);
+  const chunks = [];
+  let buf = "";
   for (const p of parts) {
-    const s = p.trim(); if (!s) continue;
-    if ((buf + " " + s).trim().length <= maxLen) buf = (buf ? buf + " " : "") + s;
-    else { if (buf) chunks.push(buf); (s.length<=maxLen) ? chunks.push(s) : chunks.push(...s.match(/.{1,200}/g)); buf = ""; }
+    const s = p.trim();
+    if (!s) continue;
+    if ((buf + " " + s).trim().length <= maxLen) {
+      buf = (buf ? buf + " " : "") + s;
+    } else {
+      if (buf) chunks.push(buf);
+      (s.length <= maxLen) ? chunks.push(s) : chunks.push(...s.match(/.{1,200}/g));
+      buf = "";
+    }
   }
   if (buf) chunks.push(buf);
   return chunks;
@@ -122,7 +132,11 @@ const INTER_CHUNK_PAUSE_MS = 120;
 
 function playNext() {
   const next = speechQueue.shift();
-  if (!next) { speaking = false; setAvatarTalking(false); return; }
+  if (!next) {
+    speaking = false;
+    setAvatarTalking(false);
+    return;
+  }
   const utter = new SpeechSynthesisUtterance(next);
   const v = pickVoice();
   if (v) utter.voice = v;
@@ -153,10 +167,10 @@ function speakAfterVoices(md){
   }catch(e){ }
 }
 
-// ============ RENDER ============
+// ============ RENDER MARKDOWN ============
 function renderMarkdown(text){ return typeof marked !== "undefined" ? marked.parse(text) : text; }
 
-// ============ WIKIPEDIA FALLBACK ============
+// ============ Fallback a Wikipedia si IA no responde ============
 async function wikiFallback(q){
   try {
     const r = await fetch(`https://es.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(q)}`);
@@ -164,7 +178,7 @@ async function wikiFallback(q){
   } catch { return null; }
 }
 
-// Guardar mensajes si está disponible ChatStore
+// Guarda mensajes si ChatStore está disponible (Firebase)
 async function saveMsg(role, content){
   try{ await window.ChatStore?.saveMessage?.(role, content); }catch{}
 }
@@ -208,9 +222,9 @@ async function callLLMFromText(userText){
   ]);
 }
 
-// ===== Utilidad: File → Base64 (dataURL)
+// ===== Utilidad: File → Base64 (Data URL) =====
 function fileToBase64(file){
-  return new Promise((resolve, reject)=>{
+  return new Promise((resolve, reject) => {
     const fr = new FileReader();
     fr.onload = () => resolve(fr.result);
     fr.onerror = reject;
@@ -218,8 +232,7 @@ function fileToBase64(file){
   });
 }
 
-// ============ VISIÓN (BLIP + OCR) ============
-// Ahora enviamos JSON con imageBase64 (más estable que multipart en Netlify)
+// ============ VISIÓN (caption + OCR) ============
 async function httpError(res) {
   let body = "";
   try { body = await res.text(); } catch {}
@@ -280,17 +293,17 @@ async function analyzeImages(files) {
 
     results.push(block);
   }
-  return results.map((b,i)=>`Imagen ${i+1}:\n${b}`).join("\n\n");
+  return results.map((b,i) => `Imagen ${i+1}:\n${b}`).join("\n\n");
 }
 
-// ============ PIPELINE DESDE VISIÓN → LLM ============
+// ============ PIPELINE: VISIÓN → LLM ============
 let __visionCtx = { ocrText: "" };
-window.setVisionContext = function ({ ocrText = "" } = {}) { __visionCtx.ocrText = ocrText; };
+window.setVisionContext = function({ ocrText = "" } = {}) { __visionCtx.ocrText = ocrText; };
 
 /**
- * Encadena explicación con el LLM usando la respuesta del VQA/descripción.
+ * Genera una explicación a partir de la salida de visión y la pregunta del usuario.
  */
-window.pipelineFromVision = async function (answerFromVision, question = "", extras = {}) {
+window.pipelineFromVision = async function(answerFromVision, question = "", extras = {}) {
   const ocrText = (extras.ocrText ?? __visionCtx.ocrText ?? "").trim();
   const userMessage = (extras.userMessage || "").trim();
 
@@ -331,49 +344,49 @@ Recuerda: usa LaTeX grande para fórmulas con $$ ... $$ cuando apliquen. Respond
 
 // ============ ENVÍO MENSAJE (texto + adjuntos) ============
 
-// Estado de adjuntos (UI compacta integrada al input)
+// Estado de adjuntos (archivos seleccionados)
 const $fileInput   = document.getElementById("fileInput");
 const $attachBtn   = document.getElementById("attachBtn");
-const $attachments = document.getElementById("attachments");
-let attachments = []; // [{file, urlPreview}]
+const $attachMenu  = document.getElementById("attachMenu");
+const $attachImageOption = document.getElementById("attachImageOption");
+let attachments = []; // { file, urlPreview }
 
-$attachBtn?.addEventListener("click", () => $fileInput?.click());
+// Al hacer clic en "+" se muestra/oculta el menú
+$attachBtn?.addEventListener("click", (e) => {
+  e.stopPropagation();
+  if ($attachMenu) $attachMenu.classList.toggle("hidden");
+});
+// Cerrar menú si se hace clic fuera
+document.addEventListener("click", () => {
+  if ($attachMenu) $attachMenu.classList.add("hidden");
+});
+// Opción de adjuntar imagen
+$attachImageOption?.addEventListener("click", (e) => {
+  e.stopPropagation();
+  $fileInput?.click();
+  if ($attachMenu) $attachMenu.classList.add("hidden");
+});
+
+// Selección de archivos
 $fileInput?.addEventListener("change", async (e) => {
   const files = Array.from(e.target.files || []);
   for (const f of files) {
     const url = URL.createObjectURL(f);
     attachments.push({ file: f, urlPreview: url });
   }
-  renderAttachmentChips();
+  // limpiar el input para permitir volver a seleccionar
   if ($fileInput) $fileInput.value = "";
 });
-
-function renderAttachmentChips() {
-  if (!$attachments) return;
-  $attachments.innerHTML = "";
-  attachments.forEach((att, i) => {
-    const chip = document.createElement("span");
-    chip.className = "attachment-chip";
-    chip.innerHTML = `
-      <img src="${att.urlPreview}" alt="img">
-      <span>${att.file.name}</span>
-      <button title="Quitar" aria-label="Quitar" data-i="${i}">×</button>
-    `;
-    chip.querySelector("button").onclick = () => {
-      URL.revokeObjectURL(att.urlPreview);
-      attachments.splice(i,1);
-      renderAttachmentChips();
-    };
-    $attachments.appendChild(chip);
-  });
-}
 
 // Envío con Enter (no Shift)
 (function bindEnterSend(){
   const input = document.getElementById("user-input");
   const btn   = document.getElementById("send-btn");
   input?.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
   });
   btn?.addEventListener("click", sendMessage);
 })();
@@ -385,7 +398,7 @@ async function sendMessage() {
 
   cancelAllSpeech();
 
-  // pintar mensaje del usuario (texto + miniaturas)
+  // construir HTML del mensaje del usuario (texto + miniaturas)
   let htmlUser = "";
   if (userMessage) htmlUser += renderMarkdown(userMessage);
   if (attachments.length) {
@@ -395,12 +408,11 @@ async function sendMessage() {
   appendMessage("user", htmlUser);
   saveMsg("user", userMessage || (attachments.length ? "[Imagen adjunta]" : ""));
 
-  // limpia input y chips
+  // limpiar input y adjuntos
   if (input) input.value = "";
   const localUrls = attachments.map(a => a.urlPreview);
   const files     = attachments.map(a => a.file);
   attachments = [];
-  renderAttachmentChips();
 
   let aiReply = "";
   let requestSucceeded = false;
@@ -411,7 +423,7 @@ async function sendMessage() {
       const visualContext = await analyzeImages(files);
       hideThinking();
 
-      // Si no escribió nada, pedimos descripción + detalle
+      // Si no escribió nada, pedir descripción
       const question = userMessage || "Describe y analiza detalladamente la(s) imagen(es).";
       await window.pipelineFromVision(visualContext, question, { userMessage });
       requestSucceeded = true;
@@ -438,7 +450,7 @@ async function sendMessage() {
     appendMessage("assistant", msg);
     saveMsg("assistant", msg);
   } finally {
-    // libera blobs locales
+    // liberar blobs locales
     localUrls.forEach(u => URL.revokeObjectURL(u));
   }
 
@@ -446,14 +458,12 @@ async function sendMessage() {
 }
 window.sendMessage = sendMessage;
 
-// ============ INICIO ============
+// ============ INICIALIZACIÓN ============
 function initChat() {
   hookAvatarInnerSvg();
-
   const saludo = "¡Hola! Soy MIRA. ¿En qué puedo ayudarte hoy?";
   appendMessage("assistant", renderMarkdown(saludo));
   try { speakAfterVoices(saludo); } catch {}
-
   if (window.MathJax?.typesetPromise) MathJax.typesetPromise();
   setAvatarTalking(false);
 }
