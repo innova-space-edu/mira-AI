@@ -322,7 +322,6 @@ mjx-container[jax="CHTML"]{
   /* Input más pequeño y con espacio extra para el dock */
   .input-row{
     padding-top: 6px;
-    /* +44px aprox por la altura del dock (34px icono + margen) */
     padding-bottom: calc(max(6px, var(--safe-bottom)) + 44px);
   }
   .input-row input{ padding: 8px 10px; font-size: .9rem; }
@@ -344,7 +343,7 @@ mjx-container[jax="CHTML"]{
     border: none !important;
     padding: 0;
     gap: 12px;
-    flex-direction: row;          /* fila horizontal */
+    flex-direction: row;
     align-items: center;
     z-index: 80;
   }
