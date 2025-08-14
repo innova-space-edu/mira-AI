@@ -14,8 +14,8 @@ Habla SIEMPRE en español, clara y estructurada.
 `;
 
 // ===== Endpoints de visión (backend) =====
-const BLIP_ENDPOINT = "/api/blip";        // POST JSON { imageBase64 }
-const OCR_ENDPOINT  = "/api/ocrspace";    // POST JSON { imageBase64 }
+const BLIP_ENDPOINT = "/api/vision";      // POST JSON { mode:"caption", image_base64 }
+const OCR_ENDPOINT  = "/api/ocrspace";    // POST JSON { image_base64, language? }
 
 // ============ AVATAR ============
 let __innerAvatarSvg = null;
@@ -239,12 +239,13 @@ async function callBLIP(file) {
   const r = await fetch(BLIP_ENDPOINT, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ imageBase64 })
+    body: JSON.stringify({ mode: "caption", image_base64: imageBase64 })
   });
   if (!r.ok) throw await httpError(r);
   const data = await r.json();
-  if (!data || !data.description) throw new Error("Respuesta BLIP inválida.");
-  return data.description;
+  const desc = data?.caption || data?.description || "";
+  if (!desc) throw new Error("Respuesta de visión inválida (caption).");
+  return desc;
 }
 
 async function callOCR(file) {
@@ -252,7 +253,7 @@ async function callOCR(file) {
   const r = await fetch(OCR_ENDPOINT, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ imageBase64, language: "spa" })
+    body: JSON.stringify({ image_base64: imageBase64, language: "spa" })
   });
   if (!r.ok) throw await httpError(r);
   const data = await r.json();
