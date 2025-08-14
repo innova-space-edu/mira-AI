@@ -167,24 +167,37 @@ async function saveMsg(role, content){
 }
 
 // ============ CLIENTE /api/chat ============
-async function callChatAPI(messages, temperature = 0.7) {
-  const response = await fetch("/api/chat", {
+async function callChatAPI_base(url, messages, temperature) {
+  const resp = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json", "Accept": "application/json" },
     body: JSON.stringify({ model: MODEL, messages, temperature })
   });
-  const raw = await response.text();
-  if (!response.ok) {
+  const raw = await resp.text();
+  if (!resp.ok) {
     let msg = "Error al conectar con la IA.";
-    if (response.status === 401) msg += " (401: clave inválida o expirada)";
-    else if (response.status === 403) msg += " (403: CORS o acceso denegado)";
-    else if (response.status === 429) msg += " (429: límite de uso alcanzado)";
-    else msg += ` (HTTP ${response.status})`;
+    if (resp.status === 401) msg += " (401: clave inválida o expirada)";
+    else if (resp.status === 403) msg += " (403: CORS o acceso denegado)";
+    else if (resp.status === 429) msg += " (429: límite de uso alcanzado)";
+    else if (resp.status === 404) msg += " (404: endpoint no encontrado)";
+    else msg += ` (HTTP ${resp.status})`;
     throw new Error(msg + `\n${raw || ""}`);
   }
-  const data = JSON.parse(raw);
-  const content = data?.choices?.[0]?.message?.content?.trim() || "";
-  return content;
+  const data = JSON.parse(raw || "{}");
+  return data?.choices?.[0]?.message?.content?.trim() || "";
+}
+
+// Intenta /api/chat y si no existe, cae a /.netlify/functions/chat
+async function callChatAPI(messages, temperature = 0.7) {
+  try {
+    return await callChatAPI_base("/api/chat", messages, temperature);
+  } catch (e) {
+    const msg = String(e?.message || "");
+    if (/404|no encontrado|endpoint no encontrado|not\s*found/i.test(msg)) {
+      return await callChatAPI_base("/.netlify/functions/chat", messages, temperature);
+    }
+    throw e;
+  }
 }
 async function callLLMFromText(userText){
   return callChatAPI([
@@ -252,7 +265,6 @@ window.pipelineFromVision = async function (answerFromVision, question = "", ext
   const ocrText = (extras.ocrText ?? __visionCtx.ocrText ?? "").trim();
   const userMessage = (extras.userMessage || "").trim();
 
-  // Construimos prompt claro y dirigido a resolución/explicación
   const prompt =
 `Tenemos una consulta basada en una imagen.
 ${userMessage ? `Mensaje del usuario: """${userMessage}"""\n` : ""}
