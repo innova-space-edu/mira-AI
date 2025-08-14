@@ -12,7 +12,6 @@
   to   = "/.netlify/functions/vision"
   status = 200
 
-# Si usas OCR (tu ocr.js existente)
 [[redirects]]
   from = "/api/ocrspace"
   to   = "/.netlify/functions/ocrspace"
