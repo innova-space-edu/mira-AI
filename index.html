@@ -97,7 +97,6 @@
 
     <!-- Dock: Spotify + Usuario -->
     <div class="side-dock">
-      <!-- Spotify -->
       <button id="btn-spotify" class="dock-btn" title="Spotify">
         <span class="dock-icon">
           <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -114,8 +113,6 @@
         </span>
         <span class="dock-label">Spotify</span>
       </button>
-
-      <!-- Usuario -->
       <button id="btn-user" class="dock-btn" title="Usuario">
         <span class="dock-icon">
           <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -126,14 +123,13 @@
       </button>
     </div>
 
-    <!-- Panel lateral reutilizado (Música / Chats) -->
+    <!-- Panel lateral (Spotify/Chats) -->
     <aside id="side-panel" class="side-panel" data-mode="music">
       <div class="flex items-center justify-between mb-2">
         <h3 id="panel-title" class="text-lg">Música para el aprendizaje</h3>
         <button id="close-panel" class="close-panel">Cerrar ✕</button>
       </div>
 
-      <!-- Música -->
       <div id="panel-music" class="panel-section active">
         <div id="playlist-list" class="playlist-list"></div>
         <iframe id="spotify-embed" class="panel-iframe"
@@ -141,7 +137,6 @@
         </iframe>
       </div>
 
-      <!-- Chats -->
       <div id="panel-chats" class="panel-section">
         <div class="text-sm opacity-80 mb-2">Conectado como <span id="panel-user-email"></span></div>
         <div class="flex gap-2 mb-3">
@@ -171,50 +166,53 @@
           <div id="chat-shell">
             <div id="chat-box" class="bg-gray-800 p-3 rounded-md mb-2 text-sm space-y-2 text-white"></div>
 
-            <div class="input-row flex gap-2">
-              <!-- Input + botón + bandeja (todo dentro del grupo) -->
-              <div class="input-group flex-1">
-                <input aria-label="Escribe tu mensaje" type="text" id="user-input" placeholder="Escribe tu mensaje..."
-                       class="flex-1 p-2 rounded-md bg-gray-700 text-white border border-gray-600 pr-10"
-                       autocomplete="off" onkeydown="if(event.key==='Enter'){sendMessage();return false;}">
-
-                <!-- Botón pequeño sin fondo (solo +) -->
-                <button id="plusBtn" class="plus-btn" aria-label="Adjuntar" title="Adjuntar">+</button>
-
-                <!-- Bandeja que se despliega hacia arriba -->
-                <div id="uploadTray" class="upload-tray" aria-hidden="true">
-                  <label class="upload-item">
-                    <input id="imgPicker" type="file" accept="image/*" hidden />
-                    📎 Adjuntar imagen
-                  </label>
-
-                  <div id="imgPreview" class="img-preview" hidden></div>
-
-                  <div class="tray-actions">
-                    <!-- SIN botones OCR/Describir/Preguntar -->
-                    <input id="vqaQ" class="tray-q" placeholder="¿Qué quieres saber?" />
-                  </div>
-                </div>
-              </div>
-
-              <button id="send-btn" onclick="sendMessage()" class="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-md text-white font-bold" tabindex="0">
+            <!-- Input + botones -->
+            <div class="input-row flex gap-2 items-stretch">
+              <button id="btn-attach" title="Adjuntar imagen" class="px-3 rounded-md border border-gray-600 bg-gray-700 hover:bg-gray-600 text-xl leading-none">📎</button>
+              <input aria-label="Escribe tu mensaje" type="text" id="user-input" placeholder="Escribe tu mensaje..."
+                     class="flex-1 p-2 rounded-md bg-gray-700 text-white border border-gray-600"
+                     autocomplete="off">
+              <button id="send-btn" class="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-md text-white font-bold">
                 Enviar
               </button>
             </div>
           </div>
         </div>
       </div>
-    </section>
 
+      <!-- Bandeja de adjunto (sube desde el input) -->
+      <div id="uploadTray" class="fixed left-0 right-0 bottom-20 mx-auto w-[min(640px,92vw)] bg-gray-900/95 border border-purple-500/50 rounded-2xl shadow-2xl p-4 z-50 hidden">
+        <div class="flex items-center gap-2 text-lg mb-3">
+          <span class="text-purple-300">📎</span>
+          <span class="font-semibold">Adjuntar imagen</span>
+          <div class="ml-auto">
+            <button id="closeTray" class="text-sm text-purple-300 hover:text-purple-200">Cerrar ✕</button>
+          </div>
+        </div>
+
+        <div class="rounded-xl border border-purple-500/40 p-2 bg-gray-800/70">
+          <input id="imgPicker" type="file" accept="image/*" class="hidden" />
+          <div id="imgPreview" class="w-full max-h-72 overflow-auto grid place-items-center rounded-lg bg-black/40" hidden></div>
+          <div class="flex items-center gap-2 mt-2">
+            <button id="chooseImg" class="px-3 py-1 rounded-md bg-gray-700 hover:bg-gray-600 border border-gray-600">Elegir imagen…</button>
+            <span class="text-xs opacity-70">PNG, JPG, WEBP</span>
+          </div>
+        </div>
+
+        <!-- Solo texto de pregunta (sin botones OCR/Describir/Preguntar) -->
+        <input id="vqaQ" type="text" class="mt-3 w-full p-2 rounded-md bg-gray-800 text-white border border-gray-600"
+               placeholder="¿Qué quieres saber? (opcional: si lo dejas vacío, describo la imagen)">
+      </div>
+    </section>
   </main>
 
   <!-- Helpers UI -->
   <script>
     function toggleMiraInfo(){ const el = document.getElementById("mira-info"); if(!el) return; el.style.display = (el.style.display==="none"||el.style.display==="")?"block":"none"; }
-    function toggleAreas(){ const el = document.getElementById("areas-list"); if(el) el.classList.toggle("hidden"); }
+    function toggleAreas(){ const el = document.getElementById('areas-list'); if(el) el.classList.toggle('hidden'); }
   </script>
 
-  <!-- Lógica del chat (tuya) -->
+  <!-- Lógica del chat -->
   <script src="chat.js"></script>
 
   <!-- Markdown + LaTeX helper -->
@@ -272,7 +270,7 @@
       document.querySelectorAll('.playlist-item').forEach(el => {
         el.classList.toggle('active', el.dataset.id === id);
       });
-      document.getElementById('btn-spotify')?.classList.add('playing'); // halo SOLO en el icono
+      document.getElementById('btn-spotify')?.classList.add('playing');
     }
 
     document.getElementById('btn-spotify')?.addEventListener('click', ()=>setPanelMode('music'));
@@ -332,7 +330,6 @@
     await setPersistence(auth, browserLocalPersistence);
     const db = getFirestore(app);
 
-    // ===== ChatStore (local + Firestore) =====
     window.ChatStore = (function(){
       let currentChatId = null;
       let currentUser   = null;
@@ -371,7 +368,7 @@
         const ref = chatDocRef(currentUser.uid, id);
         await setDoc(ref, {
           updatedAt: serverTimestamp(),
-          ...(role === "user" ? { title: content.slice(0,40) } : {}),
+          ...(role === "user" ? { title: content.slice(0,40) } : {} ),
           messages: arrayUnion({ role, content, ts: Date.now() })
         }, { merge: true });
       }
@@ -402,7 +399,7 @@
           const c = getGuestAll().find(x=>x.id===chatId);
           (c?.messages||[]).forEach(m=>{
             const html = (typeof marked!=="undefined")? marked.parse(m.content) : m.content;
-            appendMessage(m.role==="user"?"user":"assistant", html, true);
+            appendMessage(m.role==="user"?"user":"assistant", html);
           });
           if (window.MathJax?.typesetPromise) MathJax.typesetPromise();
           document.getElementById('side-panel')?.classList.remove('open');
@@ -413,7 +410,7 @@
         const snap = await getDoc(ref);
         (snap.data()?.messages||[]).forEach(m=>{
           const html = (typeof marked!=="undefined")? marked.parse(m.content) : m.content;
-          appendMessage(m.role==="user"?"user":"assistant", html, true);
+          appendMessage(m.role==="user"?"user":"assistant", html);
         });
         if (window.MathJax?.typesetPromise) MathJax.typesetPromise();
         document.getElementById('side-panel')?.classList.remove('open');
@@ -425,7 +422,7 @@
         const chatBox = document.getElementById('chat-box');
         chatBox.innerHTML = "";
         const saludo = "¡Nuevo chat iniciado! ¿Sobre qué tema quieres conversar?";
-        appendMessage("assistant", (typeof marked!=="undefined")? marked.parse(saludo) : saludo, true);
+        appendMessage("assistant", (typeof marked!=="undefined")? marked.parse(saludo) : saludo);
         document.getElementById('side-panel')?.classList.remove('open');
         document.body.classList.remove('panel-open');
       }
@@ -447,7 +444,6 @@
       return { setUser, saveMessage, loadChatList, loadChat, newChat };
     })();
 
-    // ===== Auth UI =====
     const $authSection = document.getElementById('auth');
     const $landing     = document.getElementById('landing');
     const $authBar     = document.getElementById('auth-bar');
@@ -526,138 +522,152 @@
     });
   </script>
 
-  <!-- ======== OCR/Visión: sólo adjuntar + campo de pregunta + envío ======== -->
+  <!-- ======== Adjuntar imagen: lógica de bandeja + envío ======== -->
   <script>
-    const $ = (id) => document.getElementById(id);
-    const chatBox = $("chat-box");
-    const inputEl = $("user-input");
-    const plusBtn = $("plusBtn");
-    const tray = $("uploadTray");
-    const picker = $("imgPicker");
+    const $ = (id)=>document.getElementById(id);
+
+    const tray    = $("uploadTray");
+    const btnAtt  = $("btn-attach");
+    const closeT  = $("closeTray");
+    const picker  = $("imgPicker");
+    const choose  = $("chooseImg");
     const preview = $("imgPreview");
-    const vqaQ = $("vqaQ");
+    const vqaQ    = $("vqaQ");
 
-    // Guardamos imagen y URL para mostrar miniatura
     let lastImage = null;      // { base64, mime }
-    let lastImageURL = null;   // blob url para preview
+    let lastImageURL = null;   // blob URL para preview
 
-    // Abrir bandeja y abrir selector
-    plusBtn?.addEventListener("click", () => {
-      const open = tray.classList.toggle("open");
-      tray.setAttribute("aria-hidden", String(!open));
-      if (open) picker.click();
-    });
+    function openTray(){ tray.classList.remove("hidden"); tray.classList.add("block"); tray.setAttribute("aria-hidden","false"); }
+    function closeTray(){ tray.classList.add("hidden"); tray.classList.remove("block"); tray.setAttribute("aria-hidden","true"); }
 
-    picker?.addEventListener("change", async (e) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
-      lastImage = await fileToBase64(file);
-      showPreview(file);
-    });
+    btnAtt?.addEventListener("click", (e)=>{ e.preventDefault(); openTray(); });
+    closeT?.addEventListener("click", (e)=>{ e.preventDefault(); closeTray(); });
 
-    function showPreview(file) {
+    choose?.addEventListener("click", (e)=>{ e.preventDefault(); picker?.click(); });
+
+    function showPreview(file){
       preview.hidden = false;
       if (lastImageURL) URL.revokeObjectURL(lastImageURL);
       lastImageURL = URL.createObjectURL(file);
-      preview.innerHTML = `<img src="${lastImageURL}" alt="imagen seleccionada" />`;
+      preview.innerHTML = `<img src="${lastImageURL}" alt="imagen seleccionada" class="max-h-72 rounded-lg border border-purple-700" />`;
     }
 
-    function fileToBase64(file) {
-      return new Promise((resolve, reject) => {
-        const fr = new FileReader();
-        fr.onload = () => {
-          const res = String(fr.result);
-          const base64 = res.split(",")[1];
-          resolve({ base64, mime: file.type || "image/jpeg" });
-        };
-        fr.onerror = reject;
-        fr.readAsDataURL(file);
+    function clearAttachment(){
+      lastImage = null;
+      if (lastImageURL) { URL.revokeObjectURL(lastImageURL); lastImageURL = null; }
+      preview.hidden = true;
+      preview.innerHTML = "";
+      if (picker) picker.value = "";
+    }
+
+    function fileToBase64(file){
+      return new Promise((resolve, reject)=>{
+        const reader = new FileReader();
+        reader.onload = ()=> resolve(String(reader.result).split(",")[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
       });
     }
 
-    async function postJSON(path, body) {
-      const r = await fetch(path, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      if (!r.ok) {
-        const txt = await r.text();
-        throw new Error(txt);
-      }
-      return r.json();
-    }
-
-    function appendMessage(role, html, isHTML=false){
-      const el = document.createElement("div");
-      el.className = "msg " + (role==="user" ? "user" : "assistant");
-      const inner = document.createElement("div");
-      inner.className = "bubble chat-markdown";
-      inner.innerHTML = isHTML ? html : (typeof marked!=="undefined" ? marked.parse(html) : html);
-      el.appendChild(inner);
-      chatBox.appendChild(el);
-      chatBox.scrollTop = chatBox.scrollHeight;
-      if (window.MathJax?.typesetPromise) setTimeout(()=>MathJax.typesetPromise(), 40);
-      try { window.ChatStore?.saveMessage(role==="user"?"user":"assistant", inner.textContent ? inner.textContent : html); } catch {}
-    }
-
-    function escapeHTML(s) {
-      return s.replace(/[&<>"']/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
-    }
-
-    // Guardamos la función original de tu chat (si existe)
-    const originalSendMessage = window.sendMessage;
-
-    // Reemplazamos sendMessage para manejar imagen + pregunta
-    window.sendMessage = async function(){
-      const userText = (inputEl.value || "").trim();
-      const question = (vqaQ.value || "").trim();
-
-      // 1) Mostrar mensaje del usuario (texto + imagen si hay)
-      let htmlUser = "";
-      if (userText) htmlUser += `<div>${escapeHTML(userText)}</div>`;
-      if (lastImageURL) htmlUser += `<div style="margin-top:.4rem"><img src="${lastImageURL}" alt="adjunto" style="max-width:220px;border-radius:8px;border:1px solid #4c1d95"/></div>`;
-      if (!htmlUser) htmlUser = "(mensaje vacío)";
-      appendMessage("user", htmlUser, true);
-
-      // 2) Si hay imagen → hacemos VQA con la pregunta (o genérica)
-      if (lastImage) {
-        const q = question || "Resume el enunciado, datos clave y da una respuesta breve.";
-        try{
-          const data = await postJSON("/api/vision/qa", {
-            image_base64: lastImage.base64,
-            mime: lastImage.mime,
-            question: q
-          });
-          appendMessage("assistant", "🔍 **Respuesta sobre la imagen:** " + escapeHTML(data.answer || "(sin respuesta)"));
-        }catch(e){
-          let detail="";
-          try{ detail = (JSON.parse(String(e.message))?.detail) || ""; }catch{}
-          appendMessage("assistant", "⚠️ Error en análisis visual." + (detail? " Detalle: " + detail : ""));
-        }
-      } else {
-        // 3) Sin imagen → delega a tu lógica original si existe
-        if (typeof originalSendMessage === "function") {
-          try { originalSendMessage(); } catch {}
-        }
-      }
-
-      // 4) Limpieza parcial (NO borramos la preview por si deseas reusar la imagen)
-      inputEl.value = "";
-      // Si quieres limpiar la imagen tras enviar, descomenta:
-      // lastImage = null; if (lastImageURL) { URL.revokeObjectURL(lastImageURL); lastImageURL = null; preview.hidden = true; preview.innerHTML = ""; }
-      tray.classList.remove("open"); tray.setAttribute("aria-hidden","true");
-    };
-
-    // Cerrar bandeja si se hace click fuera
-    document.addEventListener("click", (ev)=>{
-      if (!tray) return;
-      const within = tray.contains(ev.target) || plusBtn.contains(ev.target);
-      if (!within && tray.classList.contains("open")) {
-        tray.classList.remove("open"); tray.setAttribute("aria-hidden","true");
+    picker?.addEventListener("change", async (e)=>{
+      const f = e.target.files?.[0];
+      if (!f) return;
+      showPreview(f);
+      try {
+        const b64 = await fileToBase64(f);
+        lastImage = { base64: b64, mime: f.type || "image/png" };
+      } catch {
+        lastImage = null; clearAttachment();
       }
     });
+
+    function escapeHTML(s){ return (s||"").replace(/[&<>\"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+    async function postJSON(path, body) {
+      async function doFetch(url) {
+        const r = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        const txt = await r.text();
+        if (!r.ok) throw new Error(txt || `HTTP ${r.status}`);
+        try { return JSON.parse(txt); } catch { return {}; }
+      }
+      try {
+        return await doFetch(path);
+      } catch (e) {
+        const msg = String(e.message || "");
+        if (/not\s*found/i.test(msg) || /404/.test(msg)) {
+          const fn = path.replace(/^\/api\//, "/.netlify/functions/");
+          return await doFetch(fn);
+        }
+        throw e;
+      }
+    }
+
+    // Sobreescribimos sendMessage para manejar imagen
+    const originalSendMessage = window.sendMessage;
+
+    window.sendMessage = async function(){
+      const inputEl = $("user-input");
+      const userText = (inputEl.value || "").trim();
+      const question = (vqaQ?.value || "").trim();
+
+      // pintar mensaje del usuario (texto + preview si aplica)
+      let htmlUser = "";
+      if (userText) htmlUser += `<div>${escapeHTML(userText)}</div>`;
+      if (lastImageURL) {
+        htmlUser += `<div class="mt-2"><img src="${lastImageURL}" alt="adjunto" class="max-w-[240px] rounded-lg border border-purple-800"/></div>`;
+      }
+      if (!htmlUser) htmlUser = "(mensaje vacío)";
+      appendMessage("user", htmlUser);
+
+      // lógica de envío
+      try {
+        if (lastImage) {
+          if (question) {
+            // VQA (pregunta sobre la imagen)
+            const data = await postJSON("/api/vision/qa", {
+              image_base64: lastImage.base64,
+              mime: lastImage.mime,
+              question
+            });
+            appendMessage("assistant", marked.parse("🔍 **Respuesta sobre la imagen:**\n\n" + (data.answer || "(sin respuesta)")));
+            // Pipeline hacia el LLM para explicación completa
+            try {
+              window.pipelineFromVision?.(String(data.answer || ""), question, { userMessage: userText });
+            } catch {}
+          } else {
+            // Solo imagen: describir
+            const data = await postJSON("/api/vision/caption", {
+              image_base64: lastImage.base64,
+              mime: lastImage.mime
+            });
+            appendMessage("assistant", marked.parse("🖼️ **Descripción de la imagen:**\n\n" + (data.caption || "(sin descripción)")));
+            // Puedes encadenar si quieres que razone a partir de la descripción
+            try {
+              window.pipelineFromVision?.(String(data.caption || ""), "Describe brevemente el contenido y posibles usos educativos.", { userMessage: userText });
+            } catch {}
+          }
+        } else {
+          // Sin imagen → chat normal
+          if (typeof originalSendMessage === "function") {
+            await originalSendMessage();
+          }
+        }
+      } catch (e) {
+        let detail = "";
+        try { detail = (JSON.parse(String(e.message))?.detail) || ""; } catch {}
+        appendMessage("assistant", "⚠️ Error en análisis visual." + (detail ? " Detalle: " + detail : ""));
+      } finally {
+        // limpiar SIEMPRE para que la imagen no quede pegada
+        inputEl.value = "";
+        if (vqaQ) vqaQ.value = "";
+        clearAttachment();
+        closeTray();
+      }
+    };
   </script>
 </body>
 </html>
-
