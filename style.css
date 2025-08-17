@@ -91,7 +91,6 @@ body.panel-open #landing{ padding-left: calc(var(--panel-w) + 20px); }
 #chat-card{ padding: 1rem; height: 100%; }
 #chat-shell{
   display: flex; flex-direction: column;
-  /* Altura total del viewport menos topbar y menos encabezado */
   height: calc(100dvh - var(--topbar-h) - var(--header-h) - 16px);
 }
 #chat-box{ flex: 1 1 auto; overflow-y: auto; }
@@ -123,7 +122,7 @@ body.panel-open #landing{ padding-left: calc(var(--panel-w) + 20px); }
   border: 1px solid #4b5563;
   border-radius: .75rem;
   outline: none;
-  padding: .7rem 2.4rem .7rem .8rem; /* espacio para + */
+  padding: .7rem 2.4rem .7rem .8rem;
 }
 .plus-btn{
   position: absolute;
@@ -170,7 +169,7 @@ body.panel-open #landing{ padding-left: calc(var(--panel-w) + 20px); }
   padding: .3rem .25rem;
 }
 
-/* Botón Enviar pequeño a la derecha */
+/* Botón Enviar */
 .send-btn{
   border: none;
   background: #7c3aed;
@@ -206,7 +205,7 @@ body.panel-open #landing{ padding-left: calc(var(--panel-w) + 20px); }
   text-align: right;
 }
 
-/* Markdown bonito */
+/* Markdown */
 .chat-markdown pre{
   background:#0b1220; border:1px solid #3b3b75;
   padding:12px 14px; border-radius:12px; overflow:auto;
@@ -224,7 +223,6 @@ body.panel-open #landing{ padding-left: calc(var(--panel-w) + 20px); }
 }
 .chat-markdown th{ background: #4f378b; }
 
-/* LaTeX más grande */
 mjx-container[jax="CHTML"]{
   font-size: 1.42em;
   background: transparent !important;
@@ -237,13 +235,11 @@ mjx-container[jax="CHTML"]{
   background: #2a2146; border: 1px dashed #a78bfa;
 }
 
-/* =================== Panel lateral y dock (desktop) =================== */
+/* =================== Panel lateral y dock =================== */
 .side-dock{
   position: fixed; left: 14px; top: 50%; transform: translateY(-50%);
   display: flex; flex-direction: column; gap: 14px; z-index: 60;
 }
-
-/* Botón dock */
 .dock-btn{
   border: none; background: transparent; padding: 0;
   display: flex; flex-direction: column; align-items: center; gap: 6px;
@@ -254,7 +250,6 @@ mjx-container[jax="CHTML"]{
 .dock-label{ display:block; font-size:.78rem; color:#dbeafe; letter-spacing:.2px; }
 .dock-btn:hover{ transform: translateY(-2px) scale(1.04); }
 
-/* Contenedor del icono (halo Spotify) */
 .dock-icon{
   width: 44px; height: 44px; display:grid; place-items:center;
   position: relative; border-radius: 9999px;
@@ -302,7 +297,6 @@ mjx-container[jax="CHTML"]{
   background: transparent; border: none; color: #cbd5ff; cursor: pointer; font-size: .9rem;
 }
 
-/* Scroll solo en la lista si hay muchas playlists */
 .playlist-list { overflow-y: auto; max-height: calc((var(--vh) * 100) - 420px); }
 @supports (height: 100dvh){
   .playlist-list{ max-height: calc(100dvh - 420px); }
