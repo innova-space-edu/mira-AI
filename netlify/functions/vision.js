@@ -1,181 +1,65 @@
 // netlify/functions/vision.js
-// Proxy a Hugging Face Inference API para captioning (visión)
-// Requiere: process.env.HF_TOKEN
-// Por defecto usa: Salesforce/blip-image-captioning-base
-// Acepta body JSON:
-//   { imageBase64: "data:image/...;base64,XXXX" }  ó  { imageUrl: "https://..." }
-//   Opcionales:
-//     - model: string (p.ej. "Salesforce/blip-image-captioning-large")
-//     - wait_for_model: boolean (default true)
-//     - timeout_ms: number (timeout de fetch)
-// Respuesta: { ok: true, caption, raw, model }
+// Caption de imágenes con BLIP (Hugging Face Inference API)
+// Env requerida: HF_TOKEN
+// Espera: { imageBase64: "data:image/...;base64,XXXX" }
 
-let _fetch = globalThis.fetch;
-async function getFetch() {
-  if (_fetch) return _fetch;
-  const { default: f } = await import('node-fetch'); // fallback si no hay fetch nativo
-  _fetch = f;
-  return _fetch;
+const fetch = (...args) => import('node-fetch').then(({ default: f }) => f(...args));
+
+const HF_MODEL = "Salesforce/blip-image-captioning-base";
+const HF_URL = `https://api-inference.huggingface.co/models/${HF_MODEL}?wait_for_model=true`;
+
+const cors = () => ({
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+  "Access-Control-Allow-Methods": "POST, OPTIONS"
+});
+const json = (obj, status = 200) => ({
+  statusCode: status,
+  headers: { "Content-Type": "application/json", ...cors() },
+  body: JSON.stringify(obj)
+});
+
+async function hfFetchWithRetry(buffer, tries = 3) {
+  let lastTxt = "";
+  for (let i = 0; i < tries; i++) {
+    const r = await fetch(HF_URL, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${process.env.HF_TOKEN}` },
+      body: buffer
+    });
+    if (r.ok) return { ok: true, data: await r.json() };
+    lastTxt = await r.text();
+    if (r.status === 429 || r.status >= 500 || r.status === 408) {
+      await new Promise(res => setTimeout(res, 1200 * (i + 1)));
+      continue;
+    }
+    return { ok: false, error: lastTxt, status: r.status };
+  }
+  return { ok: false, error: lastTxt };
 }
 
-const DEFAULT_MODEL = "Salesforce/blip-image-captioning-base";
-
-function buildHfUrl(model, waitForModel = true) {
-  const base = `https://api-inference.huggingface.co/models/${encodeURIComponent(model)}`;
-  return waitForModel ? `${base}?wait_for_model=true` : base;
-}
-
-// ----------------- Helpers -----------------
-function cors() {
-  return {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization",
-    "Access-Control-Allow-Methods": "POST, OPTIONS"
-  };
-}
-
-function json(payload, statusCode = 200, extraHeaders = {}) {
-  return {
-    statusCode,
-    headers: { "Content-Type": "application/json", ...cors(), ...extraHeaders },
-    body: JSON.stringify(payload)
-  };
-}
-
-function text(body, statusCode = 200, extraHeaders = {}) {
-  return {
-    statusCode,
-    headers: { "Content-Type": "text/plain; charset=utf-8", ...cors(), ...extraHeaders },
-    body
-  };
-}
-
-function parseDataUrl(dataUrl) {
-  // data:[<mediatype>][;base64],<data>
-  const m = /^data:(?<mime>[^;]+);base64,(?<data>.+)$/i.exec(dataUrl || "");
-  if (!m || !m.groups) return null;
-  return { mime: m.groups.mime, b64: m.groups.data };
-}
-
-function normalizeBase64(input, fallbackMime = "image/jpeg") {
-  if (!input) return null;
-  if (/^data:.*;base64,/.test(input)) return input; // ya es dataURL
-  // si es base64 "crudo", lo envolvemos
-  return `data:${fallbackMime};base64,${input}`;
-}
-
-// ----------------- Handler -----------------
 exports.handler = async (event) => {
-  // CORS preflight
-  if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 200, headers: cors(), body: '' };
-  }
-
-  if (event.httpMethod !== 'POST') {
-    return json({ error: 'Method not allowed' }, 405);
-  }
+  if (event.httpMethod === "OPTIONS") return { statusCode: 200, headers: cors(), body: "" };
+  if (event.httpMethod !== "POST") return json({ error: "Method not allowed" }, 405);
 
   try {
-    const HF_TOKEN = process.env.HF_TOKEN;
-    if (!HF_TOKEN) {
-      return text('Falta HF_TOKEN en variables de entorno.', 500);
-    }
+    const { imageBase64 } = JSON.parse(event.body || "{}");
+    if (!imageBase64 || !imageBase64.includes(",")) return json({ error: "imageBase64 requerido" }, 400);
 
-    let body = {};
-    try {
-      body = JSON.parse(event.body || "{}");
-    } catch {
-      return text('JSON inválido en el body.', 400);
-    }
+    const base64 = imageBase64.split(",")[1];
+    const buffer = Buffer.from(base64, "base64");
 
-    const imageBase64Raw = body.imageBase64 ?? body.image_base64 ?? null;
-    const imageUrl = body.imageUrl ?? body.image_url ?? null;
-    const model = body.model || DEFAULT_MODEL;
-    const wait_for_model = body.wait_for_model !== undefined ? !!body.wait_for_model : true;
-    const timeout_ms = Number(body.timeout_ms ?? 60_000); // 60s por defecto
+    const resp = await hfFetchWithRetry(buffer, 3);
+    if (!resp.ok) return json({ error: "HF request failed", details: resp.error }, 502);
 
-    if (!imageBase64Raw && !imageUrl) {
-      return json({ error: "imageBase64 (o image_base64) o imageUrl (o image_url) requerido" }, 400);
-    }
+    const data = resp.data;
+    // BLIP normalmente devuelve [{ generated_text: "..." }]
+    const caption =
+      (Array.isArray(data) && data[0] && data[0].generated_text) ? data[0].generated_text :
+      (data?.generated_text || "");
 
-    // Normalizamos a dataURL si vino base64 "crudo"
-    const imageBase64 = imageBase64Raw ? normalizeBase64(imageBase64Raw) : null;
-
-    // Tamaño prudente (evitar payloads gigantes)
-    const approxSize = (imageBase64 || "").length + (imageUrl || "").length;
-    if (approxSize > 8_000_000) { // ~8MB en string
-      return text("Imagen demasiado grande. Reduce resolución o peso.", 413);
-    }
-
-    const f = await getFetch();
-
-    // Si nos pasan imageUrl, usamos la API de HF vía "inputs" con URL remota.
-    // Si nos pasan base64, enviamos el binario directo (más eficiente).
-    const hfUrl = buildHfUrl(model, wait_for_model);
-
-    let hfResp;
-    if (imageUrl) {
-      // Modo "inputs" (JSON), HF descargará la imagen desde esa URL
-      const controller = new AbortController();
-      const to = setTimeout(() => controller.abort(), Math.max(1_000, timeout_ms));
-      try {
-        hfResp = await f(hfUrl, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${HF_TOKEN}`,
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({ inputs: imageUrl }),
-          signal: controller.signal
-        });
-      } finally {
-        clearTimeout(to);
-      }
-    } else {
-      // Modo binario: extraemos el buffer del dataURL
-      const parsed = parseDataUrl(imageBase64);
-      if (!parsed) return json({ error: "imageBase64 no es un dataURL válido" }, 400);
-      const buffer = Buffer.from(parsed.b64, "base64");
-
-      const controller = new AbortController();
-      const to = setTimeout(() => controller.abort(), Math.max(1_000, timeout_ms));
-      try {
-        hfResp = await f(hfUrl, {
-          method: "POST",
-          headers: { Authorization: `Bearer ${HF_TOKEN}` },
-          body: buffer,
-          signal: controller.signal
-        });
-      } finally {
-        clearTimeout(to);
-      }
-    }
-
-    const textResp = await hfResp.text();
-    let data;
-    try { data = JSON.parse(textResp); } catch { data = null; }
-
-    if (!hfResp.ok) {
-      // Errores típicos de HF: { error: "Model Salesforce/... is currently loading", estimated_time: ...}
-      return json({ error: (data && (data.error || data)) || textResp || "HF error" }, hfResp.status);
-    }
-
-    // BLIP suele responder como array con { generated_text } (o summary_text)
-    let caption = "";
-    if (Array.isArray(data) && data.length) {
-      const first = data[0] || {};
-      caption = first.generated_text || first.summary_text || "";
-    } else if (data && typeof data === "object") {
-      // Por si el modelo devolviera otro formato compatible
-      caption = data.generated_text || data.summary_text || "";
-    }
-
-    // Aseguramos string
-    caption = String(caption || "").trim();
-
-    return json({ ok: true, caption, raw: data, model });
-  } catch (e) {
-    const detail = (e && e.message) ? String(e.message) : String(e);
-    return json({ error: "vision proxy failed", detail }, 500);
+    return json({ ok: true, caption, raw: data });
+  } catch (err) {
+    return json({ error: "Exception", details: String(err) }, 500);
   }
 };
