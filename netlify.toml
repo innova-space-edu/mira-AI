@@ -1,18 +1,14 @@
 [build]
   publish = "."
-  functions = "netlify/functions"
+  node_version = "18"
 
-[[redirects]]
-  from = "/api/chat"
-  to   = "/.netlify/functions/chat"
-  status = 200
+[functions]
+  directory = "netlify/functions"
+  included_files = ["netlify/functions/**"]
 
-[[redirects]]
-  from = "/api/vision"
-  to   = "/.netlify/functions/vision"
-  status = 200
-
-[[redirects]]
-  from = "/api/ocrspace"
-  to   = "/.netlify/functions/ocrspace"
-  status = 200
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"
+    Access-Control-Allow-Headers = "Content-Type, Authorization"
+    Access-Control-Allow-Methods = "GET, POST, OPTIONS"
