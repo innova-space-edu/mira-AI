@@ -152,7 +152,7 @@ async function wikiFallback(q){
 // Guardado (si hay ChatStore)
 async function saveMsg(role, content){ try{ await window.ChatStore?.saveMessage?.(role, content); }catch{} }
 
-// ============ CLIENTE /api/chat ============
+// ============ CLIENTE /api/chat (con fallback al proxy) ============
 async function callChatAPI_base(url, messages, temperature) {
   const resp = await fetch(url, {
     method: "POST",
@@ -169,15 +169,21 @@ async function callChatAPI_base(url, messages, temperature) {
     else msg += ` (HTTP ${resp.status})`;
     throw new Error(msg + `\n${raw || ""}`);
   }
+  // Soporta tanto formato OpenAI (choices) como tu proxy ({ok,text})
   const data = JSON.parse(raw || "{}");
-  return data?.choices?.[0]?.message?.content?.trim() || "";
+  const viaProxy = typeof data?.text === "string" ? data.text : "";
+  const viaOpenAI = data?.choices?.[0]?.message?.content?.trim() || "";
+  return (viaProxy || viaOpenAI || "").trim();
 }
 async function callChatAPI(messages, temperature = 0.7) {
-  try { return await callChatAPI_base("/api/chat", messages, temperature); }
-  catch (e) {
+  try { 
+    // 1) Si tienes /api/chat propio, úsalo
+    return await callChatAPI_base("/api/chat", messages, temperature); 
+  } catch (e) {
     const msg = String(e?.message || "");
+    // 2) Fallback a Netlify Function estándar de este repo
     if (/404|no encontrado|endpoint no encontrado|not\s*found/i.test(msg)) {
-      return await callChatAPI_base("/.netlify/functions/chat", messages, temperature);
+      return await callChatAPI_base("/.netlify/functions/groq-proxy", messages, temperature);
     }
     throw e;
   }
@@ -235,15 +241,16 @@ async function tryFetchOCR(bodyJson){
 
 async function callBLIP(file) {
   const imageBase64 = await fileToBase64(file);
-  const r = await tryFetchVision({ mode: "caption", image_base64: imageBase64 });
+  // Tu Function espera imageBase64 (camelCase)
+  const r = await tryFetchVision({ imageBase64 });
   const data = await r.json();
-  const desc = data?.caption || data?.description || "";
+  const desc = data?.caption || data?.description || data?.summary_text || "";
   if (!desc) throw new Error("Respuesta de visión inválida (caption).");
   return desc;
 }
 async function callOCR(file) {
   const imageBase64 = await fileToBase64(file);
-  const r = await tryFetchOCR({ image_base64: imageBase64, language: "spa" });
+  const r = await tryFetchOCR({ imageBase64, language: "spa" });
   const data = await r.json();
   if (typeof data?.text !== "string") throw new Error("Respuesta OCR inválida.");
   return data.text.trim();
@@ -404,7 +411,7 @@ async function sendMessage() {
   try {
     if (files.length > 0) {
       showThinking("Analizando imagen…");
-      const visualContext = await analyzeImages(files);
+      const visualContext = await analyzeImages(files); // Visión + OCR automáticamente
       hideThinking();
 
       const question = userMessage || "Describe y analiza detalladamente la(s) imagen(es).";
