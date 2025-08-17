@@ -372,3 +372,37 @@ mjx-container[jax="CHTML"]{
   :root{ --header-overlay-h: 56px; }
   #avatar-mira{ display: none; }  /* oculta avatar en móvil si molesta */
 }
+
+/* ===================================================================== */
+/* ================= FIX: que siempre se vea el input =================== */
+/* ===================================================================== */
+
+/* espacio de seguridad inferior (notch / barra gestos) */
+#landing{ padding-bottom: var(--safe-bottom); }
+
+/* restar también el overlay del título para calcular la altura útil */
+#chat-shell{
+  height: calc(100dvh - var(--topbar-h) - var(--header-overlay-h) - 16px) !important;
+  min-height: calc(100dvh - var(--topbar-h) - var(--header-overlay-h) - 16px);
+}
+
+/* el área de mensajes es la que scrollea */
+#chat-box{
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding-bottom: 6px; /* colchón para no pegarse al input */
+}
+
+/* compositor visible y pegado al borde inferior del card */
+.composer{
+  position: sticky;
+  bottom: max(6px, var(--safe-bottom));
+  background: linear-gradient(180deg, rgba(17,24,39,0) 0%, rgba(17,24,39,.65) 40%, rgba(17,24,39,.85) 100%);
+  padding-bottom: max(6px, var(--safe-bottom));
+  z-index: 5;
+}
+
+/* en pantallas pequeñas, reduce la reserva superior */
+@media (max-width: 640px){
+  :root{ --header-overlay-h: 48px; }
+}
