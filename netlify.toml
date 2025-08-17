@@ -1,14 +1,24 @@
-[build]
-  publish = "."
-  node_version = "18"
-
 [functions]
-  directory = "netlify/functions"
-  included_files = ["netlify/functions/**"]
+directory = "netlify/functions"
+node_bundler = "esbuild"
 
-[[headers]]
-  for = "/*"
-  [headers.values]
-    Access-Control-Allow-Origin = "*"
-    Access-Control-Allow-Headers = "Content-Type, Authorization"
-    Access-Control-Allow-Methods = "GET, POST, OPTIONS"
+# Rutas limpias tipo /api/*
+[[redirects]]
+from = "/api/chat"
+to = "/.netlify/functions/chat"
+status = 200
+
+[[redirects]]
+from = "/api/groq"
+to = "/.netlify/functions/groq-proxy"
+status = 200
+
+[[redirects]]
+from = "/api/ocr"
+to = "/.netlify/functions/ocrspace"
+status = 200
+
+[[redirects]]
+from = "/api/vision"
+to = "/.netlify/functions/vision"
+status = 200
