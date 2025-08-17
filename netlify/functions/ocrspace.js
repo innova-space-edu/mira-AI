@@ -1,86 +1,41 @@
-// Function: /api/ocrspace  → OCR.Space
-// Env requerida: OCRSPACE_API_KEY
-// Body (JSON): { image_base64?: "<b64|dataURL>", imageBase64?: "<b64|dataURL>", language?: "spa" }
-
-function cors() {
-  return {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "POST,OPTIONS",
-    "Access-Control-Allow-Headers": "content-type"
-  };
-}
-
-// Devuelve la parte base64 (acepta dataURL)
-function onlyBase64(s) {
-  if (!s) return s;
-  const i = s.indexOf(",");
-  return i >= 0 ? s.slice(i + 1) : s;
-}
+// netlify/functions/ocrspace.js
+const fetch = (...args) => import('node-fetch').then(({default: f}) => f(...args));
+const OCR_URL = "https://api.ocr.space/parse/image";
 
 exports.handler = async (event) => {
-  // CORS preflight
-  if (event.httpMethod === "OPTIONS") {
-    return { statusCode: 200, headers: cors(), body: "" };
-  }
+  if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: cors(), body: '' };
+  if (event.httpMethod !== 'POST') return json({ error: 'Method not allowed' }, 405);
 
   try {
-    if (event.httpMethod !== "POST") {
-      return { statusCode: 405, headers: cors(), body: "Method Not Allowed" };
-    }
+    // Acepta { imageBase64: "data:image/...;base64,XXX" } o { imageUrl: "https://..." }
+    const { imageBase64, imageUrl, language = "spa" } = JSON.parse(event.body || "{}");
+    if (!imageBase64 && !imageUrl) return json({ error: "imageBase64 o imageUrl requerido" }, 400);
 
-    const apiKey = process.env.OCRSPACE_API_KEY;
-    if (!apiKey) {
-      return { statusCode: 500, headers: cors(), body: "Falta OCRSPACE_API_KEY en variables de entorno." };
-    }
+    const form = new URLSearchParams();
+    form.append("language", language);
+    form.append("isOverlayRequired", "false");
+    form.append("scale", "true");
+    form.append("OCREngine", "2");
+    if (imageUrl) form.append("url", imageUrl);
+    if (imageBase64) form.append("base64Image", imageBase64);
 
-    const body = JSON.parse(event.body || "{}");
-    const raw = body.image_base64 || body.imageBase64 || body.image || null;
-    const language = body.language || "spa";
-    if (!raw) {
-      return {
-        statusCode: 400,
-        headers: { ...cors(), "Content-Type": "application/json" },
-        body: JSON.stringify({ error: "Falta image_base64" })
-      };
-    }
-
-    // OCR.Space requiere form-urlencoded con base64Image dataURL
-    const params = new URLSearchParams();
-    params.set("apikey", apiKey);
-    params.set("language", language);
-    params.set("isOverlayRequired", "false");
-    params.set("OCREngine", "2");
-    params.set("base64Image", `data:image/png;base64,${onlyBase64(raw)}`);
-
-    const r = await fetch("https://api.ocr.space/parse/image", {
+    const r = await fetch(OCR_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: params.toString()
+      headers: { apikey: process.env.OCR_SPACE_KEY },
+      body: form
     });
 
-    const text = await r.text();
-    if (!r.ok) {
-      return {
-        statusCode: r.status,
-        headers: { ...cors(), "Content-Type": "application/json" },
-        body: text || `Error OCR.Space (HTTP ${r.status})`
-      };
+    const data = await r.json();
+    if (!r.ok || data?.IsErroredOnProcessing) {
+      return json({ error: data?.ErrorMessage || data }, r.status || 500);
     }
 
-    let data;
-    try { data = JSON.parse(text); } catch { data = null; }
-    const parsed = data && data.ParsedResults && data.ParsedResults[0] && data.ParsedResults[0].ParsedText || "";
-
-    return {
-      statusCode: 200,
-      headers: { ...cors(), "Content-Type": "application/json" },
-      body: JSON.stringify({ text: parsed })
-    };
-  } catch (err) {
-    return {
-      statusCode: 500,
-      headers: { ...cors(), "Content-Type": "application/json" },
-      body: JSON.stringify({ error: "ocrspace function failed", detail: String(err && err.message || err) })
-    };
+    const text = data?.ParsedResults?.map(p => p.ParsedText).join("\n") || "";
+    return json({ ok: true, text, raw: data });
+  } catch (e) {
+    return json({ error: String(e) }, 500);
   }
 };
+
+function cors() { return { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "Content-Type", "Access-Control-Allow-Methods": "GET, POST, OPTIONS" }; }
+function json(payload, statusCode = 200) { return { statusCode, headers: { "Content-Type": "application/json", ...cors() }, body: JSON.stringify(payload) }; }
