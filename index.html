@@ -44,164 +44,123 @@
   <!-- Estilos base -->
   <link rel="stylesheet" href="style.css"/>
 
-  <!-- Overrides de layout/cabecera -->
+  <!-- Overrides y layout -->
   <style>
     :root{
       --topbar-h: 48px;   /* se actualiza en runtime */
-      --dock-w: 72px;     /* ancho barra lateral de iconos */
+      --dock-w: 72px;
       --pad: 16px;
     }
-
     .hidden{ display:none !important; }
 
-    /* ======= Overlay de encabezado (no ocupa alto real) ======= */
-    .hero-overlay{
-      position: absolute;
-      top: var(--topbar-h);
-      left: 0; right: 0;
-      height: 0;
-      pointer-events: none;
-      z-index: 2;
+    /* ======= Faja superior con el título ======= */
+    .hero-bar{
+      position: relative;
+      margin-top: calc(var(--topbar-h) + 6px);
       padding: 0 var(--pad);
       display: grid;
-      grid-template-columns: 1fr 1fr;
-      align-items: start;
+      grid-template-columns: 1fr;
+      z-index: 2;
     }
-
-    .hero-left{
-      display:flex; justify-content:flex-start; padding-left: calc(var(--dock-w) + 12px);
-    }
-
-    /* Título principal (un poco más chico que antes) */
     .brand-mini{
-      font-size: clamp(26px, 3.2vw, 50px);
+      margin: 2px 0 0 calc(var(--dock-w) + 24px); /* un poco más arriba y a la izquierda */
+      line-height: 1.02;
       font-weight: 900;
-      margin: 8px 0 0 24px;
-      line-height: 1.06;
+      font-size: clamp(26px, 3.2vw, 50px);
+      letter-spacing: .3px;
       background-image: linear-gradient(90deg, #34d399, #a78bfa, #60a5fa);
       -webkit-background-clip: text; background-clip: text; color: transparent;
       text-shadow: 0 6px 28px rgba(99,102,241,.22);
-      letter-spacing: .3px;
     }
+    .brand-mini .line{ display:inline; }
+    .brand-mini .break{ display:block; }  /* “Education” salta abajo */
 
-    .hero-right{
-      display:grid; grid-auto-rows: auto; justify-items:end; align-items:start;
-      gap: 8px; padding-right: 24px;
+    /* ======= Columna fija a la derecha con texto y avatar ======= */
+    .assistant-stack{
+      position: fixed;
+      top: calc(var(--topbar-h) + 8px);
+      right: 24px;
+      display: grid;
+      gap: 6px;
+      justify-items: end;
+      z-index: 3;
+      pointer-events: none; /* no estorba el chat */
     }
-
-    /* “Asistente IA –” en 1ª línea, “MIRA” debajo */
-    .mira-title{
-      text-align: right;
-      line-height: 1.05;
-      text-shadow: 0 6px 22px rgba(0,0,0,.35);
+    .assistant-stack .mira-title{
+      text-align: right; line-height: 1.04; text-shadow: 0 6px 22px rgba(0,0,0,.35);
+      pointer-events: auto;
     }
     .mira-title .assist{
-      display:block;
-      font-size: clamp(18px, 2.1vw, 28px);
-      font-weight: 800; color: #fff; letter-spacing: .4px;
+      display:block; font-size: clamp(18px, 2.1vw, 28px); font-weight: 800;
     }
     .mira-title .mira{
-      display:block;
-      font-size: clamp(24px, 2.6vw, 36px);
-      font-weight: 900; color: #fff; letter-spacing: .6px;
+      display:block; font-size: clamp(24px, 2.6vw, 36px); font-weight: 900;
     }
-
-    /* Avatar debajo del texto, alineado a la derecha */
     #avatar-mira{
-      width: clamp(48px, 4.6vw, 70px);
-      margin: 2px 0 0 0;
+      width: clamp(48px, 4.6vw, 70px); margin-top: 2px;
       filter: drop-shadow(0 2px 6px rgba(0,0,0,.35));
+      pointer-events: none;
     }
 
-    /* El chat comienza más abajo para no superponer cabecera */
+    /* ======= Chat centrado, sin que nada lo tape ======= */
     #main-chat .chat-wrap{
       margin-left: calc(var(--dock-w) + 12px);
       margin-right: var(--pad);
-      margin-top: 96px; /* espacio bajo overlay */
+      margin-top: 18px; /* el título ya está arriba, así que poca separación */
     }
-
-    /* Altura del área de chat de “pie a cabeza” */
     #chat-shell{
-      height: calc(100vh - var(--topbar-h) - 180px); /* ajusta si lo quieres más alto/bajo */
+      height: calc(100vh - var(--topbar-h) - 160px);
       display: flex; flex-direction: column;
     }
-    #chat-box{
-      flex: 1 1 auto;
-      overflow: auto;
-      min-height: 240px;
-    }
+    #chat-box{ flex: 1 1 auto; overflow: auto; min-height: 240px; }
 
-    /* Composer: input grande, botón Enviar pequeño a la derecha, + flotante */
+    /* ======= Composer ======= */
     .composer{
-      display: grid; grid-template-columns: 1fr auto;
-      gap: .6rem; align-items: center;
-      padding: .6rem .8rem;
-      border-top: 1px solid rgba(255,255,255,.1);
-      background: rgba(0,0,0,.35);
-      border-radius: .6rem;
+      display: grid; grid-template-columns: 1fr auto; gap: .6rem; align-items: center;
+      padding: .6rem .8rem; border-top: 1px solid rgba(255,255,255,.1);
+      background: rgba(0,0,0,.35); border-radius: .6rem;
     }
     .input-group{ position: relative; width: 100%; }
     .composer-input{
-      width: 100%;
-      max-height: 140px;
-      background: #111827;
-      color: #fff;
-      border: 1px solid #4b5563;
-      outline: none;
-      border-radius: .6rem;
-      padding: .9rem 2.8rem .9rem .8rem; /* espacio para el + flotante */
-      font-size: 1rem;
+      width: 100%; max-height: 140px; background: #111827; color: #fff;
+      border: 1px solid #4b5563; outline: none; border-radius: .6rem;
+      padding: .9rem 2.8rem .9rem .8rem; font-size: 1rem;
     }
-    .send-btn{
-      border: none; border-radius: .6rem;
-      padding: .55rem .9rem; cursor: pointer;
-      background: #7c3aed; color: #fff;
-      font-weight: 700; font-size: .95rem;
-      min-width: 84px;
-    }
-    .send-btn:active{ transform: translateY(1px); }
-
     .plus-btn{
       position: absolute; right: 8px; bottom: 8px;
       border: none; background: #4b5563; color: #fff;
       width: 36px; height: 36px; border-radius: .6rem;
       font-size: 1.2rem; line-height: 1; cursor: pointer; opacity: .95;
     }
-
+    .send-btn{
+      border: none; border-radius: .6rem; padding: .55rem .9rem; cursor: pointer;
+      background: #7c3aed; color: #fff; font-weight: 700; font-size: .95rem; min-width: 84px;
+    }
     .upload-tray{
-      position: absolute;
-      bottom: calc(100% + .55rem);
-      right: 0;
-      min-width: 260px;
-      max-width: min(420px, 92vw);
-      background: #111827;
-      border: 1px solid #4c1d95;
-      border-radius: .9rem;
-      padding: .75rem;
-      box-shadow: 0 14px 34px rgba(0,0,0,.35);
-      z-index: 40;
+      position: absolute; bottom: calc(100% + .55rem); right: 0;
+      min-width: 260px; max-width: min(420px, 92vw); background: #111827;
+      border: 1px solid #4c1d95; border-radius: .9rem; padding: .75rem;
+      box-shadow: 0 14px 34px rgba(0,0,0,.35); z-index: 40;
     }
-    .upload-item{
-      display: inline-flex; align-items: center; gap: .5rem;
-      font-size: .95rem; cursor: pointer; color: #e5e7eb;
-      background: transparent; border: none; padding:.35rem .4rem;
-    }
-
-    /* Previews bajo el composer */
-    .attachments{
-      display:flex; gap:.4rem; flex-wrap:wrap; margin-top:.35rem;
-    }
-    .attachment-chip{
-      display:inline-flex; align-items:center; gap:.35rem;
-      background:#1f2937; border:1px solid #4c1d95; color:#e5e7eb;
-      padding:.25rem .45rem; border-radius:.55rem; font-size:.85rem;
-    }
+    .upload-item{ display:inline-flex; align-items:center; gap:.5rem; font-size:.95rem; cursor:pointer; color:#e5e7eb; background:transparent; border:none; padding:.35rem .4rem; }
+    .attachments{ display:flex; gap:.4rem; flex-wrap:wrap; margin-top:.35rem; }
+    .attachment-chip{ display:inline-flex; align-items:center; gap:.35rem; background:#1f2937; border:1px solid #4c1d95; color:#e5e7eb; padding:.25rem .45rem; border-radius:.55rem; font-size:.85rem; }
     .attachment-chip img{ width:24px;height:24px;object-fit:cover;border-radius:.35rem; }
 
-    /* Responsive */
+    /* ======= Lista de chats con acciones ======= */
+    .chat-row{
+      display:flex; align-items:center; justify-content:space-between; gap:8px;
+      background: transparent; border: 1px dashed #7f5af040; color: #fff;
+      padding: 10px; border-radius: 10px; text-align: left;
+    }
+    .chat-row.active{ border-color:#a855f7; background:#a855f715; }
+    .row-actions button{
+      background:#2b2f45; border:1px solid #51537a; color:#e5e7eb;
+      padding:.2rem .45rem; border-radius:.45rem; font-size:.82rem; margin-left:.3rem;
+    }
+
     @media (max-width: 1024px){
-      .hero-overlay{ grid-template-columns: 1fr; }
-      .hero-right{ justify-items:start; padding-left: calc(var(--dock-w) + 12px); margin-top: 8px; }
+      .assistant-stack{ right: 12px; }
       #main-chat .chat-wrap{ margin-left: var(--pad); }
     }
   </style>
@@ -247,19 +206,21 @@
   <!-- App -->
   <main id="landing" class="relative hidden">
 
-    <!-- Overlay de encabezado -->
-    <div class="hero-overlay" aria-hidden="true">
-      <div class="hero-left">
-        <h1 class="brand-mini">Innova Space Education</h1>
-      </div>
+    <!-- Faja del título -->
+    <div class="hero-bar">
+      <h1 class="brand-mini">
+        <span class="line">Innova Space</span>
+        <span class="break">Education</span>
+      </h1>
+    </div>
 
-      <div class="hero-right">
-        <div class="mira-title">
-          <span class="assist">Asistente IA –</span>
-          <span class="mira">MIRA</span>
-        </div>
-        <object id="avatar-mira" type="image/svg+xml" data="avatar_mira.svg" class="still" tabindex="-1" aria-hidden="true"></object>
+    <!-- Columna fija a la derecha con texto + avatar -->
+    <div class="assistant-stack" aria-hidden="true">
+      <div class="mira-title">
+        <span class="assist">Asistente IA –</span>
+        <span class="mira">MIRA</span>
       </div>
+      <object id="avatar-mira" type="image/svg+xml" data="avatar_mira.svg" class="still" tabindex="-1"></object>
     </div>
 
     <!-- Dock lateral -->
@@ -349,12 +310,6 @@
     </section>
   </main>
 
-  <!-- Helpers UI -->
-  <script>
-    function toggleMiraInfo(){ const el = document.getElementById("mira-info"); if(!el) return; el.style.display = (el.style.display==="none"||el.style.display==="")?"block":"none"; }
-    function toggleAreas(){ const el = document.getElementById('areas-list'); if(el) el.classList.toggle('hidden'); }
-  </script>
-
   <!-- Panel / Playlists / Halo -->
   <script>
     const PLAYLISTS = [
@@ -408,8 +363,8 @@
           btn.addEventListener('click', () => selectPlaylist(p.id));
           list.appendChild(btn);
         });
+        selectPlaylist(currentPlaylist.id);
       }
-      selectPlaylist(currentPlaylist.id);
 
       const inp = document.getElementById('user-input');
       if (inp) {
@@ -424,7 +379,7 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
     import { getAuth, setPersistence, browserLocalPersistence, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
     import { getAnalytics, isSupported } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-analytics.js";
-    import { getFirestore, collection, doc, addDoc, setDoc, getDoc, getDocs, query, orderBy, serverTimestamp, arrayUnion } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
+    import { getFirestore, collection, doc, addDoc, setDoc, getDoc, getDocs, updateDoc, deleteDoc, query, orderBy, serverTimestamp, arrayUnion } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyCPNds1Tc_BYM5DYroW9-3ZzgeQV1pv0KI",
@@ -445,6 +400,7 @@
     window.ChatStore = (function(){
       let currentChatId = null;
       let currentUser   = null;
+
       function userChatsCol(uid){ return collection(db, 'users', uid, 'chats'); }
       function chatDocRef(uid, chatId){ return doc(db, 'users', uid, 'chats', chatId); }
       function setUser(u){ currentUser = u || null; window._currentUser = currentUser; if(!u) currentChatId = null; }
@@ -477,20 +433,72 @@
         await setDoc(ref, { updatedAt: serverTimestamp(), ...(role === "user" ? { title: content.slice(0,40) } : {} ), messages: arrayUnion({ role, content, ts: Date.now() }) }, { merge: true });
       }
 
+      async function renameChat(id, newTitle){
+        if (!id || !newTitle) return;
+        if (!currentUser){
+          const all = getGuestAll();
+          const chat = all.find(c=>c.id===id); if (chat){ chat.title = newTitle; chat.updatedAt = Date.now(); localStorage.setItem('mira_guest_chats', JSON.stringify(all)); renderGuestList(); }
+          return;
+        }
+        await updateDoc(chatDocRef(currentUser.uid, id), { title: newTitle, updatedAt: serverTimestamp() });
+        await loadChatList();
+      }
+
+      async function deleteChat(id){
+        if (!id) return;
+        if (!currentUser){
+          const all = getGuestAll().filter(c=>c.id!==id);
+          localStorage.setItem('mira_guest_chats', JSON.stringify(all));
+          if (currentChatId === id) currentChatId = null;
+          renderGuestList();
+          return;
+        }
+        await deleteDoc(chatDocRef(currentUser.uid, id));
+        if (currentChatId === id) currentChatId = null;
+        await loadChatList();
+      }
+
       async function loadChatList(){
         const list = document.getElementById('chat-list'); if (!list) return;
         list.innerHTML = "";
-        if (!currentUser){ return renderGuestList(); }
-        const q = query(userChatsCol(currentUser.uid), orderBy('updatedAt','desc'));
-        const snap = await getDocs(q);
-        snap.forEach(docSnap=>{
-          const d = docSnap.data();
-          const btn = document.createElement('button');
-          btn.className = 'playlist-item';
-          btn.innerHTML = `<div class="text-sm font-semibold">${d.title || "Chat"}</div><div class="text-xs opacity-70">${docSnap.id}</div>`;
-          btn.onclick = ()=>loadChat(docSnap.id);
-          list.appendChild(btn);
-        });
+
+        const addRow = (id, title) => {
+          const row = document.createElement('div');
+          row.className = 'chat-row';
+          row.dataset.id = id;
+          row.innerHTML = `
+            <div class="grow">
+              <div class="text-sm font-semibold">${title || "Chat"}</div>
+              <div class="text-xs opacity-70">${id}</div>
+            </div>
+            <div class="row-actions">
+              <button class="rename-btn">Renombrar</button>
+              <button class="delete-btn">Eliminar</button>
+              <button class="open-btn">Abrir</button>
+            </div>`;
+          list.appendChild(row);
+        };
+
+        if (!currentUser){
+          getGuestAll().sort((a,b)=>b.updatedAt-a.updatedAt).forEach(c=> addRow(c.id, c.title));
+        } else {
+          const q = query(userChatsCol(currentUser.uid), orderBy('updatedAt','desc'));
+          const snap = await getDocs(q);
+          snap.forEach(docSnap=> addRow(docSnap.id, (docSnap.data().title || "Chat")));
+        }
+
+        // Delegación de eventos
+        list.onclick = async (e) => {
+          const row = e.target.closest('.chat-row'); if (!row) return;
+          const id = row.dataset.id;
+          if (e.target.classList.contains('open-btn')) { await loadChat(id); }
+          else if (e.target.classList.contains('rename-btn')) {
+            const newTitle = prompt('Nuevo nombre del chat:', row.querySelector('.font-semibold').textContent.trim());
+            if (newTitle && newTitle.trim()) await renameChat(id, newTitle.trim());
+          } else if (e.target.classList.contains('delete-btn')) {
+            if (confirm('¿Eliminar este chat?')) await deleteChat(id);
+          }
+        };
       }
 
       async function loadChat(chatId){
@@ -540,19 +548,8 @@
       }
 
       function getGuestAll(){ try{ return JSON.parse(localStorage.getItem('mira_guest_chats')||"[]"); }catch{ return []; } }
-      function renderGuestList(){
-        const list = document.getElementById('chat-list'); if(!list) return;
-        list.innerHTML = "";
-        getGuestAll().sort((a,b)=>b.updatedAt-a.updatedAt).forEach(c=>{
-          const btn = document.createElement('button');
-          btn.className = 'playlist-item';
-          btn.innerHTML = `<div class="text-sm font-semibold">${c.title||"Chat"}</div><div class="text-xs opacity-70">${c.id}</div>`;
-          btn.onclick = ()=>loadChat(c.id);
-          list.appendChild(btn);
-        });
-      }
 
-      return { setUser, saveMessage, loadChatList, loadChat, newChat };
+      return { setUser, saveMessage, loadChatList, loadChat, newChat, renameChat, deleteChat };
     })();
 
     const $authSection = document.getElementById('auth');
