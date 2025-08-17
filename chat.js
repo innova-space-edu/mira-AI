@@ -13,9 +13,9 @@ Habla SIEMPRE en español, clara y estructurada.
 - Cuando pidan “la fórmula”, da explicación breve, fórmula y define variables en texto.
 `;
 
-// Endpoints del backend (Netlify Functions)
-const BLIP_ENDPOINT = "/api/vision";    // imagen → caption (modo caption)
-const OCR_ENDPOINT  = "/api/ocrspace";  // imagen → OCR
+// Endpoints (intenta /api/* y si no, /.netlify/functions/*)
+const BLIP_ENDPOINTS = ["/api/vision", "/.netlify/functions/vision"];
+const OCR_ENDPOINTS  = ["/api/ocrspace", "/.netlify/functions/ocrspace"];
 
 // ============ AVATAR ============
 let __innerAvatarSvg = null;
@@ -60,7 +60,7 @@ function showThinking(text = "MIRA está pensando…") {
 }
 function hideThinking() { document.getElementById("thinking")?.remove(); }
 
-// ============ Conversión TTS ============
+// ============ TTS ============
 function stripEmojis(s) {
   try { return s.replace(/[\p{Extended_Pictographic}\uFE0F\u200D]/gu, ""); }
   catch { return s.replace(/[\u{1F1E6}-\u{1F1FF}\u{1F300}-\u{1FAFF}\u{2600}-\u{26FF}]/gu, ""); }
@@ -80,21 +80,13 @@ function sanitizeForTTS(md) {
   t = t.replace(/\s+/g, " ").trim();
   return t;
 }
-
-const VOICE_NAME_PREFS = [
-  "Paloma","Elvira","Dalia","Lola","Paulina","Sabina","Helena",
-  "Lucia","Lucía","Elena","Camila","Sofía","Sofia","Marina","Conchita",
-  "Google español"
-];
+const VOICE_NAME_PREFS = ["Paloma","Elvira","Dalia","Lola","Paulina","Sabina","Helena","Lucia","Lucía","Elena","Camila","Sofía","Sofia","Marina","Conchita","Google español"];
 const VOICE_LANG_PREFS = ["es-CL","es-ES","es-MX","es-419","es"];
-
 let voicesCache = [];
 let speaking = false;
 const speechQueue = [];
-
 function refreshVoices(){ voicesCache = window.speechSynthesis.getVoices() || []; }
 if (window.speechSynthesis) window.speechSynthesis.addEventListener("voiceschanged", refreshVoices);
-
 function pickVoice(){
   refreshVoices();
   if (PREFERRED_VOICE_NAME) {
@@ -108,42 +100,25 @@ function pickVoice(){
   const byLang = voicesCache.find(v => VOICE_LANG_PREFS.some(l => (v.lang||"").toLowerCase().startsWith(l)));
   return byLang || voicesCache[0] || null;
 }
-
 function splitIntoChunks(text, maxLen = 200) {
   const parts = text.split(/(?<=[\.!?;:])\s+|\n+/g);
   const chunks = [];
   let buf = "";
   for (const p of parts) {
-    const s = p.trim();
-    if (!s) continue;
-    if ((buf + " " + s).trim().length <= maxLen) {
-      buf = (buf ? buf + " " : "") + s;
-    } else {
-      if (buf) chunks.push(buf);
-      (s.length <= maxLen) ? chunks.push(s) : chunks.push(...s.match(/.{1,200}/g));
-      buf = "";
-    }
+    const s = p.trim(); if (!s) continue;
+    if ((buf + " " + s).trim().length <= maxLen) buf = (buf ? buf + " " : "") + s;
+    else { if (buf) chunks.push(buf); (s.length <= maxLen) ? chunks.push(s) : chunks.push(...s.match(/.{1,200}/g)); buf = ""; }
   }
   if (buf) chunks.push(buf);
   return chunks;
 }
-
 const INTER_CHUNK_PAUSE_MS = 120;
-
 function playNext() {
   const next = speechQueue.shift();
-  if (!next) {
-    speaking = false;
-    setAvatarTalking(false);
-    return;
-  }
+  if (!next) { speaking = false; setAvatarTalking(false); return; }
   const utter = new SpeechSynthesisUtterance(next);
-  const v = pickVoice();
-  if (v) utter.voice = v;
-  utter.lang   = (v && v.lang) || "es-ES";
-  utter.rate   = 0.94;
-  utter.pitch  = 1.08;
-  utter.volume = 1;
+  const v = pickVoice(); if (v) utter.voice = v;
+  utter.lang = (v && v.lang) || "es-ES"; utter.rate = 0.94; utter.pitch = 1.08; utter.volume = 1;
   setAvatarTalking(true);
   utter.onend = () => setTimeout(playNext, INTER_CHUNK_PAUSE_MS);
   utter.onerror = () => setTimeout(playNext, INTER_CHUNK_PAUSE_MS);
@@ -152,11 +127,7 @@ function playNext() {
 }
 function enqueueSpeak(text){ if (!text) return; speechQueue.push(text); if (!speaking) playNext(); }
 function cancelAllSpeech(){ try{ window.speechSynthesis.cancel(); }catch{} speechQueue.length = 0; speaking = false; setAvatarTalking(false); }
-function speakMarkdown(md){
-  const plain = sanitizeForTTS(md);
-  if (!plain) return;
-  splitIntoChunks(plain, 200).forEach(c => enqueueSpeak(c));
-}
+function speakMarkdown(md){ const plain = sanitizeForTTS(md); if (!plain) return; splitIntoChunks(plain, 200).forEach(c => enqueueSpeak(c)); }
 function speakAfterVoices(md){
   try{
     if (window.speechSynthesis?.getVoices().length) speakMarkdown(md);
@@ -164,13 +135,13 @@ function speakAfterVoices(md){
       const once = () => { window.speechSynthesis.removeEventListener("voiceschanged", once); speakMarkdown(md); };
       window.speechSynthesis?.addEventListener("voiceschanged", once);
     }
-  }catch(e){ }
+  }catch(e){}
 }
 
 // ============ RENDER ============
 function renderMarkdown(text){ return typeof marked !== "undefined" ? marked.parse(text) : text; }
 
-// ============ Fallback a Wikipedia ============
+// ============ Fallback Wikipedia ============
 async function wikiFallback(q){
   try {
     const r = await fetch(`https://es.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(q)}`);
@@ -178,10 +149,8 @@ async function wikiFallback(q){
   } catch { return null; }
 }
 
-// Guardado (si ChatStore existe)
-async function saveMsg(role, content){
-  try{ await window.ChatStore?.saveMessage?.(role, content); }catch{}
-}
+// Guardado (si hay ChatStore)
+async function saveMsg(role, content){ try{ await window.ChatStore?.saveMessage?.(role, content); }catch{} }
 
 // ============ CLIENTE /api/chat ============
 async function callChatAPI_base(url, messages, temperature) {
@@ -204,9 +173,8 @@ async function callChatAPI_base(url, messages, temperature) {
   return data?.choices?.[0]?.message?.content?.trim() || "";
 }
 async function callChatAPI(messages, temperature = 0.7) {
-  try {
-    return await callChatAPI_base("/api/chat", messages, temperature);
-  } catch (e) {
+  try { return await callChatAPI_base("/api/chat", messages, temperature); }
+  catch (e) {
     const msg = String(e?.message || "");
     if (/404|no encontrado|endpoint no encontrado|not\s*found/i.test(msg)) {
       return await callChatAPI_base("/.netlify/functions/chat", messages, temperature);
@@ -215,13 +183,10 @@ async function callChatAPI(messages, temperature = 0.7) {
   }
 }
 async function callLLMFromText(userText){
-  return callChatAPI([
-    { role: "system", content: SYSTEM_PROMPT },
-    { role: "user", content: userText }
-  ]);
+  return callChatAPI([{ role: "system", content: SYSTEM_PROMPT }, { role: "user", content: userText }]);
 }
 
-// ===== Utilidad: File → Base64 (Data URL) =====
+// ===== File → Base64 =====
 function fileToBase64(file){
   return new Promise((resolve, reject) => {
     const fr = new FileReader();
@@ -246,14 +211,31 @@ function parseNiceError(err) {
   return s;
 }
 
+async function tryFetchVision(bodyJson){
+  for (const url of BLIP_ENDPOINTS) {
+    const r = await fetch(url, { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(bodyJson) });
+    if (r.ok) return r;
+    if (r.status !== 404) throw await httpError(r); // si no es 404, no seguimos
+  }
+  const last = await fetch(BLIP_ENDPOINTS[BLIP_ENDPOINTS.length-1], { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(bodyJson) });
+  if (!last.ok) throw await httpError(last);
+  return last;
+}
+
+async function tryFetchOCR(bodyJson){
+  for (const url of OCR_ENDPOINTS) {
+    const r = await fetch(url, { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(bodyJson) });
+    if (r.ok) return r;
+    if (r.status !== 404) throw await httpError(r);
+  }
+  const last = await fetch(OCR_ENDPOINTS[OCR_ENDPOINTS.length-1], { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(bodyJson) });
+  if (!last.ok) throw await httpError(last);
+  return last;
+}
+
 async function callBLIP(file) {
   const imageBase64 = await fileToBase64(file);
-  const r = await fetch(BLIP_ENDPOINT, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ mode: "caption", image_base64: imageBase64 })
-  });
-  if (!r.ok) throw await httpError(r);
+  const r = await tryFetchVision({ mode: "caption", image_base64: imageBase64 });
   const data = await r.json();
   const desc = data?.caption || data?.description || "";
   if (!desc) throw new Error("Respuesta de visión inválida (caption).");
@@ -261,12 +243,7 @@ async function callBLIP(file) {
 }
 async function callOCR(file) {
   const imageBase64 = await fileToBase64(file);
-  const r = await fetch(OCR_ENDPOINT, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ image_base64: imageBase64, language: "spa" })
-  });
-  if (!r.ok) throw await httpError(r);
+  const r = await tryFetchOCR({ image_base64: imageBase64, language: "spa" });
   const data = await r.json();
   if (typeof data?.text !== "string") throw new Error("Respuesta OCR inválida.");
   return data.text.trim();
@@ -294,11 +271,10 @@ async function analyzeImages(files) {
   return results.map((b,i) => `Imagen ${i+1}:\n${b}`).join("\n\n");
 }
 
-// ============ PIPELINE: VISIÓN → LLM ============
+// ============ PIPELINE VISIÓN → LLM ============
 let __visionCtx = { ocrText: "" };
 window.setVisionContext = function({ ocrText = "" } = {}) { __visionCtx.ocrText = ocrText; };
 
-/** Genera una explicación a partir de visión y la pregunta del usuario. */
 window.pipelineFromVision = async function(answerFromVision, question = "", extras = {}) {
   const ocrText = (extras.ocrText ?? __visionCtx.ocrText ?? "").trim();
   const userMessage = (extras.userMessage || "").trim();
@@ -338,9 +314,7 @@ Recuerda: usa LaTeX grande para fórmulas con $$ ... $$ cuando apliquen. Respond
   }
 };
 
-// ============ ENVÍO MENSAJE (texto + adjuntos) ============
-
-// Estado de adjuntos
+// ============ ENVÍO MENSAJE ============
 const $fileInput   = document.getElementById("fileInput");
 const $attachBtn   = document.getElementById("attachBtn");
 const $attachMenu  = document.getElementById("attachMenu");
@@ -348,11 +322,10 @@ const $attachImageOption = document.getElementById("attachImageOption");
 const $attachments = document.getElementById("attachments");
 let attachments = []; // { file, urlPreview }
 
-// Preview de adjuntos
 function renderAttachmentChips(){
   if (!$attachments) return;
   $attachments.innerHTML = "";
-  attachments.forEach((att, i) => {
+  attachments.forEach(att => {
     const chip = document.createElement("span");
     chip.className = "attachment-chip";
     chip.innerHTML = `<img src="${att.urlPreview}" alt="img"><span>${att.file.name}</span>`;
@@ -372,7 +345,7 @@ $attachBtn?.addEventListener("click", (e) => {
 document.addEventListener("click", () => { if ($attachMenu) $attachMenu.classList.add("hidden"); });
 $attachMenu?.addEventListener("click", (e)=> e.stopPropagation());
 
-// Opción de adjuntar imagen
+// Opción imagen
 $attachImageOption?.addEventListener("click", (e) => {
   e.stopPropagation();
   $fileInput?.click();
@@ -387,10 +360,10 @@ $fileInput?.addEventListener("change", async (e) => {
     attachments.push({ file: f, urlPreview: url });
   }
   renderAttachmentChips();
-  if ($fileInput) $fileInput.value = ""; // permitir volver a seleccionar
+  if ($fileInput) $fileInput.value = "";
 });
 
-// Envío con Enter o click
+// Enter y botón enviar
 (function bindEnterSend(){
   const input = document.getElementById("user-input");
   const btn   = document.getElementById("send-btn");
@@ -409,7 +382,7 @@ async function sendMessage() {
 
   cancelAllSpeech();
 
-  // Mensaje del usuario (texto + miniaturas)
+  // Mensaje del usuario
   let htmlUser = "";
   if (userMessage) htmlUser += renderMarkdown(userMessage);
   if (attachments.length) {
@@ -419,7 +392,7 @@ async function sendMessage() {
   appendMessage("user", htmlUser);
   saveMsg("user", userMessage || (attachments.length ? "[Imagen adjunta]" : ""));
 
-  // limpia input y estado
+  // Limpieza y copia de archivos
   if (input) input.value = "";
   const localUrls = attachments.map(a => a.urlPreview);
   const files     = attachments.map(a => a.file);
@@ -438,14 +411,11 @@ async function sendMessage() {
       await window.pipelineFromVision(visualContext, question, { userMessage });
       requestSucceeded = true;
     } else {
-      // Chat normal
       showThinking();
       aiReply = await callLLMFromText(userMessage);
       hideThinking();
 
-      if (!aiReply) {
-        aiReply = (await wikiFallback(userMessage)) || "Lo siento, no encontré una respuesta adecuada.";
-      }
+      if (!aiReply) aiReply = (await wikiFallback(userMessage)) || "Lo siento, no encontré una respuesta adecuada.";
 
       const html = renderMarkdown(aiReply);
       appendMessage("assistant", html);
@@ -460,7 +430,6 @@ async function sendMessage() {
     appendMessage("assistant", msg);
     saveMsg("assistant", msg);
   } finally {
-    // libera blobs locales
     localUrls.forEach(u => URL.revokeObjectURL(u));
   }
 
@@ -471,16 +440,12 @@ window.sendMessage = sendMessage;
 // ============ INICIALIZACIÓN ============
 function initChat() {
   hookAvatarInnerSvg();
-
   const saludo = "¡Hola! Soy MIRA. ¿En qué puedo ayudarte hoy?";
   appendMessage("assistant", renderMarkdown(saludo));
   try { speakAfterVoices(saludo); } catch {}
-
   if (window.MathJax?.typesetPromise) MathJax.typesetPromise();
   setAvatarTalking(false);
 }
-
-// Asegurar saludo incluso si el script carga tarde
 if (document.readyState === "loading") {
   window.addEventListener("DOMContentLoaded", initChat);
 } else {
