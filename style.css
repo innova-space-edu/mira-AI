@@ -95,7 +95,7 @@ body.panel-open #landing{ padding-left: calc(var(--panel-w) + 20px); }
 }
 #chat-box{ flex: 1 1 auto; overflow-y: auto; }
 
-/* Fila del input fija al fondo del card */
+/* Fila del input fija al fondo del card (versión anterior; mantenida por compatibilidad) */
 .input-row{
   position: sticky;
   bottom: 0;
@@ -330,6 +330,7 @@ mjx-container[jax="CHTML"]{
 #landing{
   grid-template-rows: 1fr !important;
   padding-top: calc(var(--topbar-h) + var(--header-overlay-h));
+  padding-bottom: var(--safe-bottom); /* espacio de seguridad inferior */
 }
 
 /* La franja de marca pasa a overlay arriba-izquierda (no ocupa alto) */
@@ -342,11 +343,15 @@ mjx-container[jax="CHTML"]{
   pointer-events: none;
 }
 
-/* “Asistente IA – MIRA” anclado justo bajo el botón Salir */
+/* ======= TÍTULO CENTRADO Y AVATAR ALINEADO AL CENTRO VERTICAL ======= */
 .mira-title{
   position: absolute;
   top: calc(var(--topbar-h) + 12px);
-  right: 18px;
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%);
+  text-align: center;
+  width: max-content;
   margin: 0;
   z-index: 30;
   pointer-events: none;
@@ -354,11 +359,13 @@ mjx-container[jax="CHTML"]{
   letter-spacing: .2px;
 }
 
-/* Avatar en overlay (opcional; quita este bloque si prefieres mantenerlo en su lugar original) */
+/* Avatar a la derecha, centrado verticalmente con la línea del título */
 #avatar-mira{
   position: absolute;
-  top: calc(var(--topbar-h) + 44px);
+  top: calc(var(--topbar-h) + 12px + 0.9em); /* 0.9em ≈ mitad del alto de línea */
+  transform: translateY(-50%);
   right: 20px;
+  left: auto;
   width: clamp(48px, 5vw, 64px);
   height: auto;
   pointer-events: none;
@@ -367,18 +374,9 @@ mjx-container[jax="CHTML"]{
 /* El card del chat sube ligeramente */
 .chat-wrap{ margin-top: 6px !important; }
 
-/* Ajuste móvil para no saturar la parte superior */
-@media (max-width: 640px){
-  :root{ --header-overlay-h: 56px; }
-  #avatar-mira{ display: none; }  /* oculta avatar en móvil si molesta */
-}
-
 /* ===================================================================== */
 /* ================= FIX: que siempre se vea el input =================== */
 /* ===================================================================== */
-
-/* espacio de seguridad inferior (notch / barra gestos) */
-#landing{ padding-bottom: var(--safe-bottom); }
 
 /* restar también el overlay del título para calcular la altura útil */
 #chat-shell{
@@ -393,16 +391,27 @@ mjx-container[jax="CHTML"]{
   padding-bottom: 6px; /* colchón para no pegarse al input */
 }
 
-/* compositor visible y pegado al borde inferior del card */
+/* COMPOSER: input y botón Enviar en la MISMA FILA */
 .composer{
+  display: grid;
+  grid-template-columns: 1fr auto;  /* input ocupa el espacio, botón a la derecha */
+  gap: 10px;
+  align-items: center;               /* centra verticalmente ambos */
   position: sticky;
   bottom: max(6px, var(--safe-bottom));
   background: linear-gradient(180deg, rgba(17,24,39,0) 0%, rgba(17,24,39,.65) 40%, rgba(17,24,39,.85) 100%);
   padding-bottom: max(6px, var(--safe-bottom));
   z-index: 5;
 }
+/* asegurar que el input pueda encogerse sin romper la fila */
+.input-group{ min-width: 0; }
+.composer-input{ width: 100%; }
 
-/* en pantallas pequeñas, reduce la reserva superior */
+/* mantener el + flotante dentro del input sin que empuje nada */
+.plus-btn{ position: absolute; right: 10px; bottom: 8px; }
+
+/* móvil: menos reserva arriba y (opcional) ocultar avatar */
 @media (max-width: 640px){
   :root{ --header-overlay-h: 48px; }
+  /* #avatar-mira{ display:none; } */
 }
