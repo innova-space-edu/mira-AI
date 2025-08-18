@@ -5,6 +5,7 @@
   --panel-w: 320px;
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --header-h: 0px; /* se calcula en runtime según #page-header */
+  --header-overlay-h: clamp(52px, 7.2vw, 72px); /* alto reservado para cabecera fija */
 }
 
 /* Todo dentro del viewport, sin desbordes */
@@ -14,9 +15,11 @@ html, body { height: 100%; overflow: hidden; }
 #landing{
   min-height: calc((var(--vh) * 100) - var(--topbar-h));
   display: grid;
-  grid-template-rows: auto 1fr;
+  grid-template-rows: 1fr !important; /* solo contenido; el header es overlay */
   align-items: start;
   transition: padding-left .25s ease;
+  padding-top: calc(var(--topbar-h) + var(--header-overlay-h));
+  padding-bottom: var(--safe-bottom);
 }
 @supports (height: 100dvh){
   #landing{ min-height: calc(100dvh - var(--topbar-h)); }
@@ -48,14 +51,18 @@ body.panel-open #landing{ padding-left: calc(var(--panel-w) + 20px); }
   color: transparent;
 }
 
-/* Encabezado estático fuera del chat */
-.page-header{
+/* ====== Título del sitio (centrado superior, overlay) ====== */
+.hero-bar{
+  position: absolute;
+  top: calc(var(--topbar-h) + 6px);
+  left: 0; right: 0;
+  height: 0; /* no ocupa flujo */
+  pointer-events: none;
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
+  place-items: center;
 }
-.ph-left{ display:flex; align-items:center; }
-.brand-mini{
+.site-title-centered{
+  margin: 0;
   font-size: clamp(20px, 2.4vw, 34px);
   font-weight: 800;
   letter-spacing: .3px;
@@ -64,25 +71,31 @@ body.panel-open #landing{ padding-left: calc(var(--panel-w) + 20px); }
   background-clip: text;
   color: transparent;
   filter: drop-shadow(0 2px 10px rgba(168,85,247,.35));
+  pointer-events: auto;
 }
-.ph-right{ display:grid; grid-template-rows:auto auto auto; justify-items:end; }
-.mira-title{
-  font-size: clamp(18px, 2.2vw, 28px);
-  font-weight: 800;
-  margin-top: 4px;
-  letter-spacing: .3px;
+
+/* ====== Cabecera del asistente: avatar + nombre a la derecha ====== */
+#assistant-header{
+  position: absolute;
+  top: calc(var(--topbar-h) + 10px);
+  right: 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  z-index: 30;
 }
 #avatar-mira{
-  width: clamp(56px, 6vw, 78px);
+  width: clamp(48px, 5vw, 64px);
   height: auto;
   filter: drop-shadow(0 2px 6px rgba(0,0,0,.25));
-  margin: 6px 0 2px 0;
 }
-.tagline{
-  max-width: 520px;
-  font-size: clamp(14px, 1.5vw, 18px);
-  opacity:.9;
+.assistant-name{
+  margin: 0;
+  font-weight: 800;
+  letter-spacing: .2px;
+  font-size: clamp(16px, 2.1vw, 22px);
 }
+.assistant-name .mira{ font-weight: 900; }
 
 /* =================== Chat =================== */
 #main-chat{ display: flex; justify-content: center; align-items: stretch; padding: 6px 12px 16px; }
@@ -91,20 +104,22 @@ body.panel-open #landing{ padding-left: calc(var(--panel-w) + 20px); }
 #chat-card{ padding: 1rem; height: 100%; }
 #chat-shell{
   display: flex; flex-direction: column;
-  height: calc(100dvh - var(--topbar-h) - var(--header-h) - 16px);
+  height: calc(100dvh - var(--topbar-h) - var(--header-overlay-h) - 16px) !important;
+  min-height: calc(100dvh - var(--topbar-h) - var(--header-overlay-h) - 16px);
 }
-#chat-box{ flex: 1 1 auto; overflow-y: auto; }
+#chat-box{ flex: 1 1 auto; overflow-y: auto; padding-bottom: 6px; }
 
-/* Fila del input fija al fondo del card (versión anterior; mantenida por compatibilidad) */
-.input-row{
+/* COMPOSER: input y botón Enviar en la MISMA FILA */
+.composer{
+  display: grid;
+  grid-template-columns: 1fr auto;  /* input ocupa el espacio, botón a la derecha */
+  gap: 10px;
+  align-items: center;               /* centra verticalmente ambos */
   position: sticky;
-  bottom: 0;
-  padding-top: 8px;
+  bottom: max(6px, var(--safe-bottom));
   background: linear-gradient(180deg, rgba(17,24,39,0) 0%, rgba(17,24,39,.65) 40%, rgba(17,24,39,.85) 100%);
   padding-bottom: max(6px, var(--safe-bottom));
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 8px;
+  z-index: 5;
 }
 
 /* Input grande + botón “+” flotante */
@@ -112,6 +127,7 @@ body.panel-open #landing{ padding-left: calc(var(--panel-w) + 20px); }
   position: relative;
   display: grid;
   align-items: center;
+  min-width: 0;
 }
 .composer-input{
   width: 100%;
@@ -302,13 +318,77 @@ mjx-container[jax="CHTML"]{
   .playlist-list{ max-height: calc(100dvh - 420px); }
 }
 
+/* =================== Lista de chats con menú ⋯ =================== */
+#chat-list { position: relative; }
+.chat-item{
+  position: relative;
+  padding: 8px 10px;
+  border-radius: 10px;
+  transition: background .15s;
+}
+.chat-item:hover { background: rgba(255,255,255,.06); }
+
+.chat-main{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.chat-title{
+  display: inline-block;
+  max-width: 175px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.kebab-btn{
+  border: none;
+  background: transparent;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 4px;
+  color: #cfc9ff;
+}
+.kebab-btn:hover { opacity: .85; }
+
+.kebab-menu{
+  position: absolute;
+  right: 6px;
+  top: calc(100% - 2px);
+  min-width: 140px;
+  padding: 6px;
+  border-radius: 10px;
+  background: #1f2130;
+  box-shadow: 0 10px 24px rgba(0,0,0,.35);
+  display: grid;
+  gap: 4px;
+  z-index: 50;
+}
+.kebab-menu[hidden]{ display: none; }
+
+.kebab-menu .menu-action{
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: #e7e7ff;
+  cursor: pointer;
+  font-size: 14px;
+}
+.kebab-menu .menu-action:hover{
+  background: rgba(255,255,255,.06);
+}
+
 /* =================== Responsive móvil =================== */
 @media (max-width: 480px), (max-height: 640px){
   #hero-subtitle, #hero-subtitle-app { display: none; }
 
   .chat-wrap{ width: min(92vw, 560px); margin-inline: auto; }
   #chat-card{ padding: 10px; }
-  #chat-shell{ height: calc(100dvh - var(--topbar-h) - var(--header-h) - 8px); }
+  #chat-shell{ height: calc(100dvh - var(--topbar-h) - var(--header-overlay-h) - 8px) !important; }
   #chat-box{ font-size: .92rem; }
 
   .send-btn{ min-width: 74px; padding: .45rem .6rem; font-size: .9rem; }
@@ -317,101 +397,3 @@ mjx-container[jax="CHTML"]{
 
 /* Ocultar completamente el main cuando está hidden */
 #landing.hidden{ display: none !important; }
-
-/* ===================================================================== */
-/* ===== Overlay de cabecera para subir el chat y ubicar “MIRA” ======== */
-/* ===================================================================== */
-
-:root{
-  --header-overlay-h: clamp(52px, 7.2vw, 72px); /* alto reservado para el título MIRA bajo la topbar */
-}
-
-/* El main deja de tener una fila "hero" que lo empuje */
-#landing{
-  grid-template-rows: 1fr !important;
-  padding-top: calc(var(--topbar-h) + var(--header-overlay-h));
-  padding-bottom: var(--safe-bottom); /* espacio de seguridad inferior */
-}
-
-/* La franja de marca pasa a overlay arriba-izquierda (no ocupa alto) */
-.hero-bar{
-  position: absolute;
-  top: calc(var(--topbar-h) + 8px);
-  left: 16px;
-  right: 16px;
-  height: 0;
-  pointer-events: none;
-}
-
-/* ======= TÍTULO CENTRADO Y AVATAR ALINEADO AL CENTRO VERTICAL ======= */
-.mira-title{
-  position: absolute;
-  top: calc(var(--topbar-h) + 12px);
-  left: 50%;
-  right: auto;
-  transform: translateX(-50%);
-  text-align: center;
-  width: max-content;
-  margin: 0;
-  z-index: 30;
-  pointer-events: none;
-  font-weight: 800;
-  letter-spacing: .2px;
-}
-
-/* Avatar a la derecha, centrado verticalmente con la línea del título */
-#avatar-mira{
-  position: absolute;
-  top: calc(var(--topbar-h) + 12px + 0.9em); /* 0.9em ≈ mitad del alto de línea */
-  transform: translateY(-50%);
-  right: 20px;
-  left: auto;
-  width: clamp(48px, 5vw, 64px);
-  height: auto;
-  pointer-events: none;
-}
-
-/* El card del chat sube ligeramente */
-.chat-wrap{ margin-top: 6px !important; }
-
-/* ===================================================================== */
-/* ================= FIX: que siempre se vea el input =================== */
-/* ===================================================================== */
-
-/* restar también el overlay del título para calcular la altura útil */
-#chat-shell{
-  height: calc(100dvh - var(--topbar-h) - var(--header-overlay-h) - 16px) !important;
-  min-height: calc(100dvh - var(--topbar-h) - var(--header-overlay-h) - 16px);
-}
-
-/* el área de mensajes es la que scrollea */
-#chat-box{
-  flex: 1 1 auto;
-  overflow-y: auto;
-  padding-bottom: 6px; /* colchón para no pegarse al input */
-}
-
-/* COMPOSER: input y botón Enviar en la MISMA FILA */
-.composer{
-  display: grid;
-  grid-template-columns: 1fr auto;  /* input ocupa el espacio, botón a la derecha */
-  gap: 10px;
-  align-items: center;               /* centra verticalmente ambos */
-  position: sticky;
-  bottom: max(6px, var(--safe-bottom));
-  background: linear-gradient(180deg, rgba(17,24,39,0) 0%, rgba(17,24,39,.65) 40%, rgba(17,24,39,.85) 100%);
-  padding-bottom: max(6px, var(--safe-bottom));
-  z-index: 5;
-}
-/* asegurar que el input pueda encogerse sin romper la fila */
-.input-group{ min-width: 0; }
-.composer-input{ width: 100%; }
-
-/* mantener el + flotante dentro del input sin que empuje nada */
-.plus-btn{ position: absolute; right: 10px; bottom: 8px; }
-
-/* móvil: menos reserva arriba y (opcional) ocultar avatar */
-@media (max-width: 640px){
-  :root{ --header-overlay-h: 48px; }
-  /* #avatar-mira{ display:none; } */
-}
