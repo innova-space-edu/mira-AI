@@ -85,21 +85,15 @@
   <!-- App -->
   <main id="landing" class="relative hidden">
 
-    <!-- Faja del título -->
+    <!-- Faja del título (CENTRADO) -->
     <div class="hero-bar">
-      <h1 class="brand-mini">
-        <span class="line">Innova Space</span>
-        <span class="break">Education</span>
-      </h1>
+      <h1 class="site-title-centered">Innova Space Education</h1>
     </div>
 
-    <!-- Columna fija a la derecha con texto + avatar -->
-    <div class="assistant-stack" aria-hidden="true">
-      <div class="mira-title">
-        <span class="assist">Asistente IA –</span>
-        <span class="mira">MIRA</span>
-      </div>
+    <!-- Encabezado de asistente: avatar + texto al lado -->
+    <div id="assistant-header">
       <object id="avatar-mira" type="image/svg+xml" data="avatar_mira.svg" class="still" tabindex="-1"></object>
+      <h2 class="assistant-name"><span class="assist">Asistente IA –</span> <span class="mira">MIRA</span></h2>
     </div>
 
     <!-- Dock lateral -->
@@ -337,23 +331,24 @@
         await loadChatList();
       }
 
+      // ==== NUEVO: render con menú ⋯
       async function loadChatList(){
         const list = document.getElementById('chat-list'); if (!list) return;
         list.innerHTML = "";
 
         const addRow = (id, title) => {
           const row = document.createElement('div');
-          row.className = 'chat-row';
+          row.className = 'chat-item';
           row.dataset.id = id;
           row.innerHTML = `
-            <div class="grow">
-              <div class="text-sm font-semibold">${title || "Chat"}</div>
-              <div class="text-xs opacity-70">${id}</div>
+            <div class="chat-main">
+              <span class="chat-title">${(title || "Chat")}</span>
+              <button class="kebab-btn" aria-haspopup="true" aria-expanded="false" title="Más acciones">⋯</button>
             </div>
-            <div class="row-actions">
-              <button class="rename-btn">Renombrar</button>
-              <button class="delete-btn">Eliminar</button>
-              <button class="open-btn">Abrir</button>
+            <div class="kebab-menu" role="menu" hidden>
+              <button class="menu-action" data-action="open"   role="menuitem">Abrir</button>
+              <button class="menu-action" data-action="rename" role="menuitem">Renombrar</button>
+              <button class="menu-action" data-action="delete" role="menuitem">Eliminar</button>
             </div>`;
           list.appendChild(row);
         };
@@ -361,22 +356,68 @@
         if (!currentUser){
           getGuestAll().sort((a,b)=>b.updatedAt-a.updatedAt).forEach(c=> addRow(c.id, c.title));
         } else {
-          const q = query(userChatsCol(currentUser.uid), orderBy('updatedAt','desc'));
-          const snap = await getDocs(q);
+          const qy = query(userChatsCol(currentUser.uid), orderBy('updatedAt','desc'));
+          const snap = await getDocs(qy);
           snap.forEach(docSnap=> addRow(docSnap.id, (docSnap.data().title || "Chat")));
         }
 
+        // Delegación para abrir/cerrar menú y acciones
         list.onclick = async (e) => {
-          const row = e.target.closest('.chat-row'); if (!row) return;
-          const id = row.dataset.id;
-          if (e.target.classList.contains('open-btn')) { await loadChat(id); }
-          else if (e.target.classList.contains('rename-btn')) {
-            const newTitle = prompt('Nuevo nombre del chat:', row.querySelector('.font-semibold').textContent.trim());
-            if (newTitle && newTitle.trim()) await renameChat(id, newTitle.trim());
-          } else if (e.target.classList.contains('delete-btn')) {
-            if (confirm('¿Eliminar este chat?')) await deleteChat(id);
+          const kebab = e.target.closest('.kebab-btn');
+          if (kebab) {
+            const item = kebab.closest('.chat-item');
+            const menu = item.querySelector('.kebab-menu');
+            const isOpen = kebab.getAttribute('aria-expanded') === 'true';
+            // Cerrar otros
+            list.querySelectorAll('.kebab-menu:not([hidden])').forEach(m => m.hidden = true);
+            list.querySelectorAll('.kebab-btn[aria-expanded="true"]').forEach(b => b.setAttribute('aria-expanded','false'));
+            if (!isOpen) { menu.hidden = false; kebab.setAttribute('aria-expanded','true'); }
+            e.stopPropagation();
+            return;
+          }
+
+          const actionBtn = e.target.closest('.menu-action');
+          if (actionBtn) {
+            const item = actionBtn.closest('.chat-item');
+            const id = item.dataset.id;
+            const action = actionBtn.dataset.action;
+
+            if (action === 'open') {
+              await loadChat(id);
+            } else if (action === 'rename') {
+              const current = item.querySelector('.chat-title').textContent.trim();
+              const nuevo = prompt('Nuevo nombre del chat:', current);
+              if (nuevo && nuevo.trim()) await renameChat(id, nuevo.trim());
+            } else if (action === 'delete') {
+              if (confirm('¿Eliminar este chat?')) await deleteChat(id);
+            }
+
+            // cerrar menús
+            list.querySelectorAll('.kebab-menu:not([hidden])').forEach(m => m.hidden = true);
+            list.querySelectorAll('.kebab-btn[aria-expanded="true"]').forEach(b => b.setAttribute('aria-expanded','false'));
+            e.stopPropagation();
+            return;
+          }
+
+          // Click en el título abre el chat
+          const titleEl = e.target.closest('.chat-title');
+          if (titleEl) {
+            const item = titleEl.closest('.chat-item');
+            await loadChat(item.dataset.id);
           }
         };
+
+        // Cierre global del menú
+        document.addEventListener('click', () => {
+          list.querySelectorAll('.kebab-menu:not([hidden])').forEach(m => m.hidden = true);
+          list.querySelectorAll('.kebab-btn[aria-expanded="true"]').forEach(b => b.setAttribute('aria-expanded','false'));
+        });
+        document.addEventListener('keydown', (ev) => {
+          if (ev.key === 'Escape') {
+            list.querySelectorAll('.kebab-menu:not([hidden])').forEach(m => m.hidden = true);
+            list.querySelectorAll('.kebab-btn[aria-expanded="true"]').forEach(b => b.setAttribute('aria-expanded','false'));
+          }
+        });
       }
 
       async function loadChat(chatId){
