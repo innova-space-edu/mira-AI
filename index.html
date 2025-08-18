@@ -55,7 +55,7 @@
     </div>
   </header>
 
-  <!-- Pantalla de autenticación -->
+  <!-- Pantalla de autenticación (con “lluvia de estrellas”) -->
   <section id="auth" class="grid place-items-center px-4">
     <div class="w-full max-w-md bg-gray-900/70 border border-purple-500/50 rounded-2xl p-6 shadow-2xl auth-card">
       <h1 class="hero-title text-center mb-1">Innova Space Education</h1>
@@ -117,7 +117,7 @@
       </button>
       <button id="btn-user" class="dock-btn" title="Usuario">
         <span class="dock-icon">
-          <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor">
             <path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="7" r="4"/>
           </svg>
         </span>
@@ -296,7 +296,7 @@
         const y = e.clientY - r.top;
         sendBtn.style.setProperty('--ripple-x', x + 'px');
         sendBtn.style.setProperty('--ripple-y', y + 'px');
-        sendBtn.classList.remove('do-ripple'); // reiniciar animación
+        sendBtn.classList.remove('do-ripple');
         void sendBtn.offsetWidth;
         sendBtn.classList.add('do-ripple');
       });
@@ -422,7 +422,7 @@
         await loadChatList();
       }
 
-      // Render de lista con menú ⋯
+      // Render de lista con menú ⋯ (abre al pasar el mouse)
       async function loadChatList(){
         const list = document.getElementById('chat-list'); if (!list) return;
         list.innerHTML = "";
@@ -434,9 +434,9 @@
           row.innerHTML = `
             <div class="chat-main">
               <span class="chat-title">${(title || "Chat")}</span>
-              <button class="kebab-btn" aria-haspopup="true" aria-expanded="false" title="Más acciones">⋯</button>
+              <button class="kebab-btn" title="Más acciones">⋯</button>
             </div>
-            <div class="kebab-menu" role="menu" hidden>
+            <div class="kebab-menu" role="menu">
               <button class="menu-action" data-action="open"   role="menuitem">Abrir</button>
               <button class="menu-action" data-action="rename" role="menuitem">Renombrar</button>
               <button class="menu-action" data-action="delete" role="menuitem">Eliminar</button>
@@ -452,20 +452,8 @@
           snap.forEach(docSnap=> addRow(docSnap.id, (docSnap.data().title || "Chat")));
         }
 
-        // Delegación para menú ⋯ y acciones
+        // Delegación para acciones y abrir chat
         list.onclick = async (e) => {
-          const kebab = e.target.closest('.kebab-btn');
-          if (kebab) {
-            const item = kebab.closest('.chat-item');
-            const menu = item.querySelector('.kebab-menu');
-            const isOpen = kebab.getAttribute('aria-expanded') === 'true';
-            list.querySelectorAll('.kebab-menu:not([hidden])').forEach(m => m.hidden = true);
-            list.querySelectorAll('.kebab-btn[aria-expanded="true"]').forEach(b => b.setAttribute('aria-expanded','false'));
-            if (!isOpen) { menu.hidden = false; kebab.setAttribute('aria-expanded','true'); }
-            e.stopPropagation();
-            return;
-          }
-
           const actionBtn = e.target.closest('.menu-action');
           if (actionBtn) {
             const item = actionBtn.closest('.chat-item');
@@ -481,10 +469,6 @@
             } else if (action === 'delete') {
               if (confirm('¿Eliminar este chat?')) await deleteChat(id);
             }
-
-            list.querySelectorAll('.kebab-menu:not([hidden])').forEach(m => m.hidden = true);
-            list.querySelectorAll('.kebab-btn[aria-expanded="true"]').forEach(b => b.setAttribute('aria-expanded','false'));
-            e.stopPropagation();
             return;
           }
 
@@ -494,17 +478,6 @@
             await loadChat(item.dataset.id);
           }
         };
-
-        document.addEventListener('click', () => {
-          list.querySelectorAll('.kebab-menu:not([hidden])').forEach(m => m.hidden = true);
-          list.querySelectorAll('.kebab-btn[aria-expanded="true"]').forEach(b => b.setAttribute('aria-expanded','false'));
-        });
-        document.addEventListener('keydown', (ev) => {
-          if (ev.key === 'Escape') {
-            list.querySelectorAll('.kebab-menu:not([hidden])').forEach(m => m.hidden = true);
-            list.querySelectorAll('.kebab-btn[aria-expanded="true"]').forEach(b => b.setAttribute('aria-expanded','false'));
-          }
-        });
       }
 
       async function loadChat(chatId){
