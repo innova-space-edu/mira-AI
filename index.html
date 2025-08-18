@@ -41,7 +41,7 @@
     document.addEventListener('DOMContentLoaded', updateViewportVars);
   </script>
 
-  <!-- Estilos (CSS separado) -->
+  <!-- Estilos -->
   <link rel="stylesheet" href="style.css"/>
 </head>
 
@@ -85,7 +85,7 @@
   <!-- App -->
   <main id="landing" class="relative hidden">
 
-    <!-- Título centrado -->
+    <!-- Título centrado (animado) -->
     <div class="hero-bar">
       <h1 class="site-title-centered">Innova Space Education</h1>
     </div>
@@ -163,6 +163,16 @@
 
             <!-- Composer -->
             <div class="composer">
+
+              <!-- Chips de acciones rápidas -->
+              <div class="quick-chips" id="quick-chips">
+                <button class="quick-chip" data-text="Modo tutor: " >Tutor</button>
+                <button class="quick-chip" data-text="Modo creativo: " >Creativo</button>
+                <button class="quick-chip" data-text="Explica este código: " >Código</button>
+                <button class="quick-chip" data-text="Resume el siguiente texto: " >Resumir</button>
+                <button class="quick-chip" data-text="Dame 5 ideas sobre " >Ideas</button>
+              </div>
+
               <div class="input-group">
                 <input aria-label="Escribe tu mensaje"
                        type="text"
@@ -194,7 +204,7 @@
     </section>
   </main>
 
-  <!-- Panel / Playlists -->
+  <!-- Panel / Playlists + microinteracciones -->
   <script>
     const PLAYLISTS = [
       { id:'4Ldou77MwYfWBV288FirwL', title:'Electro House mix',       description:'Beats para concentrarte con energía' },
@@ -215,8 +225,9 @@
 
     function setPanelMode(mode){
       const isMusic = (mode === 'music');
+      const isChats = (mode === 'chats');
       secMusic.classList.toggle('active', isMusic);
-      secChats.classList.toggle('active', !isMusic);
+      secChats.classList.toggle('active', isChats);
       titleEl.textContent = isMusic ? 'Música para el aprendizaje' : 'Tus chats';
       panel.classList.add('open');
       document.body.classList.add('panel-open');
@@ -237,6 +248,7 @@
     document.getElementById('close-panel')?.addEventListener('click', closePanel);
 
     document.addEventListener('DOMContentLoaded', () => {
+      // Playlists
       const list = document.getElementById('playlist-list');
       if (list) {
         PLAYLISTS.forEach(p => {
@@ -250,11 +262,62 @@
         selectPlaylist(currentPlaylist.id);
       }
 
+      // Asegurar visibilidad del input en móviles
       const inp = document.getElementById('user-input');
       if (inp) {
         const ensureVisible = () => setTimeout(()=> inp.scrollIntoView({ block:'nearest', behavior:'smooth' }), 120);
         inp.addEventListener('focus', ensureVisible);
       }
+
+      // ===== Micro-interacciones =====
+      const attachBtn  = document.getElementById('attachBtn');
+      const attachMenu = document.getElementById('attachMenu');
+      const sendBtn    = document.getElementById('send-btn');
+      const chipsWrap  = document.getElementById('quick-chips');
+
+      // Toggle del menú de adjuntar (+ rota a × con CSS via aria-expanded)
+      attachBtn?.addEventListener('click', (e)=>{
+        e.stopPropagation();
+        const isOpen = attachBtn.getAttribute('aria-expanded') === 'true';
+        attachBtn.setAttribute('aria-expanded', String(!isOpen));
+        attachMenu.classList.toggle('hidden', isOpen);
+      });
+      document.addEventListener('click', (e)=>{
+        if (!attachMenu.contains(e.target) && e.target !== attachBtn){
+          attachMenu.classList.add('hidden');
+          attachBtn.setAttribute('aria-expanded','false');
+        }
+      });
+
+      // Ripple en enviar
+      sendBtn?.addEventListener('click', (e)=>{
+        const r = sendBtn.getBoundingClientRect();
+        const x = e.clientX - r.left;
+        const y = e.clientY - r.top;
+        sendBtn.style.setProperty('--ripple-x', x + 'px');
+        sendBtn.style.setProperty('--ripple-y', y + 'px');
+        sendBtn.classList.remove('do-ripple'); // reiniciar animación
+        void sendBtn.offsetWidth;
+        sendBtn.classList.add('do-ripple');
+      });
+
+      // Chips: mostrar al enfocar, ocultar al salir
+      const showChips = ()=> chipsWrap?.classList.add('visible');
+      const hideChips = ()=> chipsWrap?.classList.remove('visible');
+      inp?.addEventListener('focus', showChips);
+      inp?.addEventListener('blur', ()=> setTimeout(hideChips, 120));
+      chipsWrap?.addEventListener('mouseenter', showChips);
+      chipsWrap?.addEventListener('mouseleave', hideChips);
+      document.querySelectorAll('.quick-chip').forEach(btn=>{
+        btn.addEventListener('click', ()=>{
+          const t = btn.getAttribute('data-text') || '';
+          const el = document.getElementById('user-input');
+          if (!el) return;
+          el.value = t;
+          el.focus();
+          el.setSelectionRange(el.value.length, el.value.length);
+        });
+      });
     });
   </script>
 
@@ -342,7 +405,7 @@
         await loadChatList();
       }
 
-      // ==== NUEVO: eliminar todos los chats
+      // Eliminar todos los chats
       async function deleteAllChats(){
         if (!confirm('¿Eliminar TODOS los chats? Esta acción no se puede deshacer.')) return;
 
@@ -359,7 +422,7 @@
         await loadChatList();
       }
 
-      // ==== Render con menú ⋯
+      // Render de lista con menú ⋯
       async function loadChatList(){
         const list = document.getElementById('chat-list'); if (!list) return;
         list.innerHTML = "";
@@ -389,14 +452,13 @@
           snap.forEach(docSnap=> addRow(docSnap.id, (docSnap.data().title || "Chat")));
         }
 
-        // Delegación para abrir/cerrar menú y acciones
+        // Delegación para menú ⋯ y acciones
         list.onclick = async (e) => {
           const kebab = e.target.closest('.kebab-btn');
           if (kebab) {
             const item = kebab.closest('.chat-item');
             const menu = item.querySelector('.kebab-menu');
             const isOpen = kebab.getAttribute('aria-expanded') === 'true';
-            // Cerrar otros
             list.querySelectorAll('.kebab-menu:not([hidden])').forEach(m => m.hidden = true);
             list.querySelectorAll('.kebab-btn[aria-expanded="true"]').forEach(b => b.setAttribute('aria-expanded','false'));
             if (!isOpen) { menu.hidden = false; kebab.setAttribute('aria-expanded','true'); }
@@ -420,14 +482,12 @@
               if (confirm('¿Eliminar este chat?')) await deleteChat(id);
             }
 
-            // cerrar menús
             list.querySelectorAll('.kebab-menu:not([hidden])').forEach(m => m.hidden = true);
             list.querySelectorAll('.kebab-btn[aria-expanded="true"]').forEach(b => b.setAttribute('aria-expanded','false'));
             e.stopPropagation();
             return;
           }
 
-          // Click en el título abre el chat
           const titleEl = e.target.closest('.chat-title');
           if (titleEl) {
             const item = titleEl.closest('.chat-item');
@@ -435,7 +495,6 @@
           }
         };
 
-        // Cierre global del menú
         document.addEventListener('click', () => {
           list.querySelectorAll('.kebab-menu:not([hidden])').forEach(m => m.hidden = true);
           list.querySelectorAll('.kebab-btn[aria-expanded="true"]').forEach(b => b.setAttribute('aria-expanded','false'));
