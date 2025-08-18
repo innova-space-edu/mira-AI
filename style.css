@@ -6,7 +6,8 @@
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --header-h: 0px;
   --header-overlay-h: clamp(52px, 7.2vw, 72px);
-  --composer-gap: 18px; /* separación extra del input respecto al borde inferior */
+  /* separación extra del input respecto al borde inferior (adaptativa) */
+  --composer-gap: clamp(22px, 2.8vh, 40px);
 }
 
 /* Todo dentro del viewport, sin desbordes */
@@ -197,7 +198,9 @@ body.panel-open #landing{ padding-left: calc(var(--panel-w) + 20px); }
 
 /* Card con inner glow (SIN scanline) */
 #chat-card{
-  padding: 1rem; height: 100%;
+  padding: 1rem;
+  padding-bottom: calc(1rem + var(--composer-gap)); /* colchón inferior adicional */
+  height: 100%;
   position: relative;
   border-radius: 14px;
   overflow: hidden;
@@ -223,7 +226,7 @@ body.panel-open #landing{ padding-left: calc(var(--panel-w) + 20px); }
 #chat-box{
   flex: 1 1 auto;
   overflow-y: auto;
-  padding-bottom: calc(12px + var(--composer-gap));
+  padding-bottom: calc(14px + var(--composer-gap)); /* más espacio para que no tape el composer */
 }
 
 /* COMPOSER */
@@ -562,10 +565,12 @@ mjx-container[jax="CHTML"]{
 
 /* =================== Responsive móvil =================== */
 @media (max-width: 480px), (max-height: 640px){
+  :root{ --composer-gap: 16px; } /* un poco menos de gap en pantallas muy bajas */
+
   #hero-subtitle, #hero-subtitle-app { display: none; }
 
   .chat-wrap{ width: min(92vw, 560px); margin-inline: auto; }
-  #chat-card{ padding: 10px; }
+  #chat-card{ padding: 10px; padding-bottom: calc(10px + var(--composer-gap)); }
   #chat-shell{ height: calc(100dvh - var(--topbar-h) - var(--header-overlay-h) - 8px) !important; }
   #chat-box{ font-size: .92rem; }
 
