@@ -85,15 +85,20 @@
   <!-- App -->
   <main id="landing" class="relative hidden">
 
-    <!-- Faja del título (CENTRADO) -->
+    <!-- Título centrado -->
     <div class="hero-bar">
       <h1 class="site-title-centered">Innova Space Education</h1>
     </div>
 
-    <!-- Encabezado de asistente: avatar + texto al lado -->
+    <!-- Cabecera del asistente (avatar debajo de “IA”) -->
     <div id="assistant-header">
-      <object id="avatar-mira" type="image/svg+xml" data="avatar_mira.svg" class="still" tabindex="-1"></object>
-      <h2 class="assistant-name"><span class="assist">Asistente IA –</span> <span class="mira">MIRA</span></h2>
+      <h2 class="assistant-name">
+        Asistente
+        <span class="ia-with-avatar"> IA
+          <object id="avatar-mira" type="image/svg+xml" data="avatar_mira.svg" class="still" tabindex="-1"></object>
+        </span>
+        – <span class="mira">MIRA</span>
+      </h2>
     </div>
 
     <!-- Dock lateral -->
@@ -134,11 +139,17 @@
 
       <div id="panel-chats" class="panel-section">
         <div class="text-sm opacity-80 mb-2">Conectado como <span id="panel-user-email"></span></div>
+
         <div class="flex gap-2 mb-3">
           <button id="btn-new-chat" class="bg-green-600 hover:bg-green-700 px-3 py-2 rounded">Nuevo chat</button>
           <button id="btn-logout-panel" class="bg-gray-600 hover:bg-gray-700 px-3 py-2 rounded">Cerrar sesión</button>
         </div>
-        <div class="text-sm mb-1 opacity-70">Tus chats</div>
+
+        <div class="panel-chats-header">
+          <div class="text-sm opacity-70">Tus chats</div>
+          <button id="btn-clear-all-chats" class="clear-all-btn" title="Eliminar todos los chats">Eliminar todos</button>
+        </div>
+
         <div id="chat-list" class="playlist-list" style="max-height:48vh; overflow:auto;"></div>
       </div>
     </aside>
@@ -156,7 +167,7 @@
                 <input aria-label="Escribe tu mensaje"
                        type="text"
                        id="user-input"
-                       placeholder="Escribe tu mensaje... (Enter = enviar, Shift+Enter = salto)"
+                       placeholder="Escribe tu mensaje..."
                        class="composer-input"
                        autocomplete="off"/>
 
@@ -165,7 +176,7 @@
 
                 <!-- Menú del + -->
                 <div id="attachMenu" class="upload-tray hidden" role="menu">
-                  <button id="attachImageOption" class="upload-item" role="menuitem">📷 Adjuntar imagen</button>
+                  <button id="attachImageOption" class="upload-item" role="menuitem">📎 Adjuntar imagen</button>
                 </div>
 
                 <!-- Input de archivos (oculto) -->
@@ -285,7 +296,7 @@
           const all = getGuestAll();
           all.push({ id: currentChatId, title:"Nuevo chat", messages:[], createdAt:Date.now(), updatedAt:Date.now() });
           localStorage.setItem('mira_guest_chats', JSON.stringify(all));
-          renderGuestList(); return currentChatId;
+          await loadChatList(); return currentChatId;
         }
         const ref = await addDoc(userChatsCol(currentUser.uid), { title: "Nuevo chat", createdAt: serverTimestamp(), updatedAt: serverTimestamp(), messages: [] });
         currentChatId = ref.id; await loadChatList(); return currentChatId;
@@ -310,7 +321,7 @@
         if (!id || !newTitle) return;
         if (!currentUser){
           const all = getGuestAll();
-          const chat = all.find(c=>c.id===id); if (chat){ chat.title = newTitle; chat.updatedAt = Date.now(); localStorage.setItem('mira_guest_chats', JSON.stringify(all)); renderGuestList(); }
+          const chat = all.find(c=>c.id===id); if (chat){ chat.title = newTitle; chat.updatedAt = Date.now(); localStorage.setItem('mira_guest_chats', JSON.stringify(all)); await loadChatList(); }
           return;
         }
         await updateDoc(chatDocRef(currentUser.uid, id), { title: newTitle, updatedAt: serverTimestamp() });
@@ -323,7 +334,7 @@
           const all = getGuestAll().filter(c=>c.id!==id);
           localStorage.setItem('mira_guest_chats', JSON.stringify(all));
           if (currentChatId === id) currentChatId = null;
-          renderGuestList();
+          await loadChatList();
           return;
         }
         await deleteDoc(chatDocRef(currentUser.uid, id));
@@ -331,7 +342,24 @@
         await loadChatList();
       }
 
-      // ==== NUEVO: render con menú ⋯
+      // ==== NUEVO: eliminar todos los chats
+      async function deleteAllChats(){
+        if (!confirm('¿Eliminar TODOS los chats? Esta acción no se puede deshacer.')) return;
+
+        if (!currentUser){
+          localStorage.setItem('mira_guest_chats', JSON.stringify([]));
+          currentChatId = null;
+          await loadChatList();
+          return;
+        }
+        const qy = query(userChatsCol(currentUser.uid), orderBy('updatedAt','desc'));
+        const snap = await getDocs(qy);
+        for (const d of snap.docs) { await deleteDoc(d.ref); }
+        currentChatId = null;
+        await loadChatList();
+      }
+
+      // ==== Render con menú ⋯
       async function loadChatList(){
         const list = document.getElementById('chat-list'); if (!list) return;
         list.innerHTML = "";
@@ -468,7 +496,7 @@
 
       function getGuestAll(){ try{ return JSON.parse(localStorage.getItem('mira_guest_chats')||"[]"); }catch{ return []; } }
 
-      return { setUser, saveMessage, loadChatList, loadChat, newChat, renameChat, deleteChat };
+      return { setUser, saveMessage, loadChatList, loadChat, newChat, renameChat, deleteChat, deleteAllChats };
     })();
 
     const $authSection = document.getElementById('auth');
@@ -520,6 +548,7 @@
     $logoutPanel?.addEventListener('click', ()=>signOut(auth));
 
     document.getElementById('btn-new-chat')?.addEventListener('click', ()=>window.ChatStore.newChat());
+    document.getElementById('btn-clear-all-chats')?.addEventListener('click', ()=>window.ChatStore.deleteAllChats());
 
     onAuthStateChanged(auth, async (user)=>{
       window.ChatStore.setUser(user || null);
