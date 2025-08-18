@@ -4,22 +4,57 @@
   --topbar-h: 0px;
   --panel-w: 320px;
   --safe-bottom: env(safe-area-inset-bottom, 0px);
-  --header-h: 0px; /* se calcula en runtime según #page-header */
-  --header-overlay-h: clamp(52px, 7.2vw, 72px); /* alto reservado para cabecera fija */
+  --header-h: 0px;
+  --header-overlay-h: clamp(52px, 7.2vw, 72px);
 }
 
 /* Todo dentro del viewport, sin desbordes */
 html, body { height: 100%; overflow: hidden; }
 
+/* ======= FONDO AURORA DINÁMICO (CSS puro) ======= */
+body::before,
+body::after{
+  content:"";
+  position: fixed;
+  inset: -20% -30%;
+  z-index: 0;                /* por detrás de todo */
+  pointer-events: none;
+  filter: blur(26px) saturate(120%);
+  opacity: .65;
+}
+body::before{
+  background:
+    radial-gradient(40% 35% at 20% 30%, rgba(34,197,94,.12), transparent 55%),
+    radial-gradient(35% 35% at 82% 20%, rgba(168,85,247,.18), transparent 60%),
+    radial-gradient(30% 30% at 60% 78%, rgba(56,189,248,.14), transparent 60%);
+  animation: aurora-a 32s ease-in-out infinite alternate;
+}
+body::after{
+  background:
+    radial-gradient(35% 35% at 30% 70%, rgba(99,102,241,.12), transparent 55%),
+    radial-gradient(35% 35% at 75% 55%, rgba(16,185,129,.10), transparent 55%),
+    radial-gradient(25% 25% at 50% 35%, rgba(236,72,153,.10), transparent 60%);
+  animation: aurora-b 38s ease-in-out infinite alternate;
+}
+@keyframes aurora-a{
+  0%{ transform: translate3d(-2%, -2%, 0) scale(1.02); }
+  100%{ transform: translate3d(3%, 2%, 0) scale(1.05); }
+}
+@keyframes aurora-b{
+  0%{ transform: translate3d(2%, 3%, 0) scale(1.00) rotate(0.3deg); }
+  100%{ transform: translate3d(-3%, -2%, 0) scale(1.04) rotate(-0.3deg); }
+}
+
 /* App: alto visible menos topbar */
 #landing{
+  position: relative;
   min-height: calc((var(--vh) * 100) - var(--topbar-h));
   display: grid;
-  grid-template-rows: 1fr !important; /* solo contenido; el header es overlay */
+  grid-template-rows: 1fr !important;
   align-items: start;
   transition: padding-left .25s ease;
   padding-top: calc(var(--topbar-h) + var(--header-overlay-h));
-  padding-bottom: calc(var(--safe-bottom) + 10px); /* más aire abajo */
+  padding-bottom: calc(var(--safe-bottom) + 10px);
 }
 @supports (height: 100dvh){
   #landing{ min-height: calc(100dvh - var(--topbar-h)); }
@@ -45,33 +80,41 @@ body.panel-open #landing{ padding-left: calc(var(--panel-w) + 20px); }
   font-weight: 800;
   font-size: clamp(28px, 6.8vw, 64px);
   line-height: 1.05;
-  background-image: linear-gradient(to right, #f472b6, #c4b5fd, #60a5fa);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
+  background-image: linear-gradient(90deg,#22c55e,#a855f7,#38bdf8,#22c55e);
+  background-size: 300% 100%;
+  animation: gradient-pan 12s linear infinite;
 }
 
-/* ====== Título del sitio (centrado superior, overlay) ====== */
+/* ====== Título del sitio (centrado superior, overlay, animado) ====== */
 .hero-bar{
   position: absolute;
   top: calc(var(--topbar-h) + 6px);
   left: 0; right: 0;
-  height: 0; /* no ocupa flujo */
+  height: 0;
   pointer-events: none;
   display: grid;
   place-items: center;
 }
 .site-title-centered{
   margin: 0;
-  font-size: clamp(28px, 3.4vw, 48px); /* MÁS GRANDE */
+  font-size: clamp(28px, 3.4vw, 48px);
   font-weight: 800;
   letter-spacing: .3px;
-  background-image: linear-gradient(90deg,#22c55e, #a855f7, #38bdf8);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
+  background-image: linear-gradient(90deg,#22c55e,#a855f7,#38bdf8,#22c55e);
+  background-size: 300% 100%;
+  animation: gradient-pan 12s linear infinite;
   filter: drop-shadow(0 2px 10px rgba(168,85,247,.35));
   pointer-events: auto;
+}
+@keyframes gradient-pan{
+  0%{   background-position:   0% 50%; }
+  100%{ background-position: 200% 50%; }
 }
 
 /* ====== Cabecera del asistente: avatar debajo de “IA” ====== */
@@ -91,8 +134,6 @@ body.panel-open #landing{ padding-left: calc(var(--panel-w) + 20px); }
   white-space: nowrap;
 }
 .assistant-name .mira{ font-weight: 900; }
-
-/* Span que contiene “IA” y sirve de ancla del avatar */
 .ia-with-avatar{
   position: relative;
   display: inline-block;
@@ -100,7 +141,7 @@ body.panel-open #landing{ padding-left: calc(var(--panel-w) + 20px); }
 }
 .ia-with-avatar #avatar-mira{
   position: absolute;
-  top: 120%;           /* debajo de “IA” */
+  top: 120%;
   left: 50%;
   transform: translateX(-50%);
   width: clamp(44px, 4.8vw, 62px);
@@ -109,31 +150,99 @@ body.panel-open #landing{ padding-left: calc(var(--panel-w) + 20px); }
 }
 
 /* =================== Chat =================== */
-#main-chat{ display: flex; justify-content: center; align-items: stretch; padding: 6px 12px 28px; } /* + padding abajo */
+#main-chat{ display: flex; justify-content: center; align-items: stretch; padding: 6px 12px 28px; }
 .chat-wrap{ width: min(960px, 94vw); margin-inline: auto; }
 
-#chat-card{ padding: 1rem; height: 100%; }
+/* Card con inner glow + borde neon + scanline */
+#chat-card{
+  padding: 1rem; height: 100%;
+  position: relative;
+  border-radius: 14px;
+  overflow: hidden;
+  z-index: 1; /* por encima del aurora */
+}
+/* inner glow */
+#chat-card::before{
+  content:"";
+  position:absolute; inset:0;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow:
+    inset 0 0 28px rgba(168,85,247,.18),
+    inset 0 0 8px rgba(59,130,246,.12);
+}
+/* scanline/borde animado con conic-gradient */
+#chat-card::after{
+  content:"";
+  position:absolute; inset:-1px;
+  padding: 1.6px;
+  border-radius: 16px;
+  background:
+    conic-gradient(from 0deg,
+      rgba(168,85,247,0) 0 60%,
+      rgba(168,85,247,.85) 70%,
+      rgba(56,189,248,.85) 74%,
+      rgba(168,85,247,0) 84%,
+      rgba(168,85,247,0) 100%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude; /* deja sólo el anillo */
+  animation: border-scan 7s linear infinite;
+  pointer-events: none;
+}
+@keyframes border-scan{
+  0%{ transform: rotate(0turn); }
+  100%{ transform: rotate(1turn); }
+}
+
 #chat-shell{
   display: flex; flex-direction: column;
   height: calc(100dvh - var(--topbar-h) - var(--header-overlay-h) - 16px) !important;
   min-height: calc(100dvh - var(--topbar-h) - var(--header-overlay-h) - 16px);
+  position: relative;
 }
 #chat-box{ flex: 1 1 auto; overflow-y: auto; padding-bottom: 6px; }
 
-/* COMPOSER: input y botón Enviar en la MISMA FILA */
+/* COMPOSER */
 .composer{
   display: grid;
-  grid-template-columns: 1fr auto;  /* input ocupa el espacio, botón a la derecha */
+  grid-template-columns: 1fr auto;
   gap: 10px;
-  align-items: center;               /* centra verticalmente ambos */
+  align-items: center;
   position: sticky;
-  bottom: max(10px, var(--safe-bottom)); /* un poco más separado del borde */
+  bottom: max(10px, var(--safe-bottom));
   background: linear-gradient(180deg, rgba(17,24,39,0) 0%, rgba(17,24,39,.65) 40%, rgba(17,24,39,.85) 100%);
   padding-bottom: max(6px, var(--safe-bottom));
   z-index: 5;
 }
 
-/* Input grande + botón “+” flotante */
+/* Chips sobre el input */
+.quick-chips{
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 8px;
+  margin: 0 0 2px;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity .18s ease, transform .18s ease;
+  pointer-events: none;
+}
+.quick-chips.visible{
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+.quick-chip{
+  background: #1e1b4b;
+  border: 1px solid #7c3aed66;
+  color: #e5e7eb;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-size: .85rem;
+  cursor: pointer;
+}
+.quick-chip:hover{ background:#2a2153; border-color:#a855f7; }
+
+/* Input + botón "+" */
 .input-group{
   position: relative;
   display: grid;
@@ -164,10 +273,13 @@ body.panel-open #landing{ padding-left: calc(var(--panel-w) + 20px); }
   padding: .35rem .55rem;
   border-radius: .6rem;
   box-shadow: 0 4px 10px rgba(0,0,0,.25);
+  transition: transform .18s ease;
 }
 .plus-btn:hover{ background:#7c3aed; }
+/* Rotación a “×” cuando está abierto */
+.plus-btn[aria-expanded="true"]{ transform: rotate(45deg); }
 
-/* Menú desplegable para adjuntar */
+/* Menú de adjuntar */
 .upload-tray{
   position: absolute;
   bottom: calc(100% + .55rem);
@@ -182,7 +294,6 @@ body.panel-open #landing{ padding-left: calc(var(--panel-w) + 20px); }
   z-index: 40;
 }
 .hidden{ display:none; }
-
 .upload-item{
   display: inline-flex;
   align-items: center;
@@ -196,8 +307,10 @@ body.panel-open #landing{ padding-left: calc(var(--panel-w) + 20px); }
   padding: .3rem .25rem;
 }
 
-/* Botón Enviar */
+/* Botón Enviar + Ripple */
 .send-btn{
+  position: relative;
+  overflow: hidden;
   border: none;
   background: #7c3aed;
   color: #fff;
@@ -207,8 +320,26 @@ body.panel-open #landing{ padding-left: calc(var(--panel-w) + 20px); }
   min-width: 86px;
 }
 .send-btn:hover{ background:#6d28d9; }
+.send-btn::after{
+  content:"";
+  position: absolute;
+  left: var(--ripple-x, 50%);
+  top: var(--ripple-y, 50%);
+  width: 0; height: 0;
+  transform: translate(-50%,-50%);
+  border-radius: 9999px;
+  background: rgba(255,255,255,.35);
+  opacity: 0;
+}
+.send-btn.do-ripple::after{
+  animation: btn-ripple 600ms ease-out;
+}
+@keyframes btn-ripple{
+  0%   { width:0; height:0; opacity:.45; }
+  100% { width:220px; height:220px; opacity:0; }
+}
 
-/* =================== Mensajes tipo chat =================== */
+/* =================== Mensajes =================== */
 .msg{ display:flex; gap:8px; margin:8px 0; }
 .msg.assistant{ justify-content:flex-start; }
 .msg.user{ justify-content:flex-end; }
@@ -408,9 +539,7 @@ mjx-container[jax="CHTML"]{
   cursor: pointer;
   font-size: 14px;
 }
-.kebab-menu .menu-action:hover{
-  background: rgba(255,255,255,.06);
-}
+.kebab-menu .menu-action:hover{ background: rgba(255,255,255,.06); }
 
 /* =================== Responsive móvil =================== */
 @media (max-width: 480px), (max-height: 640px){
@@ -427,3 +556,11 @@ mjx-container[jax="CHTML"]{
 
 /* Ocultar completamente el main cuando está hidden */
 #landing.hidden{ display: none !important; }
+
+/* Accesibilidad: no animar si el usuario lo pide */
+@media (prefers-reduced-motion: reduce){
+  body::before, body::after { animation: none; }
+  .site-title-centered, .hero-title { animation: none; }
+  #chat-card::after{ animation: none; }
+  .send-btn.do-ripple::after{ animation: none; }
+}
