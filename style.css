@@ -6,6 +6,7 @@
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --header-h: 0px;
   --header-overlay-h: clamp(52px, 7.2vw, 72px);
+  --composer-gap: 18px; /* separación extra del input respecto al borde inferior */
 }
 
 /* Todo dentro del viewport, sin desbordes */
@@ -219,7 +220,11 @@ body.panel-open #landing{ padding-left: calc(var(--panel-w) + 20px); }
   min-height: calc(100dvh - var(--topbar-h) - var(--header-overlay-h) - 16px);
   position: relative;
 }
-#chat-box{ flex: 1 1 auto; overflow-y: auto; padding-bottom: 6px; }
+#chat-box{
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding-bottom: calc(12px + var(--composer-gap));
+}
 
 /* COMPOSER */
 .composer{
@@ -228,7 +233,7 @@ body.panel-open #landing{ padding-left: calc(var(--panel-w) + 20px); }
   gap: 10px;
   align-items: center;
   position: sticky;
-  bottom: max(10px, var(--safe-bottom));
+  bottom: calc(var(--safe-bottom) + var(--composer-gap));
   background: linear-gradient(180deg, rgba(17,24,39,0) 0%, rgba(17,24,39,.65) 40%, rgba(17,24,39,.85) 100%);
   padding-bottom: max(6px, var(--safe-bottom));
   z-index: 5;
