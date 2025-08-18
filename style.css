@@ -19,7 +19,7 @@ html, body { height: 100%; overflow: hidden; }
   align-items: start;
   transition: padding-left .25s ease;
   padding-top: calc(var(--topbar-h) + var(--header-overlay-h));
-  padding-bottom: var(--safe-bottom);
+  padding-bottom: calc(var(--safe-bottom) + 10px); /* más aire abajo */
 }
 @supports (height: 100dvh){
   #landing{ min-height: calc(100dvh - var(--topbar-h)); }
@@ -63,7 +63,7 @@ body.panel-open #landing{ padding-left: calc(var(--panel-w) + 20px); }
 }
 .site-title-centered{
   margin: 0;
-  font-size: clamp(20px, 2.4vw, 34px);
+  font-size: clamp(28px, 3.4vw, 48px); /* MÁS GRANDE */
   font-weight: 800;
   letter-spacing: .3px;
   background-image: linear-gradient(90deg,#22c55e, #a855f7, #38bdf8);
@@ -74,31 +74,42 @@ body.panel-open #landing{ padding-left: calc(var(--panel-w) + 20px); }
   pointer-events: auto;
 }
 
-/* ====== Cabecera del asistente: avatar + nombre a la derecha ====== */
+/* ====== Cabecera del asistente: avatar debajo de “IA” ====== */
 #assistant-header{
   position: absolute;
   top: calc(var(--topbar-h) + 10px);
   right: 16px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
+  display: block;
   z-index: 30;
-}
-#avatar-mira{
-  width: clamp(48px, 5vw, 64px);
-  height: auto;
-  filter: drop-shadow(0 2px 6px rgba(0,0,0,.25));
 }
 .assistant-name{
   margin: 0;
   font-weight: 800;
   letter-spacing: .2px;
   font-size: clamp(16px, 2.1vw, 22px);
+  position: relative;
+  white-space: nowrap;
 }
 .assistant-name .mira{ font-weight: 900; }
 
+/* Span que contiene “IA” y sirve de ancla del avatar */
+.ia-with-avatar{
+  position: relative;
+  display: inline-block;
+  padding-right: 4px;
+}
+.ia-with-avatar #avatar-mira{
+  position: absolute;
+  top: 120%;           /* debajo de “IA” */
+  left: 50%;
+  transform: translateX(-50%);
+  width: clamp(44px, 4.8vw, 62px);
+  height: auto;
+  filter: drop-shadow(0 2px 6px rgba(0,0,0,.25));
+}
+
 /* =================== Chat =================== */
-#main-chat{ display: flex; justify-content: center; align-items: stretch; padding: 6px 12px 16px; }
+#main-chat{ display: flex; justify-content: center; align-items: stretch; padding: 6px 12px 28px; } /* + padding abajo */
 .chat-wrap{ width: min(960px, 94vw); margin-inline: auto; }
 
 #chat-card{ padding: 1rem; height: 100%; }
@@ -116,7 +127,7 @@ body.panel-open #landing{ padding-left: calc(var(--panel-w) + 20px); }
   gap: 10px;
   align-items: center;               /* centra verticalmente ambos */
   position: sticky;
-  bottom: max(6px, var(--safe-bottom));
+  bottom: max(10px, var(--safe-bottom)); /* un poco más separado del borde */
   background: linear-gradient(180deg, rgba(17,24,39,0) 0%, rgba(17,24,39,.65) 40%, rgba(17,24,39,.85) 100%);
   padding-bottom: max(6px, var(--safe-bottom));
   z-index: 5;
@@ -317,6 +328,25 @@ mjx-container[jax="CHTML"]{
 @supports (height: 100dvh){
   .playlist-list{ max-height: calc(100dvh - 420px); }
 }
+
+/* ====== Encabezado de “Tus chats” + botón eliminar todos ====== */
+.panel-chats-header{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+.clear-all-btn{
+  background: transparent;
+  border: none;
+  color: inherit;
+  opacity: .7;
+  font-size: .9rem;
+  cursor: pointer;
+  padding: 0;
+}
+.clear-all-btn:hover{ opacity: .95; text-decoration: underline; }
 
 /* =================== Lista de chats con menú ⋯ =================== */
 #chat-list { position: relative; }
