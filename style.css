@@ -120,12 +120,24 @@ body.panel-open #landing{ padding-left: calc(var(--panel-w) + 20px); }
 }
 #chat-box{ flex: 1 1 auto; overflow-y: auto; padding-bottom: 6px; }
 
+/* ===== Ocultar chips/atajos (“Tutor Creativo Código Resumir Ideas”) ===== */
+.quick-prompts,
+.quick-actions,
+.quick-tags,
+.preset-tags,
+.chat-quick,
+#quick-tags,
+.chips,
+.suggested-actions{
+  display: none !important;
+}
+
 /* COMPOSER: input y botón Enviar en la MISMA FILA */
 .composer{
   display: grid;
-  grid-template-columns: 1fr auto;  /* input ocupa el espacio, botón a la derecha */
+  grid-template-columns: 1fr auto;     /* input ocupa el espacio, botón a la derecha */
   gap: 10px;
-  align-items: center;               /* centra verticalmente ambos */
+  align-items: center;                  /* centra verticalmente ambos */
   position: sticky;
   bottom: max(10px, var(--safe-bottom)); /* un poco más separado del borde */
   background: linear-gradient(180deg, rgba(17,24,39,0) 0%, rgba(17,24,39,.65) 40%, rgba(17,24,39,.85) 100%);
@@ -133,7 +145,7 @@ body.panel-open #landing{ padding-left: calc(var(--panel-w) + 20px); }
   z-index: 5;
 }
 
-/* Input grande + botón “+” flotante */
+/* Input grande + botones internos (+ y mic) */
 .input-group{
   position: relative;
   display: grid;
@@ -149,11 +161,11 @@ body.panel-open #landing{ padding-left: calc(var(--panel-w) + 20px); }
   border: 1px solid #4b5563;
   border-radius: .75rem;
   outline: none;
-  /* ⬇️ Más espacio a la derecha para + y micrófono dentro del input */
+  /* espacio a la derecha para mic + + dentro del input */
   padding: .7rem 5.2rem .7rem .8rem;
 }
 
-/* Botón “+” (diseño existente, sin cambiar colores) */
+/* Botón “+” (diseño existente) */
 .plus-btn{
   position: absolute;
   right: 8px;
@@ -170,7 +182,7 @@ body.panel-open #landing{ padding-left: calc(var(--panel-w) + 20px); }
 }
 .plus-btn:hover{ background:#7c3aed; }
 
-/* ===== Micrófono dentro del input (blanco, sin fondo) ===== */
+/* ===== Micrófono dentro del input (mismo color que “+”) ===== */
 .mic-btn{
   position: absolute;
   right: 52px;                /* a la izquierda del “+” */
@@ -178,21 +190,21 @@ body.panel-open #landing{ padding-left: calc(var(--panel-w) + 20px); }
   width: 36px;
   height: 36px;
   border-radius: .6rem;
-  border: 1px solid rgba(255,255,255,0.22);
-  background: transparent;    /* sin fondo */
+  border: none;
+  background: #6d28d9;        /* MISMO FONDO QUE + */
   color: #fff;                /* icono blanco */
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  box-shadow: 0 4px 10px rgba(0,0,0,.15);
+  box-shadow: 0 4px 10px rgba(0,0,0,.25);
 }
-.mic-btn:hover{ background: rgba(255,255,255,0.06); }
+.mic-btn:hover{ background:#7c3aed; }
 .mic-btn svg{ width: 18px; height: 18px; display:block; }
 
 /* Estados opcionales del mic */
 .mic-btn.recording{
-  border-color: rgba(255,0,0,0.6);
+  outline: 2px solid rgba(255,0,0,0.55);
   animation: micPulse 1s infinite;
 }
 @keyframes micPulse{
@@ -231,15 +243,15 @@ body.panel-open #landing{ padding-left: calc(var(--panel-w) + 20px); }
   padding: .3rem .25rem;
 }
 
-/* Botón Enviar */
+/* Botón Enviar (más chico) */
 .send-btn{
   border: none;
   background: #7c3aed;
   color: #fff;
   border-radius: .6rem;
-  padding: .55rem .8rem;
-  font-size: .95rem;
-  min-width: 86px;
+  padding: .45rem .6rem;      /* más compacto */
+  font-size: .9rem;
+  min-width: 64px;            /* antes 86px */
 }
 .send-btn:hover{ background:#6d28d9; }
 
@@ -456,7 +468,7 @@ mjx-container[jax="CHTML"]{
   #chat-shell{ height: calc(100dvh - var(--topbar-h) - var(--header-overlay-h) - 8px) !important; }
   #chat-box{ font-size: .92rem; }
 
-  .send-btn{ min-width: 74px; padding: .45rem .6rem; font-size: .9rem; }
+  .send-btn{ min-width: 64px; padding: .45rem .6rem; font-size: .9rem; }
   .composer-input{ min-height: 48px; padding-right: 5.2rem; } /* respeta el mic + + en móvil */
 }
 
