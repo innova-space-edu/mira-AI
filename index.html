@@ -164,14 +164,7 @@
             <!-- Composer -->
             <div class="composer">
 
-              <!-- Chips de acciones rápidas -->
-              <div class="quick-chips" id="quick-chips">
-                <button class="quick-chip" data-text="Modo tutor: " >Tutor</button>
-                <button class="quick-chip" data-text="Modo creativo: " >Creativo</button>
-                <button class="quick-chip" data-text="Explica este código: " >Código</button>
-                <button class="quick-chip" data-text="Resume el siguiente texto: " >Resumir</button>
-                <button class="quick-chip" data-text="Dame 5 ideas sobre " >Ideas</button>
-              </div>
+              <!-- (Se eliminaron los chips de acciones rápidas) -->
 
               <div class="input-group">
                 <input aria-label="Escribe tu mensaje"
@@ -180,6 +173,13 @@
                        placeholder="Escribe tu mensaje..."
                        class="composer-input"
                        autocomplete="off"/>
+
+                <!-- Micrófono dentro del input -->
+                <button id="btn-mic" class="mic-btn" title="Dictar por voz" aria-label="Dictar por voz">
+                  <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M12 14a3 3 0 0 0 3-3V7a3 3 0 1 0-6 0v4a3 3 0 0 0 3 3zM5 11a1 1 0 1 0-2 0 9 9 0 0 0 8 8v3h2v-3a9 9 0 0 0 8-8 1 1 0 1 0-2 0 7 7 0 0 1-14 0z"/>
+                  </svg>
+                </button>
 
                 <!-- Botón + flotante -->
                 <button id="attachBtn" class="plus-btn" title="Adjuntar" aria-haspopup="true" aria-controls="attachMenu" aria-expanded="false">+</button>
@@ -193,13 +193,7 @@
                 <input id="fileInput" type="file" accept="image/png,image/jpeg,image/webp" multiple hidden>
               </div>
 
-              <!-- Micrófono pequeño (NUEVO) -->
-              <button id="btn-mic" class="mic-btn" title="Dictar por voz" aria-label="Dictar por voz">
-                <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M12 14a3 3 0 0 0 3-3V7a3 3 0 1 0-6 0v4a3 3 0 0 0 3 3zM5 11a1 1 0 1 0-2 0 9 9 0 0 0 8 8v3h2v-3a9 9 0 0 0 8-8 1 1 0 1 0-2 0 7 7 0 0 1-14 0z"/>
-                </svg>
-              </button>
-
+              <!-- Enviar pequeño a la derecha -->
               <button id="send-btn" class="send-btn">Enviar</button>
             </div>
 
@@ -280,7 +274,6 @@
       const attachBtn  = document.getElementById('attachBtn');
       const attachMenu = document.getElementById('attachMenu');
       const sendBtn    = document.getElementById('send-btn');
-      const chipsWrap  = document.getElementById('quick-chips');
 
       // Toggle del menú de adjuntar (+ rota a × con CSS via aria-expanded)
       attachBtn?.addEventListener('click', (e)=>{
@@ -306,24 +299,6 @@
         sendBtn.classList.remove('do-ripple');
         void sendBtn.offsetWidth;
         sendBtn.classList.add('do-ripple');
-      });
-
-      // Chips: mostrar al enfocar, ocultar al salir
-      const showChips = ()=> chipsWrap?.classList.add('visible');
-      const hideChips = ()=> chipsWrap?.classList.remove('visible');
-      inp?.addEventListener('focus', showChips);
-      inp?.addEventListener('blur', ()=> setTimeout(hideChips, 120));
-      chipsWrap?.addEventListener('mouseenter', showChips);
-      chipsWrap?.addEventListener('mouseleave', hideChips);
-      document.querySelectorAll('.quick-chip').forEach(btn=>{
-        btn.addEventListener('click', ()=>{
-          const t = btn.getAttribute('data-text') || '';
-          const el = document.getElementById('user-input');
-          if (!el) return;
-          el.value = t;
-          el.focus();
-          el.setSelectionRange(el.value.length, el.value.length);
-        });
       });
     });
   </script>
