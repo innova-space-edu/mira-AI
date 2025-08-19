@@ -460,20 +460,15 @@ if (document.readyState === "loading") {
 }
 
 /* ============================================================
-   === DICTADO POR VOZ (Web Speech API) — agregado al final ===
+   === DICTADO POR VOZ (Web Speech API) — PRESIONA PARA HABLAR
    ============================================================ */
-(function initVoiceDictation() {
+(function initPressHoldDictation() {
   const MicRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  const micBtn = document.getElementById('btn-mic');
-  const input = document.getElementById('user-input');
+  const micBtn  = document.getElementById('btn-mic');
+  const inputEl = document.getElementById('user-input');
   const sendBtn = document.getElementById('send-btn');
 
-  if (!micBtn) return; // si no está el botón, no inicializa
-
-  let recognition = null;
-  let listening = false;
-  let manualStop = false;
-  let lastCommitted = "";
+  if (!micBtn) return;
 
   if (!MicRecognition) {
     micBtn.title = "Dictado no soportado en este navegador";
@@ -482,10 +477,20 @@ if (document.readyState === "loading") {
     return;
   }
 
-  recognition = new MicRecognition();
-  recognition.lang = 'es-CL';           // idioma por defecto
-  recognition.continuous = true;        // escuchar de forma continua
-  recognition.interimResults = true;    // resultados parciales
+  let recognition = new MicRecognition();
+  recognition.lang = 'es-ES';
+  recognition.continuous = true;
+  recognition.interimResults = true;
+
+  let listening = false;
+  let baseText  = ""; // texto que ya estaba en el input antes de dictar
+
+  recognition.onstart = () => {
+    listening = true;
+    baseText = (inputEl.value || "").trim();
+    micBtn.classList.add('recording');
+    micBtn.title = "Suelta para detener el dictado";
+  };
 
   recognition.onresult = (event) => {
     let interim = "";
@@ -498,53 +503,40 @@ if (document.readyState === "loading") {
       else interim += txt + " ";
     }
 
-    input.value = (lastCommitted + finalChunk + interim).trim();
-    if (finalChunk) lastCommitted = (lastCommitted + finalChunk).trim() + " ";
-  };
-
-  recognition.onstart = () => {
-    listening = true;
-    manualStop = false;
-    lastCommitted = input.value ? (input.value.trim() + " ") : "";
-    micBtn.classList.add('recording');   // cambia color + animación
-    micBtn.title = "Escuchando… toca para detener";
+    const combined = (baseText + " " + finalChunk + " " + interim).replace(/\s+/g," ").trim();
+    inputEl.value = combined;
   };
 
   recognition.onerror = (e) => {
     console.warn("SpeechRecognition error:", e);
-    micBtn.title = "Error de micrófono: " + (e.error || "desconocido");
   };
 
   recognition.onend = () => {
     listening = false;
     micBtn.classList.remove('recording');
-    if (!manualStop) {
-      // En móviles puede cortarse; reanudar para experiencia continua
-      try { recognition.start(); } catch {}
-    } else {
-      micBtn.title = "Dictar por voz";
+    micBtn.title = "Mantén presionado para hablar";
+  };
+
+  // --- Presiona para hablar ---
+  const start = (ev) => {
+    ev.preventDefault();
+    if (!listening) {
+      try { recognition.start(); } catch (err) { console.error("No se pudo iniciar el dictado:", err); }
+    }
+  };
+  const stop = () => {
+    if (listening) {
+      try { recognition.stop(); } catch {}
     }
   };
 
-  // Toggle al tocar el botón del mic
-  micBtn.addEventListener('click', () => {
-    if (!recognition) return;
-    if (!listening) {
-      manualStop = false;
-      try { recognition.start(); } catch (err) { console.error("No se pudo iniciar el dictado:", err); }
-    } else {
-      manualStop = true;
-      try { recognition.stop(); } catch {}
-    }
-  });
+  // Soporta mouse y touch
+  micBtn.addEventListener('pointerdown', start);
+  micBtn.addEventListener('pointerup', stop);
+  micBtn.addEventListener('pointerleave', stop);
+  micBtn.addEventListener('touchstart', start, { passive:false });
+  micBtn.addEventListener('touchend', stop);
 
-  // Al enviar, si está escuchando, detener
-  if (sendBtn) {
-    sendBtn.addEventListener('click', () => {
-      if (listening) {
-        manualStop = true;
-        try { recognition.stop(); } catch {}
-      }
-    });
-  }
+  // Si envían mientras dictan, detén
+  sendBtn?.addEventListener('click', stop);
 })();
