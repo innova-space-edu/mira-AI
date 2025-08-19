@@ -248,8 +248,8 @@ body.panel-open #landing{ padding-left: calc(var(--panel-w) + 20px); }
 
   width: min(960px, 94vw);             /* alineado con .chat-wrap */
   display: grid;
-  /* Input | + | Mic | Enviar */
-  grid-template-columns: 1fr auto auto auto;
+  /* Input | Enviar (los iconos van dentro del input) */
+  grid-template-columns: 1fr auto;
   gap: 8px;
   align-items: center;
 
@@ -285,10 +285,10 @@ body.panel-open #landing{ padding-left: calc(var(--panel-w) + 20px); }
 }
 .quick-chip:hover{ background:#2a2153; border-color:#a855f7; }
 
-/* Input + iconos */
+/* Input + iconos DENTRO del input */
 .input-group{
-  /* truco: que sus hijos (input, +, mic) participen en el grid de .composer */
-  display: contents;
+  position: relative;
+  display: block;
 }
 .composer-input{
   width: 100%;
@@ -300,42 +300,43 @@ body.panel-open #landing{ padding-left: calc(var(--panel-w) + 20px); }
   border-radius: .75rem;
   outline: none;
   padding: .62rem .8rem;
+  padding-right: 96px;                 /* espacio para + y mic a la derecha */
 }
 
-/* Botón base de ícono (ghost) */
-.icon-btn{
-  width: 40px;
-  height: 40px;
+/* Estilo base de iconos ghost dentro del input */
+.icon-inside{
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 36px;
+  height: 36px;
   border-radius: .6rem;
   border: 1px solid rgba(255,255,255,0.22);
-  background: transparent;             /* sin fondo */
-  color: #fff;                          /* ícono blanco */
+  background: transparent;
+  color: #fff;                         /* íconos blancos */
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   box-shadow: 0 4px 10px rgba(0,0,0,.15);
 }
-.icon-btn:hover{ background: rgba(255,255,255,0.06); }
-.icon-btn:active{ transform: translateY(1px); }
-.icon-btn svg{ display:block; }
+.icon-inside:hover{ background: rgba(255,255,255,0.06); }
+.icon-inside svg{ width: 18px; height: 18px; display:block; }
 
-/* “+” ahora como icono ghost y NO absoluto */
+/* “+” dentro del input */
 .plus-btn{
-  composes: icon-btn;
-}
-.plus-btn{
-  position: static;
+  right: 52px;
   font-size: 22px;
   line-height: 1;
   padding: 0;
-  box-shadow: 0 4px 10px rgba(0,0,0,.15);
   transition: transform .12s ease;
 }
 .plus-btn[aria-expanded="true"]{ transform: rotate(45deg); }
 
-/* Micrófono (mismo ancho que +) */
-.mic-btn{ composes: icon-btn; }
+/* Micrófono dentro del input (mismo ancho que +) */
+.mic-btn{
+  right: 8px;
+}
 .mic-btn.recording{
   border-color: rgba(255,0,0,0.6);
   animation: micPulse 1s infinite;
@@ -347,13 +348,13 @@ body.panel-open #landing{ padding-left: calc(var(--panel-w) + 20px); }
 }
 .mic-disabled{ opacity:.55; cursor:not-allowed; }
 
-/* Menú de adjuntar */
+/* Menú de adjuntar (más compacto) */
 .upload-tray{
   position: absolute;
   bottom: calc(100% + .55rem);
   right: 0;
-  min-width: 240px;
-  max-width: min(420px, 92vw);
+  min-width: 200px;
+  max-width: min(360px, 90vw);
   background: #111827;
   border: 1px solid #4c1d95;
   border-radius: .9rem;
