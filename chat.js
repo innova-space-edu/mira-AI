@@ -458,3 +458,93 @@ if (document.readyState === "loading") {
 } else {
   initChat();
 }
+
+/* ============================================================
+   === DICTADO POR VOZ (Web Speech API) — agregado al final ===
+   ============================================================ */
+(function initVoiceDictation() {
+  const MicRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const micBtn = document.getElementById('btn-mic');
+  const input = document.getElementById('user-input');
+  const sendBtn = document.getElementById('send-btn');
+
+  if (!micBtn) return; // si no está el botón, no inicializa
+
+  let recognition = null;
+  let listening = false;
+  let manualStop = false;
+  let lastCommitted = "";
+
+  if (!MicRecognition) {
+    micBtn.title = "Dictado no soportado en este navegador";
+    micBtn.setAttribute('disabled', 'true');
+    micBtn.classList.add('mic-disabled');
+    return;
+  }
+
+  recognition = new MicRecognition();
+  recognition.lang = 'es-CL';           // idioma por defecto (puedes cambiar a 'es-ES')
+  recognition.continuous = true;        // escuchar de forma continua
+  recognition.interimResults = true;    // resultados parciales
+
+  recognition.onresult = (event) => {
+    let interim = "";
+    let finalChunk = "";
+
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      const res = event.results[i];
+      const txt = res[0].transcript;
+      if (res.isFinal) finalChunk += txt + " ";
+      else interim += txt + " ";
+    }
+
+    input.value = (lastCommitted + finalChunk + interim).trim();
+    if (finalChunk) lastCommitted = (lastCommitted + finalChunk).trim() + " ";
+  };
+
+  recognition.onstart = () => {
+    listening = true;
+    manualStop = false;
+    lastCommitted = input.value ? (input.value.trim() + " ") : "";
+    micBtn.classList.add('recording');
+    micBtn.title = "Escuchando… toca para detener";
+  };
+
+  recognition.onerror = (e) => {
+    console.warn("SpeechRecognition error:", e);
+    micBtn.title = "Error de micrófono: " + (e.error || "desconocido");
+  };
+
+  recognition.onend = () => {
+    listening = false;
+    micBtn.classList.remove('recording');
+    if (!manualStop) {
+      // En móviles puede cortarse; reanudar para experiencia continua
+      try { recognition.start(); } catch {}
+    } else {
+      micBtn.title = "Dictar por voz";
+    }
+  };
+
+  // Toggle al tocar el botón del mic
+  micBtn.addEventListener('click', () => {
+    if (!recognition) return;
+    if (!listening) {
+      manualStop = false;
+      try { recognition.start(); } catch (err) { console.error("No se pudo iniciar el dictado:", err); }
+    } else {
+      manualStop = true;
+      try { recognition.stop(); } catch {}
+    }
+  });
+
+  // Al enviar, si está escuchando, detener
+  if (sendBtn) {
+    sendBtn.addEventListener('click', () => {
+      if (listening) {
+        manualStop = true;
+        try { recognition.stop(); } catch {}
+      }
+    });
+  }
+})();
