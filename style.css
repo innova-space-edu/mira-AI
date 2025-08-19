@@ -8,8 +8,8 @@
   --header-overlay-h: clamp(52px, 7.2vw, 72px);
 
   /* Composer fijo */
-  --composer-h: 66px;                 /* alto aprox. del input + botones   */
-  --composer-offset: 22px;            /* margen desde el borde inferior     */
+  --composer-h: 56px;                 /* alto aprox. del input + botones (más bajo) */
+  --composer-offset: 18px;            /* margen desde el borde inferior               */
 }
 
 /* Todo dentro del viewport, sin desbordes */
@@ -236,7 +236,7 @@ body.panel-open #landing{ padding-left: calc(var(--panel-w) + 20px); }
   flex: 1 1 auto;
   overflow-y: auto;
   /* espacio para que el último mensaje no quede tapado por el composer fijo */
-  padding-bottom: calc(var(--composer-h) + 80px);
+  padding-bottom: calc(var(--composer-h) + 44px);
 }
 
 /* =================== Composer FIJO (siempre visible) =================== */
@@ -248,13 +248,13 @@ body.panel-open #landing{ padding-left: calc(var(--panel-w) + 20px); }
 
   width: min(960px, 94vw);             /* alineado con .chat-wrap */
   display: grid;
-  /* AJUSTE: tres columnas para input, mic y enviar en la misma fila */
-  grid-template-columns: 1fr auto auto;
-  gap: 10px;
+  /* Input | + | Mic | Enviar */
+  grid-template-columns: 1fr auto auto auto;
+  gap: 8px;
   align-items: center;
 
   background: linear-gradient(180deg, rgba(17,24,39,0) 0%, rgba(17,24,39,.65) 40%, rgba(17,24,39,.85) 100%);
-  padding-bottom: max(6px, var(--safe-bottom));
+  padding-bottom: max(4px, var(--safe-bottom));
   z-index: 100;                        /* por encima del card */
 }
 
@@ -285,41 +285,67 @@ body.panel-open #landing{ padding-left: calc(var(--panel-w) + 20px); }
 }
 .quick-chip:hover{ background:#2a2153; border-color:#a855f7; }
 
-/* Input + botón "+" */
+/* Input + iconos */
 .input-group{
-  position: relative;
-  display: grid;
-  align-items: center;
-  min-width: 0;
+  /* truco: que sus hijos (input, +, mic) participen en el grid de .composer */
+  display: contents;
 }
 .composer-input{
   width: 100%;
-  min-height: 52px;
-  font-size: 1rem;
+  min-height: 44px;                    /* más compacto */
+  font-size: 0.98rem;
   background: #374151;
   color: #fff;
   border: 1px solid #4b5563;
   border-radius: .75rem;
   outline: none;
-  padding: .7rem 2.4rem .7rem .8rem;
+  padding: .62rem .8rem;
+}
+
+/* Botón base de ícono (ghost) */
+.icon-btn{
+  width: 40px;
+  height: 40px;
+  border-radius: .6rem;
+  border: 1px solid rgba(255,255,255,0.22);
+  background: transparent;             /* sin fondo */
+  color: #fff;                          /* ícono blanco */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 10px rgba(0,0,0,.15);
+}
+.icon-btn:hover{ background: rgba(255,255,255,0.06); }
+.icon-btn:active{ transform: translateY(1px); }
+.icon-btn svg{ display:block; }
+
+/* “+” ahora como icono ghost y NO absoluto */
+.plus-btn{
+  composes: icon-btn;
 }
 .plus-btn{
-  position: absolute;
-  right: 8px;
-  bottom: 8px;
-  border: none;
-  background: #6d28d9;
-  color: #fff;
-  font-size: 1.05rem;
+  position: static;
+  font-size: 22px;
   line-height: 1;
-  cursor: pointer;
-  padding: .35rem .55rem;
-  border-radius: .6rem;
-  box-shadow: 0 4px 10px rgba(0,0,0,.25);
-  transition: transform .18s ease;
+  padding: 0;
+  box-shadow: 0 4px 10px rgba(0,0,0,.15);
+  transition: transform .12s ease;
 }
-.plus-btn:hover{ background:#7c3aed; }
 .plus-btn[aria-expanded="true"]{ transform: rotate(45deg); }
+
+/* Micrófono (mismo ancho que +) */
+.mic-btn{ composes: icon-btn; }
+.mic-btn.recording{
+  border-color: rgba(255,0,0,0.6);
+  animation: micPulse 1s infinite;
+}
+@keyframes micPulse{
+  0%   { box-shadow: 0 0 0 0 rgba(255,0,0,0.35); }
+  70%  { box-shadow: 0 0 0 10px rgba(255,0,0,0); }
+  100% { box-shadow: 0 0 0 0 rgba(255,0,0,0); }
+}
+.mic-disabled{ opacity:.55; cursor:not-allowed; }
 
 /* Menú de adjuntar */
 .upload-tray{
@@ -380,33 +406,6 @@ body.panel-open #landing{ padding-left: calc(var(--panel-w) + 20px); }
   0%   { width:0; height:0; opacity:.45; }
   100% { width:220px; height:220px; opacity:0; }
 }
-
-/* ===== Micrófono pequeño (NUEVO) ===== */
-.mic-btn{
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
-  border: 1px solid rgba(255,255,255,0.18);
-  background: transparent;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  color: #e5e7eb;
-  box-shadow: 0 4px 10px rgba(0,0,0,.15);
-}
-.mic-btn:hover{ background: rgba(255,255,255,0.06); }
-.mic-btn svg{ display:block; }
-.mic-btn.recording{
-  border-color: rgba(255,0,0,0.6);
-  animation: micPulse 1s infinite;
-}
-@keyframes micPulse{
-  0%   { box-shadow: 0 0 0 0 rgba(255,0,0,0.35); }
-  70%  { box-shadow: 0 0 0 10px rgba(255,0,0,0); }
-  100% { box-shadow: 0 0 0 0 rgba(255,0,0,0); }
-}
-.mic-disabled{ opacity:.55; cursor:not-allowed; }
 
 /* =================== Mensajes =================== */
 .msg{ display:flex; gap:8px; margin:8px 0; }
@@ -609,8 +608,8 @@ mjx-container[jax="CHTML"]{
 /* =================== Responsive móvil =================== */
 @media (max-width: 480px), (max-height: 640px){
   :root{
-    --composer-h: 58px;
-    --composer-offset: 16px;
+    --composer-h: 52px;
+    --composer-offset: 14px;
   }
 
   #hero-subtitle, #hero-subtitle-app { display: none; }
@@ -621,10 +620,10 @@ mjx-container[jax="CHTML"]{
   @supports (height: 100svh){
     #chat-shell{ height: calc(100svh - var(--topbar-h) - var(--header-overlay-h) - 8px) !important; }
   }
-  #chat-box{ font-size: .92rem; padding-bottom: calc(var(--composer-h) + 72px); }
+  #chat-box{ font-size: .92rem; padding-bottom: calc(var(--composer-h) + 40px); }
 
   .send-btn{ min-width: 74px; padding: .45rem .6rem; font-size: .9rem; }
-  .composer-input{ min-height: 48px; padding-right: 2.2rem; }
+  .composer-input{ min-height: 42px; }
 }
 
 /* Ocultar completamente el main cuando está hidden */
