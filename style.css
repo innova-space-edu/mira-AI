@@ -7,10 +7,9 @@
   --header-h: 0px;
   --header-overlay-h: clamp(52px, 7.2vw, 72px);
 
-  /* Altura aproximada del compositor (input + botón) */
-  --composer-h: 66px;
-  /* Separación extra del compositor respecto al borde inferior (más generosa) */
-  --composer-gap: clamp(28px, 4vh, 64px);
+  /* Composer fijo */
+  --composer-h: 66px;                 /* alto aprox. del input + botones   */
+  --composer-offset: 22px;            /* margen desde el borde inferior     */
 }
 
 /* Todo dentro del viewport, sin desbordes */
@@ -201,12 +200,12 @@ body.panel-open #landing{ padding-left: calc(var(--panel-w) + 20px); }
 /* Card con inner glow (SIN scanline) */
 #chat-card{
   padding: 1rem;
-  /* Reserva real para que el compositor nunca quede fuera */
-  padding-bottom: calc(var(--composer-h) + var(--composer-gap) + 14px);
+  /* con composer fijo no hace falta gran reserva, pero dejamos algo cómodo */
+  padding-bottom: 16px;
   height: 100%;
   position: relative;
   border-radius: 14px;
-  overflow: hidden;
+  overflow: visible;            /* importante: no recortar el borde inferior */
   z-index: 1;
 }
 #chat-card::before{
@@ -226,7 +225,6 @@ body.panel-open #landing{ padding-left: calc(var(--panel-w) + 20px); }
   min-height: calc(100dvh - var(--topbar-h) - var(--header-overlay-h) - 16px);
   position: relative;
 }
-/* Usa 100svh (stable viewport) cuando esté disponible */
 @supports (height: 100svh){
   #chat-shell{
     height: calc(100svh - var(--topbar-h) - var(--header-overlay-h) - 16px) !important;
@@ -237,24 +235,29 @@ body.panel-open #landing{ padding-left: calc(var(--panel-w) + 20px); }
 #chat-box{
   flex: 1 1 auto;
   overflow-y: auto;
-  /* colchón adicional para que el último mensaje no quede detrás del compositor */
-  padding-bottom: calc(var(--composer-h) + var(--composer-gap) + 20px);
+  /* espacio para que el último mensaje no quede tapado por el composer fijo */
+  padding-bottom: calc(var(--composer-h) + 80px);
 }
 
-/* COMPOSER */
+/* =================== Composer FIJO (siempre visible) =================== */
 .composer{
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(var(--safe-bottom) + var(--composer-offset));
+
+  width: min(960px, 94vw);             /* alineado con .chat-wrap */
   display: grid;
   grid-template-columns: 1fr auto;
   gap: 10px;
   align-items: center;
-  position: sticky;
-  bottom: calc(var(--safe-bottom) + var(--composer-gap));
+
   background: linear-gradient(180deg, rgba(17,24,39,0) 0%, rgba(17,24,39,.65) 40%, rgba(17,24,39,.85) 100%);
   padding-bottom: max(6px, var(--safe-bottom));
-  z-index: 5;
+  z-index: 100;                        /* por encima del card */
 }
 
-/* Chips */
+/* Chips (dentro del composer) */
 .quick-chips{
   grid-column: 1 / -1;
   display: flex;
@@ -329,7 +332,7 @@ body.panel-open #landing{ padding-left: calc(var(--panel-w) + 20px); }
   border-radius: .9rem;
   padding: .6rem;
   box-shadow: 0 14px 34px rgba(0,0,0,.35);
-  z-index: 40;
+  z-index: 140;
 }
 .hidden{ display:none; }
 .upload-item{
@@ -541,7 +544,7 @@ mjx-container[jax="CHTML"]{
   background: transparent;
   font-size: 22px;
   line-height: 1;
-  cursor: default;      /* no hace nada por sí solo */
+  cursor: default;
   padding: 0 4px;
   color: #cfc9ff;
 }
@@ -578,19 +581,19 @@ mjx-container[jax="CHTML"]{
 /* =================== Responsive móvil =================== */
 @media (max-width: 480px), (max-height: 640px){
   :root{
-    --composer-h: 58px;       /* compositor algo más compacto en pantallas bajas */
-    --composer-gap: 18px;     /* menos separación en pantallas muy bajas */
+    --composer-h: 58px;
+    --composer-offset: 16px;
   }
 
   #hero-subtitle, #hero-subtitle-app { display: none; }
 
   .chat-wrap{ width: min(92vw, 560px); margin-inline: auto; }
-  #chat-card{ padding: 10px; padding-bottom: calc(var(--composer-h) + var(--composer-gap) + 10px); }
+  #chat-card{ padding: 10px; padding-bottom: 12px; }
   #chat-shell{ height: calc(100dvh - var(--topbar-h) - var(--header-overlay-h) - 8px) !important; }
   @supports (height: 100svh){
     #chat-shell{ height: calc(100svh - var(--topbar-h) - var(--header-overlay-h) - 8px) !important; }
   }
-  #chat-box{ font-size: .92rem; }
+  #chat-box{ font-size: .92rem; padding-bottom: calc(var(--composer-h) + 72px); }
 
   .send-btn{ min-width: 74px; padding: .45rem .6rem; font-size: .9rem; }
   .composer-input{ min-height: 48px; padding-right: 2.2rem; }
