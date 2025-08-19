@@ -90,7 +90,7 @@
       <h1 class="site-title-centered">Innova Space Education</h1>
     </div>
 
-    <!-- Cabecera del asistente (avatar debajo de “IA”) -->
+    <!-- Cabecera del asistente (avatar debajo de “IA”, centrado) -->
     <div id="assistant-header">
       <h2 class="assistant-name">
         Asistente
@@ -164,8 +164,7 @@
             <!-- Composer -->
             <div class="composer">
 
-              <!-- (Se eliminaron los chips de acciones rápidas) -->
-
+              <!-- Input + botones internos -->
               <div class="input-group">
                 <input aria-label="Escribe tu mensaje"
                        type="text"
@@ -175,7 +174,7 @@
                        autocomplete="off"/>
 
                 <!-- Micrófono dentro del input -->
-                <button id="btn-mic" class="mic-btn" title="Dictar por voz" aria-label="Dictar por voz">
+                <button id="btn-mic" class="mic-btn" title="Mantén presionado para hablar" aria-label="Mantén presionado para hablar">
                   <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
                     <path d="M12 14a3 3 0 0 0 3-3V7a3 3 0 1 0-6 0v4a3 3 0 0 0 3 3zM5 11a1 1 0 1 0-2 0 9 9 0 0 0 8 8v3h2v-3a9 9 0 0 0 8-8 1 1 0 1 0-2 0 7 7 0 0 1-14 0z"/>
                   </svg>
@@ -184,9 +183,13 @@
                 <!-- Botón + flotante -->
                 <button id="attachBtn" class="plus-btn" title="Adjuntar" aria-haspopup="true" aria-controls="attachMenu" aria-expanded="false">+</button>
 
-                <!-- Menú del + -->
+                <!-- Menú del + (todas las opciones visibles al abrir) -->
                 <div id="attachMenu" class="upload-tray hidden" role="menu">
-                  <button id="attachImageOption" class="upload-item" role="menuitem">📎 Adjuntar imagen</button>
+                  <button id="attachImageOption" class="upload-item" role="menuitem">📎 Agregar fotos y archivos</button>
+                  <button id="opt-agent" class="upload-item" role="menuitem">🤖 Modo Agente</button>
+                  <button id="opt-research" class="upload-item" role="menuitem">🔎 Investiga a fondo</button>
+                  <button id="opt-imagegen" class="upload-item" role="menuitem">🎨 Crea imagen</button>
+                  <button id="opt-study" class="upload-item" role="menuitem">📘 Estudia y aprende</button>
                 </div>
 
                 <!-- Input de archivos (oculto) -->
@@ -275,7 +278,7 @@
       const attachMenu = document.getElementById('attachMenu');
       const sendBtn    = document.getElementById('send-btn');
 
-      // Toggle del menú de adjuntar (+ rota a × con CSS via aria-expanded)
+      // Toggle del menú de adjuntar (+ => muestra TODO de golpe)
       attachBtn?.addEventListener('click', (e)=>{
         e.stopPropagation();
         const isOpen = attachBtn.getAttribute('aria-expanded') === 'true';
@@ -404,7 +407,7 @@
         await loadChatList();
       }
 
-      // Render de lista con menú ⋯ (abre al pasar el mouse)
+      // Render de lista con menú ⋯ (abre al instante al hacer click)
       async function loadChatList(){
         const list = document.getElementById('chat-list'); if (!list) return;
         list.innerHTML = "";
@@ -418,11 +421,19 @@
               <span class="chat-title">${(title || "Chat")}</span>
               <button class="kebab-btn" title="Más acciones">⋯</button>
             </div>
-            <div class="kebab-menu" role="menu">
+            <div class="kebab-menu" role="menu" hidden>
               <button class="menu-action" data-action="open"   role="menuitem">Abrir</button>
               <button class="menu-action" data-action="rename" role="menuitem">Renombrar</button>
               <button class="menu-action" data-action="delete" role="menuitem">Eliminar</button>
             </div>`;
+          // Toggle del menú
+          row.querySelector('.kebab-btn').addEventListener('click', (e)=>{
+            e.stopPropagation();
+            const menu = row.querySelector('.kebab-menu');
+            const isHidden = menu.hasAttribute('hidden');
+            document.querySelectorAll('#chat-list .kebab-menu').forEach(m=>m.setAttribute('hidden',''));
+            if (isHidden) menu.removeAttribute('hidden'); else menu.setAttribute('hidden','');
+          });
           list.appendChild(row);
         };
 
@@ -451,6 +462,8 @@
             } else if (action === 'delete') {
               if (confirm('¿Eliminar este chat?')) await deleteChat(id);
             }
+            // cerrar menú después de acción
+            item.querySelector('.kebab-menu')?.setAttribute('hidden','');
             return;
           }
 
@@ -460,6 +473,13 @@
             await loadChat(item.dataset.id);
           }
         };
+
+        // Cerrar menús al hacer click fuera
+        document.addEventListener('click', (evt)=>{
+          if (!list.contains(evt.target)){
+            document.querySelectorAll('#chat-list .kebab-menu').forEach(m=>m.setAttribute('hidden',''));
+          }
+        });
       }
 
       async function loadChat(chatId){
@@ -584,6 +604,50 @@
         document.body.classList.remove('panel-open');
       }
     });
+  </script>
+
+  <!-- Micrófono: presiona-para-hablar -->
+  <script>
+    let mediaStream = null, mediaRecorder = null, micChunks = [], isRecording = false;
+
+    async function startRecording(){
+      if (isRecording) return;
+      isRecording = true;
+      try{
+        if (!mediaStream){
+          mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        }
+        micChunks = [];
+        mediaRecorder = new MediaRecorder(mediaStream, { mimeType: 'audio/webm' });
+        mediaRecorder.ondataavailable = (e)=>{ if (e.data.size) micChunks.push(e.data); };
+        mediaRecorder.onstop = ()=>{
+          const blob = new Blob(micChunks, { type: 'audio/webm' });
+          // TODO: envía el blob a tu STT o backend
+          // sendAudioBlob(blob);
+        };
+        mediaRecorder.start();
+        document.getElementById('btn-mic')?.classList.add('recording');
+      }catch(err){
+        console.error('Mic error:', err);
+        isRecording = false;
+      }
+    }
+
+    function stopRecording(){
+      if (!isRecording) return;
+      isRecording = false;
+      try{ mediaRecorder?.stop(); }catch{}
+      document.getElementById('btn-mic')?.classList.remove('recording');
+    }
+
+    const micBtn = document.getElementById('btn-mic');
+    if (micBtn){
+      micBtn.addEventListener('pointerdown', startRecording);
+      micBtn.addEventListener('pointerup', stopRecording);
+      micBtn.addEventListener('pointerleave', stopRecording);
+      micBtn.addEventListener('touchstart', (e)=>{ e.preventDefault(); startRecording(); }, { passive:false });
+      micBtn.addEventListener('touchend', stopRecording);
+    }
   </script>
 
   <!-- Lógica del chat -->
