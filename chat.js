@@ -483,7 +483,7 @@ if (document.readyState === "loading") {
   }
 
   recognition = new MicRecognition();
-  recognition.lang = 'es-CL';           // idioma por defecto (puedes cambiar a 'es-ES')
+  recognition.lang = 'es-CL';           // idioma por defecto
   recognition.continuous = true;        // escuchar de forma continua
   recognition.interimResults = true;    // resultados parciales
 
@@ -506,7 +506,7 @@ if (document.readyState === "loading") {
     listening = true;
     manualStop = false;
     lastCommitted = input.value ? (input.value.trim() + " ") : "";
-    micBtn.classList.add('recording');
+    micBtn.classList.add('recording');   // cambia color + animación
     micBtn.title = "Escuchando… toca para detener";
   };
 
