@@ -1,104 +1,25 @@
 /* =================== Variables y viewport =================== */
-:root{ 
+:root{
   --vh: 1vh;
   --topbar-h: 0px;
   --panel-w: 320px;
   --safe-bottom: env(safe-area-inset-bottom, 0px);
-  --header-h: 0px;
-  --header-overlay-h: clamp(52px, 7.2vw, 72px);
-
-  /* Composer fijo */
-  --composer-h: 56px;                 /* alto aprox. del input + botones (más bajo) */
-  --composer-offset: 18px;            /* margen desde el borde inferior               */
+  --header-h: 0px; /* se calcula en runtime según #page-header */
+  --header-overlay-h: clamp(52px, 7.2vw, 72px); /* alto reservado para cabecera fija */
 }
 
 /* Todo dentro del viewport, sin desbordes */
 html, body { height: 100%; overflow: hidden; }
 
-/* ====== FONDO APP (auroras suaves) ====== */
-body::before,
-body::after{
-  content:"";
-  position: fixed;
-  inset: -20% -30%;
-  z-index: 0;
-  pointer-events: none;
-  filter: blur(26px) saturate(120%);
-  opacity: .65;
-}
-body::before{
-  background:
-    radial-gradient(40% 35% at 20% 30%, rgba(34,197,94,.12), transparent 55%),
-    radial-gradient(35% 35% at 82% 20%, rgba(168,85,247,.18), transparent 60%),
-    radial-gradient(30% 30% at 60% 78%, rgba(56,189,248,.14), transparent 60%);
-  animation: aurora-a 32s ease-in-out infinite alternate;
-}
-body::after{
-  background:
-    radial-gradient(35% 35% at 30% 70%, rgba(99,102,241,.12), transparent 55%),
-    radial-gradient(35% 35% at 75% 55%, rgba(16,185,129,.10), transparent 55%),
-    radial-gradient(25% 25% at 50% 35%, rgba(236,72,153,.10), transparent 60%);
-  animation: aurora-b 38s ease-in-out infinite alternate;
-}
-@keyframes aurora-a{
-  0%{ transform: translate3d(-2%, -2%, 0) scale(1.02); }
-  100%{ transform: translate3d(3%, 2%, 0) scale(1.05); }
-}
-@keyframes aurora-b{
-  0%{ transform: translate3d(2%, 3%, 0) scale(1.00) rotate(0.3deg); }
-  100%{ transform: translate3d(-3%, -2%, 0) scale(1.04) rotate(-0.3deg); }
-}
-
-/* ====== FONDO LOGIN: lluvia de estrellas (solo #auth) ====== */
-#auth{ position: relative; }
-#auth::before, #auth::after{
-  content:"";
-  position: absolute; inset:0;
-  z-index: 0;
-  pointer-events: none;
-}
-#auth::before{
-  background:
-    radial-gradient(1px 1px at 20% 10%, rgba(255,255,255,.8) 99%, transparent 100%),
-    radial-gradient(1px 1px at 40% 30%, rgba(255,255,255,.7) 99%, transparent 100%),
-    radial-gradient(1px 1px at 60% 70%, rgba(255,255,255,.6) 99%, transparent 100%),
-    radial-gradient(1px 1px at 80% 50%, rgba(255,255,255,.75) 99%, transparent 100%),
-    radial-gradient(1px 1px at 10% 85%, rgba(255,255,255,.65) 99%, transparent 100%);
-  background-repeat: repeat;
-  background-size: 200px 200px, 260px 260px, 300px 300px, 360px 360px, 420px 420px;
-  animation: stars-slow 60s linear infinite;
-  opacity:.7;
-}
-#auth::after{
-  background:
-    radial-gradient(1.5px 1.5px at 30% 0%, rgba(255,255,255,.9) 99%, transparent 100%),
-    radial-gradient(1.5px 1.5px at 70% 15%, rgba(255,255,255,.85) 99%, transparent 100%),
-    radial-gradient(1.5px 1.5px at 90% 60%, rgba(255,255,255,.9) 99%, transparent 100%),
-    radial-gradient(1.5px 1.5px at 5% 40%, rgba(255,255,255,.8) 99%, transparent 100%);
-  background-repeat: repeat;
-  background-size: 220px 220px, 280px 280px, 340px 340px, 420px 420px;
-  animation: stars-fast 35s linear infinite;
-  opacity:.75;
-}
-@keyframes stars-slow {
-  0% { background-position: 0 0, 0 0, 0 0, 0 0, 0 0; }
-  100% { background-position: 0 800px, 0 1000px, 0 1200px, 0 1400px, 0 1600px; }
-}
-@keyframes stars-fast {
-  0% { background-position: 0 0, 0 0, 0 0, 0 0; }
-  100% { background-position: 0 1400px, 0 1600px, 0 1800px, 0 2000px; }
-}
-
 /* App: alto visible menos topbar */
 #landing{
-  position: relative;
   min-height: calc((var(--vh) * 100) - var(--topbar-h));
   display: grid;
-  grid-template-rows: 1fr !important;
+  grid-template-rows: 1fr !important; /* solo contenido; el header es overlay */
   align-items: start;
   transition: padding-left .25s ease;
   padding-top: calc(var(--topbar-h) + var(--header-overlay-h));
-  padding-bottom: calc(var(--safe-bottom) + 10px);
+  padding-bottom: calc(var(--safe-bottom) + 10px); /* más aire abajo */
 }
 @supports (height: 100dvh){
   #landing{ min-height: calc(100dvh - var(--topbar-h)); }
@@ -124,44 +45,36 @@ body.panel-open #landing{ padding-left: calc(var(--panel-w) + 20px); }
   font-weight: 800;
   font-size: clamp(28px, 6.8vw, 64px);
   line-height: 1.05;
+  background-image: linear-gradient(to right, #f472b6, #c4b5fd, #60a5fa);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
-  background-image: linear-gradient(90deg,#22c55e,#a855f7,#38bdf8,#22c55e);
-  background-size: 300% 100%;
-  animation: gradient-pan 12s linear infinite;
 }
 
-/* Título animado en la app */
+/* ====== Título del sitio (centrado superior, overlay) ====== */
 .hero-bar{
   position: absolute;
   top: calc(var(--topbar-h) + 6px);
   left: 0; right: 0;
-  height: 0;
+  height: 0; /* no ocupa flujo */
   pointer-events: none;
   display: grid;
   place-items: center;
 }
 .site-title-centered{
   margin: 0;
-  font-size: clamp(28px, 3.4vw, 48px);
+  font-size: clamp(28px, 3.4vw, 48px); /* MÁS GRANDE */
   font-weight: 800;
   letter-spacing: .3px;
+  background-image: linear-gradient(90deg,#22c55e, #a855f7, #38bdf8);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
-  background-image: linear-gradient(90deg,#22c55e,#a855f7,#38bdf8,#22c55e);
-  background-size: 300% 100%;
-  animation: gradient-pan 12s linear infinite;
   filter: drop-shadow(0 2px 10px rgba(168,85,247,.35));
   pointer-events: auto;
 }
-@keyframes gradient-pan{
-  0%{   background-position:   0% 50%; }
-  100%{ background-position: 200% 50%; }
-}
 
-/* Cabecera del asistente */
+/* ====== Cabecera del asistente: avatar debajo de “IA” ====== */
 #assistant-header{
   position: absolute;
   top: calc(var(--topbar-h) + 10px);
@@ -178,6 +91,8 @@ body.panel-open #landing{ padding-left: calc(var(--panel-w) + 20px); }
   white-space: nowrap;
 }
 .assistant-name .mira{ font-weight: 900; }
+
+/* Span que contiene “IA” y sirve de ancla del avatar */
 .ia-with-avatar{
   position: relative;
   display: inline-block;
@@ -185,7 +100,7 @@ body.panel-open #landing{ padding-left: calc(var(--panel-w) + 20px); }
 }
 .ia-with-avatar #avatar-mira{
   position: absolute;
-  top: 120%;
+  top: 120%;           /* debajo de “IA” */
   left: 50%;
   transform: translateX(-50%);
   width: clamp(44px, 4.8vw, 62px);
@@ -194,149 +109,88 @@ body.panel-open #landing{ padding-left: calc(var(--panel-w) + 20px); }
 }
 
 /* =================== Chat =================== */
-#main-chat{ display: flex; justify-content: center; align-items: stretch; padding: 6px 12px 28px; }
+#main-chat{ display: flex; justify-content: center; align-items: stretch; padding: 6px 12px 28px; } /* + padding abajo */
 .chat-wrap{ width: min(960px, 94vw); margin-inline: auto; }
 
-/* Card con inner glow (SIN scanline) */
-#chat-card{
-  padding: 1rem;
-  /* con composer fijo no hace falta gran reserva, pero dejamos algo cómodo */
-  padding-bottom: 16px;
-  height: 100%;
-  position: relative;
-  border-radius: 14px;
-  overflow: visible;            /* importante: no recortar el borde inferior */
-  z-index: 1;
-}
-#chat-card::before{
-  content:"";
-  position:absolute; inset:0;
-  border-radius: inherit;
-  pointer-events: none;
-  box-shadow:
-    inset 0 0 28px rgba(168,85,247,.18),
-    inset 0 0 8px rgba(59,130,246,.12);
-}
-
-/* Shell y área scroll */
+#chat-card{ padding: 1rem; height: 100%; }
 #chat-shell{
   display: flex; flex-direction: column;
   height: calc(100dvh - var(--topbar-h) - var(--header-overlay-h) - 16px) !important;
   min-height: calc(100dvh - var(--topbar-h) - var(--header-overlay-h) - 16px);
-  position: relative;
 }
-@supports (height: 100svh){
-  #chat-shell{
-    height: calc(100svh - var(--topbar-h) - var(--header-overlay-h) - 16px) !important;
-    min-height: calc(100svh - var(--topbar-h) - var(--header-overlay-h) - 16px);
-  }
-}
+#chat-box{ flex: 1 1 auto; overflow-y: auto; padding-bottom: 6px; }
 
-#chat-box{
-  flex: 1 1 auto;
-  overflow-y: auto;
-  /* espacio para que el último mensaje no quede tapado por el composer fijo */
-  padding-bottom: calc(var(--composer-h) + 44px);
-}
-
-/* =================== Composer FIJO (siempre visible) =================== */
+/* COMPOSER: input y botón Enviar en la MISMA FILA */
 .composer{
-  position: fixed;
-  left: 50%;
-  transform: translateX(-50%);
-  bottom: calc(var(--safe-bottom) + var(--composer-offset));
-
-  width: min(960px, 94vw);             /* alineado con .chat-wrap */
   display: grid;
-  /* Input | Enviar (los iconos van dentro del input) */
-  grid-template-columns: 1fr auto;
-  gap: 8px;
-  align-items: center;
-
+  grid-template-columns: 1fr auto;  /* input ocupa el espacio, botón a la derecha */
+  gap: 10px;
+  align-items: center;               /* centra verticalmente ambos */
+  position: sticky;
+  bottom: max(10px, var(--safe-bottom)); /* un poco más separado del borde */
   background: linear-gradient(180deg, rgba(17,24,39,0) 0%, rgba(17,24,39,.65) 40%, rgba(17,24,39,.85) 100%);
-  padding-bottom: max(4px, var(--safe-bottom));
-  z-index: 100;                        /* por encima del card */
+  padding-bottom: max(6px, var(--safe-bottom));
+  z-index: 5;
 }
 
-/* Chips (dentro del composer) */
-.quick-chips{
-  grid-column: 1 / -1;
-  display: flex;
-  gap: 8px;
-  margin: 0 0 2px;
-  opacity: 0;
-  transform: translateY(6px);
-  transition: opacity .18s ease, transform .18s ease;
-  pointer-events: none;
-}
-.quick-chips.visible{
-  opacity: 1;
-  transform: translateY(0);
-  pointer-events: auto;
-}
-.quick-chip{
-  background: #1e1b4b;
-  border: 1px solid #7c3aed66;
-  color: #e5e7eb;
-  padding: 4px 10px;
-  border-radius: 9999px;
-  font-size: .85rem;
-  cursor: pointer;
-}
-.quick-chip:hover{ background:#2a2153; border-color:#a855f7; }
-
-/* Input + iconos DENTRO del input */
+/* Input grande + botón “+” flotante */
 .input-group{
   position: relative;
-  display: block;
+  display: grid;
+  align-items: center;
+  min-width: 0;
 }
 .composer-input{
   width: 100%;
-  min-height: 44px;                    /* más compacto */
-  font-size: 0.98rem;
+  min-height: 52px;
+  font-size: 1rem;
   background: #374151;
   color: #fff;
   border: 1px solid #4b5563;
   border-radius: .75rem;
   outline: none;
-  padding: .62rem .8rem;
-  padding-right: 96px;                 /* espacio para + y mic a la derecha */
+  /* ⬇️ Más espacio a la derecha para + y micrófono dentro del input */
+  padding: .7rem 5.2rem .7rem .8rem;
 }
 
-/* Estilo base de iconos ghost dentro del input */
-.icon-inside{
+/* Botón “+” (diseño existente, sin cambiar colores) */
+.plus-btn{
   position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
+  right: 8px;
+  bottom: 8px;
+  border: none;
+  background: #6d28d9;
+  color: #fff;
+  font-size: 1.05rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: .35rem .55rem;
+  border-radius: .6rem;
+  box-shadow: 0 4px 10px rgba(0,0,0,.25);
+}
+.plus-btn:hover{ background:#7c3aed; }
+
+/* ===== Micrófono dentro del input (blanco, sin fondo) ===== */
+.mic-btn{
+  position: absolute;
+  right: 52px;                /* a la izquierda del “+” */
+  bottom: 8px;
   width: 36px;
   height: 36px;
   border-radius: .6rem;
   border: 1px solid rgba(255,255,255,0.22);
-  background: transparent;
-  color: #fff;                         /* íconos blancos */
+  background: transparent;    /* sin fondo */
+  color: #fff;                /* icono blanco */
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   box-shadow: 0 4px 10px rgba(0,0,0,.15);
 }
-.icon-inside:hover{ background: rgba(255,255,255,0.06); }
-.icon-inside svg{ width: 18px; height: 18px; display:block; }
+.mic-btn:hover{ background: rgba(255,255,255,0.06); }
+.mic-btn svg{ width: 18px; height: 18px; display:block; }
 
-/* “+” dentro del input */
-.plus-btn{
-  right: 52px;
-  font-size: 22px;
-  line-height: 1;
-  padding: 0;
-  transition: transform .12s ease;
-}
-.plus-btn[aria-expanded="true"]{ transform: rotate(45deg); }
-
-/* Micrófono dentro del input (mismo ancho que +) */
-.mic-btn{
-  right: 8px;
-}
+/* Estados opcionales del mic */
 .mic-btn.recording{
   border-color: rgba(255,0,0,0.6);
   animation: micPulse 1s infinite;
@@ -346,23 +200,24 @@ body.panel-open #landing{ padding-left: calc(var(--panel-w) + 20px); }
   70%  { box-shadow: 0 0 0 10px rgba(255,0,0,0); }
   100% { box-shadow: 0 0 0 0 rgba(255,0,0,0); }
 }
-.mic-disabled{ opacity:.55; cursor:not-allowed; }
+.mic-btn.disabled{ opacity:.55; cursor:not-allowed; }
 
-/* Menú de adjuntar (más compacto) */
+/* Menú desplegable para adjuntar */
 .upload-tray{
   position: absolute;
   bottom: calc(100% + .55rem);
   right: 0;
-  min-width: 200px;
-  max-width: min(360px, 90vw);
+  min-width: 240px;
+  max-width: min(420px, 92vw);
   background: #111827;
   border: 1px solid #4c1d95;
   border-radius: .9rem;
   padding: .6rem;
   box-shadow: 0 14px 34px rgba(0,0,0,.35);
-  z-index: 140;
+  z-index: 40;
 }
 .hidden{ display:none; }
+
 .upload-item{
   display: inline-flex;
   align-items: center;
@@ -376,10 +231,8 @@ body.panel-open #landing{ padding-left: calc(var(--panel-w) + 20px); }
   padding: .3rem .25rem;
 }
 
-/* Botón Enviar + Ripple */
+/* Botón Enviar */
 .send-btn{
-  position: relative;
-  overflow: hidden;
   border: none;
   background: #7c3aed;
   color: #fff;
@@ -389,26 +242,8 @@ body.panel-open #landing{ padding-left: calc(var(--panel-w) + 20px); }
   min-width: 86px;
 }
 .send-btn:hover{ background:#6d28d9; }
-.send-btn::after{
-  content:"";
-  position: absolute;
-  left: var(--ripple-x, 50%);
-  top: var(--ripple-y, 50%);
-  width: 0; height: 0;
-  transform: translate(-50%,-50%);
-  border-radius: 9999px;
-  background: rgba(255,255,255,.35);
-  opacity: 0;
-}
-.send-btn.do-ripple::after{
-  animation: btn-ripple 600ms ease-out;
-}
-@keyframes btn-ripple{
-  0%   { width:0; height:0; opacity:.45; }
-  100% { width:220px; height:220px; opacity:0; }
-}
 
-/* =================== Mensajes =================== */
+/* =================== Mensajes tipo chat =================== */
 .msg{ display:flex; gap:8px; margin:8px 0; }
 .msg.assistant{ justify-content:flex-start; }
 .msg.user{ justify-content:flex-end; }
@@ -456,10 +291,16 @@ mjx-container[jax="CHTML"]{
   padding: .12em .2em; margin: .45em 0;
 }
 
+/* Pensando... */
+#thinking .bubble{
+  font-style: italic; color: #c4b5fd;
+  background: #2a2146; border: 1px dashed #a78bfa;
+}
+
 /* =================== Panel lateral y dock =================== */
 .side-dock{
   position: fixed; left: 14px; top: 50%; transform: translateY(-50%);
-  display: flex; flex-direction: column; gap: 16px; z-index: 60;
+  display: flex; flex-direction: column; gap: 14px; z-index: 60;
 }
 .dock-btn{
   border: none; background: transparent; padding: 0;
@@ -468,14 +309,14 @@ mjx-container[jax="CHTML"]{
   filter: drop-shadow(0 0 6px rgba(168,85,247,.35));
   transition: transform .15s ease;
 }
-.dock-label{ display:block; font-size:.82rem; color:#dbeafe; letter-spacing:.2px; }
-.dock-btn:hover{ transform: translateY(-2px) scale(1.06); }
+.dock-label{ display:block; font-size:.78rem; color:#dbeafe; letter-spacing:.2px; }
+.dock-btn:hover{ transform: translateY(-2px) scale(1.04); }
 
 .dock-icon{
-  width: 56px; height: 56px; display:grid; place-items:center;
+  width: 44px; height: 44px; display:grid; place-items:center;
   position: relative; border-radius: 9999px;
 }
-.dock-icon svg{ width: 34px; height: 34px; opacity:.98; }
+.dock-icon svg{ width: 28px; height: 28px; opacity:.98; }
 .dock-btn.playing .dock-icon::before{
   content:"";
   position:absolute; inset:-10px; border-radius:9999px;
@@ -542,7 +383,7 @@ mjx-container[jax="CHTML"]{
 }
 .clear-all-btn:hover{ opacity: .95; text-decoration: underline; }
 
-/* ====== Lista de chats con menú ⋯ que aparece al pasar el mouse ====== */
+/* =================== Lista de chats con menú ⋯ =================== */
 #chat-list { position: relative; }
 .chat-item{
   position: relative;
@@ -565,19 +406,17 @@ mjx-container[jax="CHTML"]{
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-
-/* Botón tres puntos (sin fondo) */
 .kebab-btn{
   border: none;
   background: transparent;
   font-size: 22px;
   line-height: 1;
-  cursor: default;
+  cursor: pointer;
   padding: 0 4px;
   color: #cfc9ff;
 }
+.kebab-btn:hover { opacity: .85; }
 
-/* Menú ALWAYS listo pero sólo se muestra en hover */
 .kebab-menu{
   position: absolute;
   right: 6px;
@@ -587,11 +426,11 @@ mjx-container[jax="CHTML"]{
   border-radius: 10px;
   background: #1f2130;
   box-shadow: 0 10px 24px rgba(0,0,0,.35);
-  display: none;
+  display: grid;
   gap: 4px;
   z-index: 50;
 }
-.chat-item:hover .kebab-menu{ display: grid; }
+.kebab-menu[hidden]{ display: none; }
 
 .kebab-menu .menu-action{
   width: 100%;
@@ -604,36 +443,22 @@ mjx-container[jax="CHTML"]{
   cursor: pointer;
   font-size: 14px;
 }
-.kebab-menu .menu-action:hover{ background: rgba(255,255,255,.06); }
+.kebab-menu .menu-action:hover{
+  background: rgba(255,255,255,.06);
+}
 
 /* =================== Responsive móvil =================== */
 @media (max-width: 480px), (max-height: 640px){
-  :root{
-    --composer-h: 52px;
-    --composer-offset: 14px;
-  }
-
   #hero-subtitle, #hero-subtitle-app { display: none; }
 
   .chat-wrap{ width: min(92vw, 560px); margin-inline: auto; }
-  #chat-card{ padding: 10px; padding-bottom: 12px; }
+  #chat-card{ padding: 10px; }
   #chat-shell{ height: calc(100dvh - var(--topbar-h) - var(--header-overlay-h) - 8px) !important; }
-  @supports (height: 100svh){
-    #chat-shell{ height: calc(100svh - var(--topbar-h) - var(--header-overlay-h) - 8px) !important; }
-  }
-  #chat-box{ font-size: .92rem; padding-bottom: calc(var(--composer-h) + 40px); }
+  #chat-box{ font-size: .92rem; }
 
   .send-btn{ min-width: 74px; padding: .45rem .6rem; font-size: .9rem; }
-  .composer-input{ min-height: 42px; }
+  .composer-input{ min-height: 48px; padding-right: 5.2rem; } /* respeta el mic + + en móvil */
 }
 
 /* Ocultar completamente el main cuando está hidden */
 #landing.hidden{ display: none !important; }
-
-/* Accesibilidad: respetar “reduce motion” */
-@media (prefers-reduced-motion: reduce){
-  body::before, body::after { animation: none; }
-  .site-title-centered, .hero-title { animation: none; }
-  #auth::before, #auth::after { animation: none; }
-  .send-btn.do-ripple::after{ animation: none; }
-}
