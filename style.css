@@ -6,8 +6,11 @@
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --header-h: 0px;
   --header-overlay-h: clamp(52px, 7.2vw, 72px);
-  /* separación extra del input respecto al borde inferior (adaptativa) */
-  --composer-gap: clamp(22px, 2.8vh, 40px);
+
+  /* Altura aproximada del compositor (input + botón) */
+  --composer-h: 66px;
+  /* Separación extra del compositor respecto al borde inferior (más generosa) */
+  --composer-gap: clamp(28px, 4vh, 64px);
 }
 
 /* Todo dentro del viewport, sin desbordes */
@@ -56,7 +59,6 @@ body::after{
   pointer-events: none;
 }
 #auth::before{
-  /* capas de estrellas con distintos tamaños y velocidades */
   background:
     radial-gradient(1px 1px at 20% 10%, rgba(255,255,255,.8) 99%, transparent 100%),
     radial-gradient(1px 1px at 40% 30%, rgba(255,255,255,.7) 99%, transparent 100%),
@@ -199,7 +201,8 @@ body.panel-open #landing{ padding-left: calc(var(--panel-w) + 20px); }
 /* Card con inner glow (SIN scanline) */
 #chat-card{
   padding: 1rem;
-  padding-bottom: calc(1rem + var(--composer-gap)); /* colchón inferior adicional */
+  /* Reserva real para que el compositor nunca quede fuera */
+  padding-bottom: calc(var(--composer-h) + var(--composer-gap) + 14px);
   height: 100%;
   position: relative;
   border-radius: 14px;
@@ -223,10 +226,19 @@ body.panel-open #landing{ padding-left: calc(var(--panel-w) + 20px); }
   min-height: calc(100dvh - var(--topbar-h) - var(--header-overlay-h) - 16px);
   position: relative;
 }
+/* Usa 100svh (stable viewport) cuando esté disponible */
+@supports (height: 100svh){
+  #chat-shell{
+    height: calc(100svh - var(--topbar-h) - var(--header-overlay-h) - 16px) !important;
+    min-height: calc(100svh - var(--topbar-h) - var(--header-overlay-h) - 16px);
+  }
+}
+
 #chat-box{
   flex: 1 1 auto;
   overflow-y: auto;
-  padding-bottom: calc(14px + var(--composer-gap)); /* más espacio para que no tape el composer */
+  /* colchón adicional para que el último mensaje no quede detrás del compositor */
+  padding-bottom: calc(var(--composer-h) + var(--composer-gap) + 20px);
 }
 
 /* COMPOSER */
@@ -565,13 +577,19 @@ mjx-container[jax="CHTML"]{
 
 /* =================== Responsive móvil =================== */
 @media (max-width: 480px), (max-height: 640px){
-  :root{ --composer-gap: 16px; } /* un poco menos de gap en pantallas muy bajas */
+  :root{
+    --composer-h: 58px;       /* compositor algo más compacto en pantallas bajas */
+    --composer-gap: 18px;     /* menos separación en pantallas muy bajas */
+  }
 
   #hero-subtitle, #hero-subtitle-app { display: none; }
 
   .chat-wrap{ width: min(92vw, 560px); margin-inline: auto; }
-  #chat-card{ padding: 10px; padding-bottom: calc(10px + var(--composer-gap)); }
+  #chat-card{ padding: 10px; padding-bottom: calc(var(--composer-h) + var(--composer-gap) + 10px); }
   #chat-shell{ height: calc(100dvh - var(--topbar-h) - var(--header-overlay-h) - 8px) !important; }
+  @supports (height: 100svh){
+    #chat-shell{ height: calc(100svh - var(--topbar-h) - var(--header-overlay-h) - 8px) !important; }
+  }
   #chat-box{ font-size: .92rem; }
 
   .send-btn{ min-width: 74px; padding: .45rem .6rem; font-size: .9rem; }
