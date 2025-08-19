@@ -55,7 +55,7 @@
     </div>
   </header>
 
-  <!-- Pantalla de autenticación (con “lluvia de estrellas”) -->
+  <!-- Pantalla de autenticación -->
   <section id="auth" class="grid place-items-center px-4">
     <div class="w-full max-w-md bg-gray-900/70 border border-purple-500/50 rounded-2xl p-6 shadow-2xl auth-card">
       <h1 class="hero-title text-center mb-1">Innova Space Education</h1>
@@ -90,7 +90,7 @@
       <h1 class="site-title-centered">Innova Space Education</h1>
     </div>
 
-    <!-- Cabecera del asistente (avatar debajo de “IA”, centrado) -->
+    <!-- Cabecera del asistente (avatar debajo de “IA”) -->
     <div id="assistant-header">
       <h2 class="assistant-name">
         Asistente
@@ -115,6 +115,7 @@
         </span>
         <span class="dock-label">Spotify</span>
       </button>
+
       <button id="btn-user" class="dock-btn" title="Usuario">
         <span class="dock-icon">
           <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -122,6 +123,17 @@
           </svg>
         </span>
         <span class="dock-label">Usuario</span>
+      </button>
+
+      <!-- NUEVO: Configuración -->
+      <button id="btn-settings" class="dock-btn" title="Configuración">
+        <span class="dock-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.07a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 5 15a1.65 1.65 0 0 0-1.51-1H3.4a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 5 8a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 3.4V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19 9c0 .6.23 1.18.64 1.6.42.41 1 .64 1.6.64h.36a2 2 0 1 1 0 4h-.36c-.6 0-1.18.23-1.6.64Z" stroke-width="1.2"/>
+          </svg>
+        </span>
+        <span class="dock-label">Configuración</span>
       </button>
     </div>
 
@@ -132,11 +144,13 @@
         <button id="close-panel" class="close-panel">Cerrar ✕</button>
       </div>
 
+      <!-- Música -->
       <div id="panel-music" class="panel-section active">
         <div id="playlist-list" class="playlist-list"></div>
         <iframe id="spotify-embed" class="panel-iframe" src="" frameborder="0" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>
       </div>
 
+      <!-- Tus chats -->
       <div id="panel-chats" class="panel-section">
         <div class="text-sm opacity-80 mb-2">Conectado como <span id="panel-user-email"></span></div>
 
@@ -152,6 +166,45 @@
 
         <div id="chat-list" class="playlist-list" style="max-height:48vh; overflow:auto;"></div>
       </div>
+
+      <!-- Configuración -->
+      <div id="panel-settings" class="panel-section">
+        <div class="text-sm opacity-80 mb-2">Tema de la app</div>
+        <div class="palette-grid">
+          <button class="palette-btn" data-theme="gray">
+            <span class="swatch sw1"></span><span class="swatch sw2"></span><span class="swatch sw3"></span>
+            <span class="label">Escala de grises</span>
+          </button>
+          <button class="palette-btn" data-theme="blue">
+            <span class="swatch sw1 blue"></span><span class="swatch sw2 blue"></span><span class="swatch sw3 blue"></span>
+            <span class="label">Escala de azul</span>
+          </button>
+          <button class="palette-btn" data-theme="red">
+            <span class="swatch sw1 red"></span><span class="swatch sw2 red"></span><span class="swatch sw3 red"></span>
+            <span class="label">Escala de rojo</span>
+          </button>
+        </div>
+        <div class="text-xs opacity-70 mt-2">Se guarda automáticamente.</div>
+      </div>
+
+      <!-- Modal acciones de chat -->
+      <div id="chat-actions-modal" class="modal hidden" aria-hidden="true">
+        <div class="modal-backdrop"></div>
+        <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="cam-title">
+          <div class="modal-header">
+            <div id="cam-title" class="modal-title">Acciones del chat</div>
+            <button id="cam-close" class="modal-close" aria-label="Cerrar">✕</button>
+          </div>
+          <div class="modal-body">
+            <div class="modal-chat-title" id="cam-chat-title">—</div>
+            <div class="modal-actions">
+              <button id="cam-open"   class="modal-btn primary">Abrir</button>
+              <button id="cam-rename" class="modal-btn">Renombrar</button>
+              <button id="cam-delete" class="modal-btn danger">Eliminar</button>
+            </div>
+          </div>
+        </div>
+      </div>
     </aside>
 
     <!-- Chat -->
@@ -163,8 +216,6 @@
 
             <!-- Composer -->
             <div class="composer">
-
-              <!-- Input + botones internos -->
               <div class="input-group">
                 <input aria-label="Escribe tu mensaje"
                        type="text"
@@ -174,7 +225,7 @@
                        autocomplete="off"/>
 
                 <!-- Micrófono dentro del input -->
-                <button id="btn-mic" class="mic-btn" title="Mantén presionado para hablar" aria-label="Mantén presionado para hablar">
+                <button id="btn-mic" class="mic-btn" title="Dictar por voz" aria-label="Dictar por voz">
                   <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
                     <path d="M12 14a3 3 0 0 0 3-3V7a3 3 0 1 0-6 0v4a3 3 0 0 0 3 3zM5 11a1 1 0 1 0-2 0 9 9 0 0 0 8 8v3h2v-3a9 9 0 0 0 8-8 1 1 0 1 0-2 0 7 7 0 0 1-14 0z"/>
                   </svg>
@@ -183,13 +234,9 @@
                 <!-- Botón + flotante -->
                 <button id="attachBtn" class="plus-btn" title="Adjuntar" aria-haspopup="true" aria-controls="attachMenu" aria-expanded="false">+</button>
 
-                <!-- Menú del + (todas las opciones visibles al abrir) -->
+                <!-- Menú del + -->
                 <div id="attachMenu" class="upload-tray hidden" role="menu">
-                  <button id="attachImageOption" class="upload-item" role="menuitem">📎 Agregar fotos y archivos</button>
-                  <button id="opt-agent" class="upload-item" role="menuitem">🤖 Modo Agente</button>
-                  <button id="opt-research" class="upload-item" role="menuitem">🔎 Investiga a fondo</button>
-                  <button id="opt-imagegen" class="upload-item" role="menuitem">🎨 Crea imagen</button>
-                  <button id="opt-study" class="upload-item" role="menuitem">📘 Estudia y aprende</button>
+                  <button id="attachImageOption" class="upload-item" role="menuitem">📎 Adjuntar imagen</button>
                 </div>
 
                 <!-- Input de archivos (oculto) -->
@@ -228,11 +275,15 @@
     const secChats = document.getElementById('panel-chats');
 
     function setPanelMode(mode){
-      const isMusic = (mode === 'music');
-      const isChats = (mode === 'chats');
+      const isMusic    = (mode === 'music');
+      const isChats    = (mode === 'chats');
+      const isSettings = (mode === 'settings');
+
       secMusic.classList.toggle('active', isMusic);
       secChats.classList.toggle('active', isChats);
-      titleEl.textContent = isMusic ? 'Música para el aprendizaje' : 'Tus chats';
+      document.getElementById('panel-settings').classList.toggle('active', isSettings);
+
+      titleEl.textContent = isMusic ? 'Música para el aprendizaje' : (isChats ? 'Tus chats' : 'Configuración');
       panel.classList.add('open');
       document.body.classList.add('panel-open');
       const u = window._currentUser;
@@ -249,6 +300,7 @@
     }
     document.getElementById('btn-spotify')?.addEventListener('click', ()=>setPanelMode('music'));
     document.getElementById('btn-user')?.addEventListener('click',   ()=>setPanelMode('chats'));
+    document.getElementById('btn-settings')?.addEventListener('click', ()=>setPanelMode('settings'));
     document.getElementById('close-panel')?.addEventListener('click', closePanel);
 
     document.addEventListener('DOMContentLoaded', () => {
@@ -278,7 +330,7 @@
       const attachMenu = document.getElementById('attachMenu');
       const sendBtn    = document.getElementById('send-btn');
 
-      // Toggle del menú de adjuntar (+ => muestra TODO de golpe)
+      // Toggle del menú de adjuntar (+ rota a × con CSS via aria-expanded)
       attachBtn?.addEventListener('click', (e)=>{
         e.stopPropagation();
         const isOpen = attachBtn.getAttribute('aria-expanded') === 'true';
@@ -303,6 +355,35 @@
         void sendBtn.offsetWidth;
         sendBtn.classList.add('do-ripple');
       });
+
+      // ===== Temas (Configuración) – con animación =====
+      (function initThemes(){
+        const KEY = 'mira_theme';
+        const root = document.body;
+
+        const applyTheme = (t, animate=true)=>{
+          root.classList.remove('theme-gray','theme-blue','theme-red');
+          root.classList.add('theme-' + t);
+          if (animate){
+            root.classList.add('theme-anim');
+            setTimeout(()=> root.classList.remove('theme-anim'), 900);
+          }
+          document.querySelectorAll('.palette-btn').forEach(b=>{
+            b.classList.toggle('active', b.dataset.theme === t);
+          });
+        };
+
+        const saved = localStorage.getItem(KEY) || 'blue';
+        applyTheme(saved, false);
+
+        document.querySelectorAll('.palette-btn').forEach(btn=>{
+          btn.addEventListener('click', ()=>{
+            const t = btn.dataset.theme;
+            localStorage.setItem(KEY, t);
+            applyTheme(t, true);
+          });
+        });
+      })();
     });
   </script>
 
@@ -407,7 +488,7 @@
         await loadChatList();
       }
 
-      // Render de lista con menú ⋯ (abre al instante al hacer click)
+      // Render lista con botón ⋯ que abre MODAL con acciones
       async function loadChatList(){
         const list = document.getElementById('chat-list'); if (!list) return;
         list.innerHTML = "";
@@ -420,19 +501,11 @@
             <div class="chat-main">
               <span class="chat-title">${(title || "Chat")}</span>
               <button class="kebab-btn" title="Más acciones">⋯</button>
-            </div>
-            <div class="kebab-menu" role="menu" hidden>
-              <button class="menu-action" data-action="open"   role="menuitem">Abrir</button>
-              <button class="menu-action" data-action="rename" role="menuitem">Renombrar</button>
-              <button class="menu-action" data-action="delete" role="menuitem">Eliminar</button>
             </div>`;
-          // Toggle del menú
+          // abrir modal
           row.querySelector('.kebab-btn').addEventListener('click', (e)=>{
             e.stopPropagation();
-            const menu = row.querySelector('.kebab-menu');
-            const isHidden = menu.hasAttribute('hidden');
-            document.querySelectorAll('#chat-list .kebab-menu').forEach(m=>m.setAttribute('hidden',''));
-            if (isHidden) menu.removeAttribute('hidden'); else menu.setAttribute('hidden','');
+            openChatActionsModal(id, title || "Chat");
           });
           list.appendChild(row);
         };
@@ -445,41 +518,46 @@
           snap.forEach(docSnap=> addRow(docSnap.id, (docSnap.data().title || "Chat")));
         }
 
-        // Delegación para acciones y abrir chat
+        // clic en título = abrir chat
         list.onclick = async (e) => {
-          const actionBtn = e.target.closest('.menu-action');
-          if (actionBtn) {
-            const item = actionBtn.closest('.chat-item');
-            const id = item.dataset.id;
-            const action = actionBtn.dataset.action;
-
-            if (action === 'open') {
-              await loadChat(id);
-            } else if (action === 'rename') {
-              const current = item.querySelector('.chat-title').textContent.trim();
-              const nuevo = prompt('Nuevo nombre del chat:', current);
-              if (nuevo && nuevo.trim()) await renameChat(id, nuevo.trim());
-            } else if (action === 'delete') {
-              if (confirm('¿Eliminar este chat?')) await deleteChat(id);
-            }
-            // cerrar menú después de acción
-            item.querySelector('.kebab-menu')?.setAttribute('hidden','');
-            return;
-          }
-
           const titleEl = e.target.closest('.chat-title');
           if (titleEl) {
             const item = titleEl.closest('.chat-item');
             await loadChat(item.dataset.id);
           }
         };
+      }
 
-        // Cerrar menús al hacer click fuera
-        document.addEventListener('click', (evt)=>{
-          if (!list.contains(evt.target)){
-            document.querySelectorAll('#chat-list .kebab-menu').forEach(m=>m.setAttribute('hidden',''));
-          }
-        });
+      // Modal de acciones
+      function openChatActionsModal(id, title){
+        const modal = document.getElementById('chat-actions-modal');
+        if (!modal) return;
+        modal.classList.remove('hidden');
+        modal.dataset.chatId = id;
+
+        const t = modal.querySelector('#cam-chat-title');
+        if (t) t.textContent = title;
+
+        const close = ()=> modal.classList.add('hidden');
+
+        modal.querySelector('#cam-close')?.addEventListener('click', close, { once:true });
+        modal.querySelector('.modal-backdrop')?.addEventListener('click', close, { once:true });
+
+        modal.querySelector('#cam-open')?.addEventListener('click', async ()=>{
+          await loadChat(id); close();
+        }, { once:true });
+
+        modal.querySelector('#cam-rename')?.addEventListener('click', async ()=>{
+          const current = title;
+          const nuevo = prompt('Nuevo nombre del chat:', current);
+          if (nuevo && nuevo.trim()) await renameChat(id, nuevo.trim());
+          close();
+        }, { once:true });
+
+        modal.querySelector('#cam-delete')?.addEventListener('click', async ()=>{
+          if (confirm('¿Eliminar este chat?')) await deleteChat(id);
+          close();
+        }, { once:true });
       }
 
       async function loadChat(chatId){
@@ -604,50 +682,6 @@
         document.body.classList.remove('panel-open');
       }
     });
-  </script>
-
-  <!-- Micrófono: presiona-para-hablar -->
-  <script>
-    let mediaStream = null, mediaRecorder = null, micChunks = [], isRecording = false;
-
-    async function startRecording(){
-      if (isRecording) return;
-      isRecording = true;
-      try{
-        if (!mediaStream){
-          mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        }
-        micChunks = [];
-        mediaRecorder = new MediaRecorder(mediaStream, { mimeType: 'audio/webm' });
-        mediaRecorder.ondataavailable = (e)=>{ if (e.data.size) micChunks.push(e.data); };
-        mediaRecorder.onstop = ()=>{
-          const blob = new Blob(micChunks, { type: 'audio/webm' });
-          // TODO: envía el blob a tu STT o backend
-          // sendAudioBlob(blob);
-        };
-        mediaRecorder.start();
-        document.getElementById('btn-mic')?.classList.add('recording');
-      }catch(err){
-        console.error('Mic error:', err);
-        isRecording = false;
-      }
-    }
-
-    function stopRecording(){
-      if (!isRecording) return;
-      isRecording = false;
-      try{ mediaRecorder?.stop(); }catch{}
-      document.getElementById('btn-mic')?.classList.remove('recording');
-    }
-
-    const micBtn = document.getElementById('btn-mic');
-    if (micBtn){
-      micBtn.addEventListener('pointerdown', startRecording);
-      micBtn.addEventListener('pointerup', stopRecording);
-      micBtn.addEventListener('pointerleave', stopRecording);
-      micBtn.addEventListener('touchstart', (e)=>{ e.preventDefault(); startRecording(); }, { passive:false });
-      micBtn.addEventListener('touchend', stopRecording);
-    }
   </script>
 
   <!-- Lógica del chat -->
