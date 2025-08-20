@@ -65,26 +65,7 @@ body.theme-red{
   --glow-1: rgba(244,63,94,.28); --glow-2: rgba(244,114,182,.20);
 }
 
-/* BLANCOS (tema claro) */
-body.theme-white{
-  --bg-start:#f5f7ff; --bg-mid:#eef2ff; --bg-end:#e7ecff;
-  --surface-0:#ffffff; --surface-1:#f8fafc; --surface-2:#f1f5f9; --surface-3:#e5e7eb;
-  --text:#0f172a; --text-muted:#334155;
-  --border:#cbd5e1; --border-soft:#e2e8f0; --shadow:0 10px 30px rgba(0,0,0,.08);
-  --primary:#7c3aed; --primary-strong:#6d28d9; --accent:#2563eb; --accent-2:#22c55e;
-
-  --bubble-assistant-bg:#ffffff;
-  --bubble-assistant-borde:#e5e7eb;
-  --bubble-user-bg:#efe7ff;
-  --bubble-user-borde:#7c3aed;
-
-  --title-1:#7c3aed; --title-2:#2563eb; --title-3:#0ea5e9;
-  --btn:#7c3aed; --btn-hov:#6d28d9;
-
-  --glow-1: rgba(124,58,237,.18); --glow-2: rgba(37,99,235,.16);
-}
-
-/* ARCOÍRIS */
+/* ARCOÍRIS (fondo estático vibrante) */
 body.theme-rainbow{
   --surface-0:#0f1222; --surface-1:#14172a; --surface-2:#1b2036; --surface-3:#232a44;
   --text:#f1f5f9; --text-muted:#e5e7eb;
@@ -102,8 +83,8 @@ body.theme-rainbow{
       #ef4444, #f59e0b, #facc15, #22c55e, #06b6d4, #3b82f6, #a855f7, #ef4444) !important;
 }
 
-/* ANIMADO: NEBULOSA */
-body.theme-nebula{
+/* ANIMADO: LLUVIA DE ESTRELLAS */
+body.theme-starfall{
   --bg-start:#0b0b17; --bg-mid:#221a44; --bg-end:#2f1f66;
   --surface-0:#0f1021; --surface-1:#141433; --surface-2:#1b1b44; --surface-3:#232357;
   --text:#edf2ff; --text-muted:#c7d2fe;
@@ -113,25 +94,21 @@ body.theme-nebula{
   --bubble-user-bg:color-mix(in srgb, var(--primary) 18%, transparent); --bubble-user-borde:#7c3aed;
   --title-1:#22d3ee; --title-2:#7c3aed; --title-3:#38bdf8;
 }
-body.theme-nebula{
-  background-image: radial-gradient(1000px 520px at 70% -10%, rgba(124,58,237,.25), transparent 60%),
-                    radial-gradient(800px 480px at 20% 120%, rgba(34,211,238,.22), transparent 60%),
-                    linear-gradient(135deg, var(--bg-start), var(--bg-mid), var(--bg-end)) !important;
-  background-size: cover;
+body.theme-starfall{
+  background-image: linear-gradient(135deg,var(--bg-start),var(--bg-mid),var(--bg-end)) !important;
 }
-body.theme-nebula::before{
+body.theme-starfall::before{
+  /* lluvia de estrellas diagonal suave */
   content:""; position: fixed; inset:-10%; pointer-events:none; z-index:-1;
-  background: radial-gradient(closest-side, rgba(59,130,246,.15), transparent 60%),
-              radial-gradient(closest-side, rgba(168,85,247,.12), transparent 60%),
-              radial-gradient(closest-side, rgba(34,211,238,.12), transparent 60%);
-  background-size: 40% 40%, 45% 45%, 50% 50%;
-  background-position: 20% 30%, 60% 10%, 80% 70%;
-  filter: blur(14px);
-  animation: nebulosa 18s ease-in-out infinite alternate;
+  background:
+    repeating-linear-gradient(120deg, transparent 0 96px, rgba(255,255,255,.06) 96px 97px, transparent 97px 180px),
+    repeating-linear-gradient(120deg, transparent 0 140px, rgba(255,255,255,.10) 140px 141px, transparent 141px 260px);
+  animation: starfall 30s linear infinite;
+  opacity:.55; filter: blur(.3px);
 }
-@keyframes nebulosa{
-  0%{ background-position: 18% 28%, 62% 12%, 78% 68%; }
-  100%{ background-position: 26% 36%, 58% 14%, 82% 76%; }
+@keyframes starfall{
+  from { background-position: 0 0, 0 0; }
+  to   { background-position: 0 800px, 0 1200px; }
 }
 
 /* Animación general al cambiar tema */
@@ -233,7 +210,7 @@ body.panel-open #landing{ padding-left: calc(var(--panel-w) + 20px); }
   padding:.7rem 6.2rem .7rem .8rem;
 }
 
-/* Clip */
+/* Botón + (abre menú) */
 .attach-btn{
   position:absolute; right:8px; bottom:8px; width:36px; height:36px;
   border-radius:.6rem; border:1px solid var(--border);
@@ -241,6 +218,8 @@ body.panel-open #landing{ padding-left: calc(var(--panel-w) + 20px); }
   cursor:pointer;
 }
 .attach-btn:hover{ background: var(--surface-3); }
+.attach-btn .plus{ font-size:18px; line-height:1; transform: rotate(0deg); transition: transform .18s ease; display:block; }
+.attach-btn[aria-expanded="true"] .plus{ transform: rotate(45deg); }
 
 /* Micro */
 .mic-btn{
@@ -261,7 +240,7 @@ body.panel-open #landing{ padding-left: calc(var(--panel-w) + 20px); }
   background: var(--surface-1); border: 1px solid var(--border); border-radius:.9rem; padding:.6rem; box-shadow: var(--shadow); z-index:40;
 }
 .hidden{ display:none; }
-.upload-item{ display:block; width:100%; text-align:left; font-size:.95rem; cursor:pointer; user-select:none; color: var(--text); background:transparent; border:none; padding:.45rem .4rem; border-radius:.6rem; }
+.upload-item{ display:flex; align-items:center; gap:.4rem; width:100%; text-align:left; font-size:.95rem; cursor:pointer; user-select:none; color: var(--text); background:transparent; border:none; padding:.45rem .4rem; border-radius:.6rem; }
 .upload-item:hover{ background: color-mix(in srgb, var(--surface-3) 70%, transparent); }
 
 /* Enviar */
@@ -290,6 +269,7 @@ mjx-container[jax="CHTML"]{ font-size:1.42em; background:transparent!important; 
 
 /* ===== Dock & Panel ===== */
 .side-dock{ position:fixed; left:14px; top:50%; transform:translateY(-50%); display:flex; flex-direction:column; gap:14px; z-index:60; }
+.side-dock-bottom{ position:fixed; left:14px; bottom:14px; display:flex; flex-direction:column; gap:14px; z-index:60; }
 .dock-btn{ border:none; background:transparent; padding:0; display:flex; flex-direction:column; align-items:center; gap:6px; cursor:pointer; color: var(--text); filter: drop-shadow(0 0 6px var(--glow-1)); transition: transform .15s ease; }
 .dock-label{ display:block; font-size:.78rem; color: var(--text-muted); letter-spacing:.2px; }
 .dock-btn:hover{ transform: translateY(-2px) scale(1.04); }
