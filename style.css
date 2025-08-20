@@ -65,7 +65,7 @@ body.theme-red{
   --glow-1: rgba(244,63,94,.28); --glow-2: rgba(244,114,182,.20);
 }
 
-/* ARCOÍRIS (fondo estático vibrante) */
+/* ARCOÍRIS (fondo vibrante) */
 body.theme-rainbow{
   --surface-0:#0f1222; --surface-1:#14172a; --surface-2:#1b2036; --surface-3:#232a44;
   --text:#f1f5f9; --text-muted:#e5e7eb;
@@ -98,7 +98,6 @@ body.theme-starfall{
   background-image: linear-gradient(135deg,var(--bg-start),var(--bg-mid),var(--bg-end)) !important;
 }
 body.theme-starfall::before{
-  /* lluvia de estrellas diagonal suave */
   content:""; position: fixed; inset:-10%; pointer-events:none; z-index:-1;
   background:
     repeating-linear-gradient(120deg, transparent 0 96px, rgba(255,255,255,.06) 96px 97px, transparent 97px 180px),
@@ -311,18 +310,34 @@ mjx-container[jax="CHTML"]{ font-size:1.42em; background:transparent!important; 
 .modal.hidden{ display:none; } .modal{ position:fixed; inset:0; z-index:110; display:grid; place-items:center; }
 .modal-backdrop{ position:absolute; inset:0; background: rgba(0,0,0,.55); backdrop-filter: blur(2px); }
 .modal-card{ position:relative; width:min(92vw, 420px); background: var(--surface-1); border:1px solid var(--border); border-radius:14px; box-shadow: var(--shadow); padding:12px; }
+.modal-card.small{ width:min(92vw, 340px); padding:10px }
 .modal-header{ display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; }
 .modal-title{ font-weight:700; }
 .modal-close{ background:transparent; border:none; color: var(--text-muted); cursor:pointer; font-size:16px; }
 .modal-body{ padding:4px 4px 10px; }
 .modal-chat-title{ opacity:.85; font-size:.92rem; margin:4px 2px 10px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .modal-actions{ display:grid; gap:8px; }
+.modal-actions .modal-btn{ padding:9px 10px; font-size:.92rem }
 .modal-btn{ width:100%; text-align:center; padding:10px 12px; border-radius:10px; border:1px solid var(--border-soft); background: var(--surface-2); color:#fff; cursor:pointer; }
 .modal-btn:hover{ background: var(--surface-3); }
 .modal-btn.primary{ background: var(--btn); border-color: var(--btn); }
 .modal-btn.primary:hover{ background: var(--btn-hov); }
 .modal-btn.danger{ background:#3a1025; border-color:#b91c1c; }
 .modal-btn.danger:hover{ background:#4a132d; }
+
+/* Renombrar inline */
+.rename-inline{ display:flex; gap:6px; margin:6px 2px 10px }
+.rename-input{
+  flex:1; min-width:0; padding:8px 10px; border-radius:9px;
+  border:1px solid var(--border); background:var(--surface-2); color:var(--text)
+}
+.rename-save, .rename-cancel{
+  border:none; border-radius:9px; padding:8px 10px; cursor:pointer;
+}
+.rename-save{ background:var(--btn); color:#fff }
+.rename-save:hover{ background:var(--btn-hov) }
+.rename-cancel{ background:transparent; color:var(--text-muted) }
+.rename-cancel:hover{ background:var(--surface-3) }
 
 /* Paletas (6 swatches) */
 .palette-grid{ display:flex; flex-direction:column; gap:10px; margin:8px 0 4px; }
@@ -334,6 +349,15 @@ mjx-container[jax="CHTML"]{ font-size:1.42em; background:transparent!important; 
 .palette-btn.active{ outline:2px solid var(--accent); }
 .swatch{ width:26px; height:22px; border-radius:6px; display:inline-block; border:1px solid #ffffff20; }
 .palette-btn .label{ margin-left:auto; font-size:.92rem; opacity:.9; }
+
+/* Adjuntos (chips) */
+.attachments{ display:flex; flex-wrap:wrap; gap:6px; margin-top:6px }
+.attachment-chip{ display:inline-flex; align-items:center; gap:6px; background:var(--surface-2); border:1px solid var(--border); color:var(--text); border-radius:10px; padding:4px 6px; font-size:.85rem }
+.attachment-chip img{ width:28px; height:28px; object-fit:cover; border-radius:6px; border:1px solid #00000030 }
+
+/* Feedback botón adjuntar */
+.attach-btn.pulse-once{ box-shadow:0 0 0 0 rgba(99,102,241,.6); animation:btnPulse .8s ease-out 1 }
+@keyframes btnPulse{ 0%{box-shadow:0 0 0 0 rgba(99,102,241,.5)} 100%{box-shadow:0 0 0 16px rgba(99,102,241,0)} }
 
 /* Responsive */
 @media (max-width: 480px), (max-height: 640px){
