@@ -65,19 +65,23 @@ function stripEmojis(s) {
   try { return s.replace(/[\p{Extended_Pictographic}\uFE0F\u200D]/gu, ""); }
   catch { return s.replace(/[\u{1F1E6}-\u{1F1FF}\u{1F300}-\u{1FAFF}\u{2600}-\u{26FF}]/gu, ""); }
 }
+/** Limpia markdown/código/links pero deja puntuación (.,;:!?) y saltos */
 function sanitizeForTTS(md) {
   let t = md || "";
+  // quitar bloques de código y LaTeX
   t = t.replace(/```[\s\S]*?```/g, " ");
   t = t.replace(/`[^`]*`/g, " ");
   t = t.replace(/\$\$[\s\S]*?\$\$/g, " ");
   t = t.replace(/\$[^$]*\$/g, " ");
+  // quitar urls
   t = t.replace(/https?:\/\/\S+/g, " ");
-  t = t.replace(/(^|\s)[#\/][^\s]+/g, " ");
-  t = t.replace(/[>*_~`{}\[\]()<>|]/g, " ");
-  t = t.replace(/[•·\-] /g, " ");
+  // quitar markdown inline (asteriscos, etc.) pero no puntos/commas
+  t = t.replace(/[>*_~`{}\[\]<>|#]/g, " ");
+  // puntos de lista -> pausas
+  t = t.replace(/^\s*[-•·]\s+/gm, "");
+  // normalizar espacios y respetar saltos
+  t = t.replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim();
   t = stripEmojis(t);
-  t = t.replace(/:\s/g, ". ");
-  t = t.replace(/\s+/g, " ").trim();
   return t;
 }
 const VOICE_NAME_PREFS = ["Paloma","Elvira","Dalia","Lola","Paulina","Sabina","Helena","Lucia","Lucía","Elena","Camila","Sofía","Sofia","Marina","Conchita","Google español"];
@@ -100,25 +104,26 @@ function pickVoice(){
   const byLang = voicesCache.find(v => VOICE_LANG_PREFS.some(l => (v.lang||"").toLowerCase().startsWith(l)));
   return byLang || voicesCache[0] || null;
 }
-function splitIntoChunks(text, maxLen = 200) {
-  const parts = text.split(/(?<=[\.!?;:])\s+|\n+/g);
+function splitIntoChunks(text, maxLen = 220) {
+  // separa por oraciones conservando puntuación
+  const parts = text.split(/(?<=[\.\!\?\:\;])\s+|\n+/g);
   const chunks = [];
   let buf = "";
   for (const p of parts) {
     const s = p.trim(); if (!s) continue;
     if ((buf + " " + s).trim().length <= maxLen) buf = (buf ? buf + " " : "") + s;
-    else { if (buf) chunks.push(buf); (s.length <= maxLen) ? chunks.push(s) : chunks.push(...s.match(/.{1,200}/g)); buf = ""; }
+    else { if (buf) chunks.push(buf); (s.length <= maxLen) ? chunks.push(s) : chunks.push(...s.match(/.{1,220}/g)); buf = ""; }
   }
   if (buf) chunks.push(buf);
   return chunks;
 }
-const INTER_CHUNK_PAUSE_MS = 120;
+const INTER_CHUNK_PAUSE_MS = 140;
 function playNext() {
   const next = speechQueue.shift();
   if (!next) { speaking = false; setAvatarTalking(false); return; }
   const utter = new SpeechSynthesisUtterance(next);
   const v = pickVoice(); if (v) utter.voice = v;
-  utter.lang = (v && v.lang) || "es-ES"; utter.rate = 0.94; utter.pitch = 1.08; utter.volume = 1;
+  utter.lang = (v && v.lang) || "es-ES"; utter.rate = 0.98; utter.pitch = 1.02; utter.volume = 1;
   setAvatarTalking(true);
   utter.onend = () => setTimeout(playNext, INTER_CHUNK_PAUSE_MS);
   utter.onerror = () => setTimeout(playNext, INTER_CHUNK_PAUSE_MS);
@@ -127,7 +132,7 @@ function playNext() {
 }
 function enqueueSpeak(text){ if (!text) return; speechQueue.push(text); if (!speaking) playNext(); }
 function cancelAllSpeech(){ try{ window.speechSynthesis.cancel(); }catch{} speechQueue.length = 0; speaking = false; setAvatarTalking(false); }
-function speakMarkdown(md){ const plain = sanitizeForTTS(md); if (!plain) return; splitIntoChunks(plain, 200).forEach(c => enqueueSpeak(c)); }
+function speakMarkdown(md){ const plain = sanitizeForTTS(md); if (!plain) return; splitIntoChunks(plain, 220).forEach(c => enqueueSpeak(c)); }
 function speakAfterVoices(md){
   try{
     if (window.speechSynthesis?.getVoices().length) speakMarkdown(md);
@@ -152,7 +157,7 @@ async function wikiFallback(q){
 // Guardado (si hay ChatStore)
 async function saveMsg(role, content){ try{ await window.ChatStore?.saveMessage?.(role, content); }catch{} }
 
-// ============ CLIENTE /api/chat (con fallback al proxy) ============
+// ============ CLIENTE /api/chat ============
 async function callChatAPI_base(url, messages, temperature) {
   const resp = await fetch(url, {
     method: "POST",
@@ -169,7 +174,6 @@ async function callChatAPI_base(url, messages, temperature) {
     else msg += ` (HTTP ${resp.status})`;
     throw new Error(msg + `\n${raw || ""}`);
   }
-  // Soporta tanto formato OpenAI (choices) como tu proxy ({ok,text})
   const data = JSON.parse(raw || "{}");
   const viaProxy = typeof data?.text === "string" ? data.text : "";
   const viaOpenAI = data?.choices?.[0]?.message?.content?.trim() || "";
@@ -177,11 +181,9 @@ async function callChatAPI_base(url, messages, temperature) {
 }
 async function callChatAPI(messages, temperature = 0.7) {
   try { 
-    // 1) Si tienes /api/chat propio, úsalo
     return await callChatAPI_base("/api/chat", messages, temperature); 
   } catch (e) {
     const msg = String(e?.message || "");
-    // 2) Fallback a Netlify Function estándar de este repo
     if (/404|no encontrado|endpoint no encontrado|not\s*found/i.test(msg)) {
       return await callChatAPI_base("/.netlify/functions/groq-proxy", messages, temperature);
     }
@@ -221,7 +223,7 @@ async function tryFetchVision(bodyJson){
   for (const url of BLIP_ENDPOINTS) {
     const r = await fetch(url, { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(bodyJson) });
     if (r.ok) return r;
-    if (r.status !== 404) throw await httpError(r); // si no es 404, no seguimos
+    if (r.status !== 404) throw await httpError(r);
   }
   const last = await fetch(BLIP_ENDPOINTS[BLIP_ENDPOINTS.length-1], { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(bodyJson) });
   if (!last.ok) throw await httpError(last);
@@ -241,7 +243,6 @@ async function tryFetchOCR(bodyJson){
 
 async function callBLIP(file) {
   const imageBase64 = await fileToBase64(file);
-  // Tu Function espera imageBase64 (camelCase)
   const r = await tryFetchVision({ imageBase64 });
   const data = await r.json();
   const desc = data?.caption || data?.description || data?.summary_text || "";
@@ -335,12 +336,12 @@ function renderAttachmentChips(){
   attachments.forEach(att => {
     const chip = document.createElement("span");
     chip.className = "attachment-chip";
-    chip.innerHTML = `<img src="${att.urlPreview}" alt="img"><span>${att.file.name}</span>`;
+    chip.innerHTML = `<img src="${att.urlPreview}" alt="img" style="width:42px;height:42px;object-fit:cover;border-radius:8px;border:1px solid var(--border);margin-right:4px;"><span>${att.file.name}</span>`;
     $attachments.appendChild(chip);
   });
 }
 
-// Menú “+”
+// Menú “Adjuntar”
 $attachBtn?.addEventListener("click", (e) => {
   e.stopPropagation();
   if ($attachMenu) {
@@ -349,7 +350,12 @@ $attachBtn?.addEventListener("click", (e) => {
     $attachBtn.setAttribute("aria-expanded", String(isHidden));
   }
 });
-document.addEventListener("click", () => { if ($attachMenu) $attachMenu.classList.add("hidden"); });
+document.addEventListener("click", (e) => {
+  if ($attachMenu && !$attachMenu.contains(e.target) && e.target !== $attachBtn) {
+    $attachMenu.classList.add("hidden");
+    $attachBtn.setAttribute("aria-expanded","false");
+  }
+});
 $attachMenu?.addEventListener("click", (e)=> e.stopPropagation());
 
 // Opción imagen
@@ -411,7 +417,7 @@ async function sendMessage() {
   try {
     if (files.length > 0) {
       showThinking("Analizando imagen…");
-      const visualContext = await analyzeImages(files); // Visión + OCR automáticamente
+      const visualContext = await analyzeImages(files);
       hideThinking();
 
       const question = userMessage || "Describe y analiza detalladamente la(s) imagen(es).";
@@ -460,15 +466,20 @@ if (document.readyState === "loading") {
 }
 
 /* ============================================================
-   === DICTADO POR VOZ (Web Speech API) — PRESIONA PARA HABLAR
+   === DICTADO POR VOZ (push-to-talk / mantener presionado) ===
    ============================================================ */
-(function initPressHoldDictation() {
+(function initVoiceDictation() {
   const MicRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  const micBtn  = document.getElementById('btn-mic');
-  const inputEl = document.getElementById('user-input');
+  const micBtn = document.getElementById('btn-mic');
+  const input = document.getElementById('user-input');
   const sendBtn = document.getElementById('send-btn');
 
   if (!micBtn) return;
+
+  let recognition = null;
+  let listening = false;
+  let manualStop = false;
+  let lastCommitted = "";
 
   if (!MicRecognition) {
     micBtn.title = "Dictado no soportado en este navegador";
@@ -477,20 +488,10 @@ if (document.readyState === "loading") {
     return;
   }
 
-  let recognition = new MicRecognition();
-  recognition.lang = 'es-ES';
+  recognition = new MicRecognition();
+  recognition.lang = 'es-CL';
   recognition.continuous = true;
   recognition.interimResults = true;
-
-  let listening = false;
-  let baseText  = ""; // texto que ya estaba en el input antes de dictar
-
-  recognition.onstart = () => {
-    listening = true;
-    baseText = (inputEl.value || "").trim();
-    micBtn.classList.add('recording');
-    micBtn.title = "Suelta para detener el dictado";
-  };
 
   recognition.onresult = (event) => {
     let interim = "";
@@ -503,40 +504,56 @@ if (document.readyState === "loading") {
       else interim += txt + " ";
     }
 
-    const combined = (baseText + " " + finalChunk + " " + interim).replace(/\s+/g," ").trim();
-    inputEl.value = combined;
+    input.value = (lastCommitted + finalChunk + interim).trim();
+    if (finalChunk) lastCommitted = (lastCommitted + finalChunk).trim() + " ";
+  };
+
+  recognition.onstart = () => {
+    listening = true;
+    manualStop = false;
+    lastCommitted = input.value ? (input.value.trim() + " ") : "";
+    micBtn.classList.add('recording');
+    micBtn.title = "Grabando… suelta para detener";
   };
 
   recognition.onerror = (e) => {
     console.warn("SpeechRecognition error:", e);
+    micBtn.title = "Error de micrófono: " + (e.error || "desconocido");
   };
 
   recognition.onend = () => {
     listening = false;
     micBtn.classList.remove('recording');
-    micBtn.title = "Mantén presionado para hablar";
-  };
-
-  // --- Presiona para hablar ---
-  const start = (ev) => {
-    ev.preventDefault();
-    if (!listening) {
-      try { recognition.start(); } catch (err) { console.error("No se pudo iniciar el dictado:", err); }
-    }
-  };
-  const stop = () => {
-    if (listening) {
-      try { recognition.stop(); } catch {}
+    if (!manualStop) {
+      // En móviles puede cortarse; no auto-reanudar en push-to-talk
+      micBtn.title = "Mantén presionado para dictar";
+    } else {
+      micBtn.title = "Mantén presionado para dictar";
     }
   };
 
-  // Soporta mouse y touch
-  micBtn.addEventListener('pointerdown', start);
-  micBtn.addEventListener('pointerup', stop);
-  micBtn.addEventListener('pointerleave', stop);
-  micBtn.addEventListener('touchstart', start, { passive:false });
-  micBtn.addEventListener('touchend', stop);
+  // Push-to-talk: pointerdown = start, pointerup/leave = stop
+  const startListen = () => {
+    if (!recognition || listening) return;
+    manualStop = false;
+    try { recognition.start(); } catch (err) { console.error("No se pudo iniciar:", err); }
+  };
+  const stopListen = () => {
+    if (!recognition || !listening) return;
+    manualStop = true;
+    try { recognition.stop(); } catch {}
+  };
 
-  // Si envían mientras dictan, detén
-  sendBtn?.addEventListener('click', stop);
+  micBtn.addEventListener('pointerdown', (e)=>{ e.preventDefault(); startListen(); });
+  micBtn.addEventListener('pointerup',   (e)=>{ e.preventDefault(); stopListen(); });
+  micBtn.addEventListener('pointerleave',(e)=>{ e.preventDefault(); stopListen(); });
+  // por accesibilidad, también click alterna
+  micBtn.addEventListener('click', (e)=>{ e.preventDefault(); listening ? stopListen() : startListen(); });
+
+  // Al enviar, detener si está escuchando
+  if (sendBtn) {
+    sendBtn.addEventListener('click', () => {
+      if (listening) stopListen();
+    });
+  }
 })();
