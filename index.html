@@ -101,7 +101,7 @@
       </h2>
     </div>
 
-    <!-- Dock -->
+    <!-- Dock (Spotify / Usuario) -->
     <div class="side-dock">
       <button id="btn-spotify" class="dock-btn" title="Spotify">
         <span class="dock-icon">
@@ -124,7 +124,10 @@
         </span>
         <span class="dock-label">Usuario</span>
       </button>
+    </div>
 
+    <!-- Configuración anclado abajo -->
+    <div class="side-dock-bottom">
       <button id="btn-settings" class="dock-btn" title="Configuración">
         <span class="dock-icon">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -215,17 +218,6 @@
             <span class="label">Escala de rojo</span>
           </button>
 
-          <!-- Blancos -->
-          <button class="palette-btn" data-theme="white">
-            <span class="swatch" style="background:#ffffff"></span>
-            <span class="swatch" style="background:#f8fafc"></span>
-            <span class="swatch" style="background:#eef2ff"></span>
-            <span class="swatch" style="background:#e2e8f0"></span>
-            <span class="swatch" style="background:#cbd5e1"></span>
-            <span class="swatch" style="background:#94a3b8"></span>
-            <span class="label">Escala de blancos</span>
-          </button>
-
           <!-- Arcoíris -->
           <button class="palette-btn" data-theme="rainbow">
             <span class="swatch" style="background:#ef4444"></span>
@@ -237,15 +229,15 @@
             <span class="label">Escala de arcoíris</span>
           </button>
 
-          <!-- Animado: Nebulosa -->
-          <button class="palette-btn" data-theme="nebula">
+          <!-- Animado: Lluvia de estrellas -->
+          <button class="palette-btn" data-theme="starfall">
             <span class="swatch" style="background:#0f102b"></span>
             <span class="swatch" style="background:#201a47"></span>
             <span class="swatch" style="background:#3a1d67"></span>
             <span class="swatch" style="background:#7c3aed"></span>
             <span class="swatch" style="background:#22d3ee"></span>
             <span class="swatch" style="background:#38bdf8"></span>
-            <span class="label">Animado: Nebulosa</span>
+            <span class="label">Animado: Lluvia de estrellas</span>
           </button>
         </div>
         <div class="text-xs opacity-70 mt-2">Se guarda automáticamente.</div>
@@ -288,23 +280,26 @@
                        class="composer-input"
                        autocomplete="off"/>
 
-                <!-- Micrófono (mismo tamaño que clip) -->
+                <!-- Micrófono -->
                 <button id="btn-mic" class="mic-btn" title="Dictar por voz" aria-label="Dictar por voz">
                   <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
                     <path d="M12 14a3 3 0 0 0 3-3V7a3 3 0 1 0-6 0v4a3 3 0 0 0 3 3zM5 11a1 1 0 1 0-2 0 9 9 0 0 0 8 8v3h2v-3a9 9 0 0 0 8-8 1 1 0 1 0-2 0 7 7 0 0 1-14 0z"/>
                   </svg>
                 </button>
 
-                <!-- Clip (paperclip) -->
-                <button id="attachBtn" class="attach-btn" title="Adjuntar" aria-haspopup="true" aria-controls="attachMenu" aria-expanded="false" aria-label="Adjuntar imagen">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <path d="M21.44 11.05 12 20.5a6 6 0 0 1-8.49-8.49l9.9-9.9a4 4 0 1 1 5.66 5.66l-9.9 9.9a2 2 0 1 1-2.83-2.83l8.49-8.49"/>
-                  </svg>
+                <!-- Botón + (gira al abrir) -->
+                <button id="attachBtn" class="attach-btn" title="Adjuntar" aria-haspopup="true" aria-controls="attachMenu" aria-expanded="false" aria-label="Abrir opciones de adjunto">
+                  <span class="plus" aria-hidden="true">+</span>
                 </button>
 
                 <!-- Menú adjuntar -->
-                <div id="attachMenu" class="upload-tray hidden" role="menu">
-                  <button id="attachImageOption" class="upload-item" role="menuitem">📎 Adjuntar imagen del PC</button>
+                <div id="attachMenu" class="upload-tray hidden" role="menu" aria-label="Opciones de adjuntar">
+                  <button id="attachImageOption" class="upload-item" role="menuitem">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="margin-right:.4rem">
+                      <path d="M21.44 11.05 12 20.5a6 6 0 0 1-8.49-8.49l9.9-9.9a4 4 0 1 1 5.66 5.66l-9.9 9.9a2 2 0 1 1-2.83-2.83l8.49-8.49"/>
+                    </svg>
+                    Adjuntar imagen del PC
+                  </button>
                 </div>
 
                 <!-- Input de archivos -->
@@ -392,7 +387,7 @@
         inp.addEventListener('focus', ensureVisible);
       }
 
-      // ===== Menú de adjuntar (solo UI; la lógica de envío está en chat.js)
+      // ===== Menú de adjuntar (+ que gira)
       const attachBtn  = document.getElementById('attachBtn');
       const attachMenu = document.getElementById('attachMenu');
       attachBtn?.addEventListener('click', (e)=>{
@@ -406,6 +401,14 @@
           attachMenu.classList.add('hidden');
           attachBtn.setAttribute('aria-expanded','false');
         }
+      });
+
+      // Opción adjuntar imagen (abre el file picker)
+      const imgOpt = document.getElementById('attachImageOption');
+      const fileInput = document.getElementById('fileInput');
+      imgOpt?.addEventListener('click', (e)=>{
+        e.stopPropagation();
+        try { fileInput?.click(); } catch(_) {}
       });
 
       // ===== Efecto en enviar
@@ -432,14 +435,14 @@
             .filter(c => !/^theme-/.test(c))
             .join(' ')
             .trim();
+
           const map = {
             original: 'original',
             blue: 'blue',
             gray: 'gray',
             red: 'red',
-            white: 'white',
             rainbow: 'rainbow',
-            nebula: 'nebula'
+            starfall: 'starfall'
           };
           root.classList.add('theme-' + (map[t] || 'original'));
           if (animate){
@@ -566,7 +569,7 @@
         await loadChatList();
       }
 
-      // ---- Modal de acciones ----
+      /* ------- Modal de acciones ------- */
       const modal = document.getElementById('chat-actions-modal');
       const modalTitle = document.getElementById('cam-chat-title');
       const btnOpen   = document.getElementById('cam-open');
@@ -769,7 +772,7 @@
     });
   </script>
 
-  <!-- Lógica del chat (voz, visión, adjuntos, etc.) -->
+  <!-- Lógica del chat -->
   <script src="chat.js"></script>
 </body>
 </html>
