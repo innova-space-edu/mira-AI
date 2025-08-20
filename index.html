@@ -27,7 +27,7 @@
   </script>
   <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 
-  <!-- Altura real del viewport + safe areas -->
+  <!-- Viewport vars -->
   <script>
     function updateViewportVars(){
       document.documentElement.style.setProperty('--vh', (window.innerHeight * 0.01) + 'px');
@@ -45,7 +45,7 @@
   <link rel="stylesheet" href="style.css"/>
 </head>
 
-<body class="bg-gradient-to-br from-black via-indigo-900 to-purple-900 text-white font-sans">
+<body class="text-white font-sans">
 
   <!-- Barra superior -->
   <header id="auth-bar" class="hidden sticky top-0 z-40 backdrop-blur bg-black/30 border-b border-white/10">
@@ -55,7 +55,7 @@
     </div>
   </header>
 
-  <!-- Pantalla de autenticación -->
+  <!-- Login -->
   <section id="auth" class="grid place-items-center px-4">
     <div class="w-full max-w-md bg-gray-900/70 border border-purple-500/50 rounded-2xl p-6 shadow-2xl auth-card">
       <h1 class="hero-title text-center mb-1">Innova Space Education</h1>
@@ -85,12 +85,12 @@
   <!-- App -->
   <main id="landing" class="relative hidden">
 
-    <!-- Título centrado (animado) -->
+    <!-- Título centrado -->
     <div class="hero-bar">
       <h1 class="site-title-centered">Innova Space Education</h1>
     </div>
 
-    <!-- Cabecera del asistente (a la derecha con avatar) -->
+    <!-- Asistente a la derecha -->
     <div id="assistant-header">
       <h2 class="assistant-name">
         Asistente
@@ -101,7 +101,7 @@
       </h2>
     </div>
 
-    <!-- Dock lateral -->
+    <!-- Dock -->
     <div class="side-dock">
       <button id="btn-spotify" class="dock-btn" title="Spotify">
         <span class="dock-icon">
@@ -125,7 +125,6 @@
         <span class="dock-label">Usuario</span>
       </button>
 
-      <!-- Configuración -->
       <button id="btn-settings" class="dock-btn" title="Configuración">
         <span class="dock-icon">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -170,33 +169,89 @@
       <!-- Configuración -->
       <div id="panel-settings" class="panel-section">
         <div class="text-sm opacity-80 mb-2">Tema de la app</div>
+
         <div class="palette-grid">
+          <!-- Original -->
           <button class="palette-btn" data-theme="original">
             <span class="swatch" style="background:#0b0b17"></span>
             <span class="swatch" style="background:#271a5a"></span>
             <span class="swatch" style="background:#4d178a"></span>
+            <span class="swatch" style="background:#7c3aed"></span>
+            <span class="swatch" style="background:#a855f7"></span>
+            <span class="swatch" style="background:#60a5fa"></span>
             <span class="label">Tono original</span>
           </button>
 
+          <!-- Azul -->
           <button class="palette-btn" data-theme="blue">
-            <span class="swatch sw1 blue"></span><span class="swatch sw2 blue"></span><span class="swatch sw3 blue"></span>
+            <span class="swatch" style="background:#0b1220"></span>
+            <span class="swatch" style="background:#1c2a4a"></span>
+            <span class="swatch" style="background:#2b3f73"></span>
+            <span class="swatch" style="background:#2563eb"></span>
+            <span class="swatch" style="background:#60a5fa"></span>
+            <span class="swatch" style="background:#22d3ee"></span>
             <span class="label">Escala de azul</span>
           </button>
 
+          <!-- Grises -->
           <button class="palette-btn" data-theme="gray">
-            <span class="swatch sw1"></span><span class="swatch sw2"></span><span class="swatch sw3"></span>
+            <span class="swatch" style="background:#0b0b0f"></span>
+            <span class="swatch" style="background:#1c1d27"></span>
+            <span class="swatch" style="background:#2c2d38"></span>
+            <span class="swatch" style="background:#4b5563"></span>
+            <span class="swatch" style="background:#9ca3af"></span>
+            <span class="swatch" style="background:#e5e7eb"></span>
             <span class="label">Escala de grises</span>
           </button>
 
+          <!-- Rojo -->
           <button class="palette-btn" data-theme="red">
-            <span class="swatch sw1 red"></span><span class="swatch sw2 red"></span><span class="swatch sw3 red"></span>
+            <span class="swatch" style="background:#14060a"></span>
+            <span class="swatch" style="background:#2a0f1f"></span>
+            <span class="swatch" style="background:#4a1630"></span>
+            <span class="swatch" style="background:#e11d48"></span>
+            <span class="swatch" style="background:#f43f5e"></span>
+            <span class="swatch" style="background:#fb7185"></span>
             <span class="label">Escala de rojo</span>
+          </button>
+
+          <!-- Blancos -->
+          <button class="palette-btn" data-theme="white">
+            <span class="swatch" style="background:#ffffff"></span>
+            <span class="swatch" style="background:#f8fafc"></span>
+            <span class="swatch" style="background:#eef2ff"></span>
+            <span class="swatch" style="background:#e2e8f0"></span>
+            <span class="swatch" style="background:#cbd5e1"></span>
+            <span class="swatch" style="background:#94a3b8"></span>
+            <span class="label">Escala de blancos</span>
+          </button>
+
+          <!-- Arcoíris -->
+          <button class="palette-btn" data-theme="rainbow">
+            <span class="swatch" style="background:#ef4444"></span>
+            <span class="swatch" style="background:#f59e0b"></span>
+            <span class="swatch" style="background:#facc15"></span>
+            <span class="swatch" style="background:#22c55e"></span>
+            <span class="swatch" style="background:#3b82f6"></span>
+            <span class="swatch" style="background:#a855f7"></span>
+            <span class="label">Escala de arcoíris</span>
+          </button>
+
+          <!-- Animado: Nebulosa -->
+          <button class="palette-btn" data-theme="nebula">
+            <span class="swatch" style="background:#0f102b"></span>
+            <span class="swatch" style="background:#201a47"></span>
+            <span class="swatch" style="background:#3a1d67"></span>
+            <span class="swatch" style="background:#7c3aed"></span>
+            <span class="swatch" style="background:#22d3ee"></span>
+            <span class="swatch" style="background:#38bdf8"></span>
+            <span class="label">Animado: Nebulosa</span>
           </button>
         </div>
         <div class="text-xs opacity-70 mt-2">Se guarda automáticamente.</div>
       </div>
 
-      <!-- Modal acciones de chat -->
+      <!-- Modal acciones chat -->
       <div id="chat-actions-modal" class="modal hidden" aria-hidden="true">
         <div class="modal-backdrop"></div>
         <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="cam-title">
@@ -233,34 +288,32 @@
                        class="composer-input"
                        autocomplete="off"/>
 
-                <!-- Micrófono (mismo porte que el clip) -->
-                <button id="btn-mic" class="mic-btn" title="Mantén presionado para dictar" aria-label="Dictar por voz">
+                <!-- Micrófono (mismo tamaño que clip) -->
+                <button id="btn-mic" class="mic-btn" title="Dictar por voz" aria-label="Dictar por voz">
                   <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
                     <path d="M12 14a3 3 0 0 0 3-3V7a3 3 0 1 0-6 0v4a3 3 0 0 0 3 3zM5 11a1 1 0 1 0-2 0 9 9 0 0 0 8 8v3h2v-3a9 9 0 0 0 8-8 1 1 0 1 0-2 0 7 7 0 0 1-14 0z"/>
                   </svg>
                 </button>
 
-                <!-- Botón CLIP (paperclip) -->
+                <!-- Clip (paperclip) -->
                 <button id="attachBtn" class="attach-btn" title="Adjuntar" aria-haspopup="true" aria-controls="attachMenu" aria-expanded="false" aria-label="Adjuntar imagen">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <path d="M21.44 11.05 12 20.5a6 6 0 0 1-8.49-8.49l9.9-9.9a4 4 0 1 1 5.66 5.66l-9.9 9.9a2 2 0 1 1-2.83-2.83l8.49-8.49"/>
                   </svg>
                 </button>
 
-                <!-- Menú del botón adjuntar -->
+                <!-- Menú adjuntar -->
                 <div id="attachMenu" class="upload-tray hidden" role="menu">
                   <button id="attachImageOption" class="upload-item" role="menuitem">📎 Adjuntar imagen del PC</button>
                 </div>
 
-                <!-- Input de archivos (oculto) -->
-                <input id="fileInput" type="file" accept="image/*" multiple hidden>
+                <!-- Input de archivos -->
+                <input id="fileInput" type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/*" multiple hidden>
               </div>
 
-              <!-- Enviar -->
               <button id="send-btn" class="send-btn">Enviar</button>
             </div>
 
-            <!-- Previews -->
             <div id="attachments" class="attachments" aria-live="polite"></div>
           </div>
         </div>
@@ -268,7 +321,7 @@
     </section>
   </main>
 
-  <!-- Panel / Playlists + microinteracciones -->
+  <!-- ====== Panel / Playlists + microinteracciones + temas ====== -->
   <script>
     const PLAYLISTS = [
       { id:'4Ldou77MwYfWBV288FirwL', title:'Electro House mix',       description:'Beats para concentrarte con energía' },
@@ -286,6 +339,7 @@
     const titleEl  = document.getElementById('panel-title');
     const secMusic = document.getElementById('panel-music');
     const secChats = document.getElementById('panel-chats');
+    const secSettings = document.getElementById('panel-settings');
 
     function setPanelMode(mode){
       const isMusic    = (mode === 'music');
@@ -294,7 +348,7 @@
 
       secMusic.classList.toggle('active', isMusic);
       secChats.classList.toggle('active', isChats);
-      document.getElementById('panel-settings').classList.toggle('active', isSettings);
+      secSettings.classList.toggle('active', isSettings);
 
       titleEl.textContent = isMusic ? 'Música para el aprendizaje' : (isChats ? 'Tus chats' : 'Configuración');
       panel.classList.add('open');
@@ -338,12 +392,9 @@
         inp.addEventListener('focus', ensureVisible);
       }
 
-      // ===== Micro-interacciones =====
+      // ===== Menú de adjuntar (solo UI; la lógica de envío está en chat.js)
       const attachBtn  = document.getElementById('attachBtn');
       const attachMenu = document.getElementById('attachMenu');
-      const sendBtn    = document.getElementById('send-btn');
-
-      // Toggle del menú adjuntar
       attachBtn?.addEventListener('click', (e)=>{
         e.stopPropagation();
         const isOpen = attachBtn.getAttribute('aria-expanded') === 'true';
@@ -357,7 +408,8 @@
         }
       });
 
-      // Ripple en enviar (visual)
+      // ===== Efecto en enviar
+      const sendBtn = document.getElementById('send-btn');
       sendBtn?.addEventListener('click', (e)=>{
         const r = sendBtn.getBoundingClientRect();
         const x = e.clientX - r.left;
@@ -369,14 +421,27 @@
         sendBtn.classList.add('do-ripple');
       });
 
-      // ===== Temas (Configuración) – con animación y 4 opciones =====
+      // ===== Temas
       (function initThemes(){
         const KEY = 'mira_theme';
         const root = document.body;
 
         const applyTheme = (t, animate=true)=>{
-          root.classList.remove('theme-original','theme-gray','theme-blue','theme-red');
-          root.classList.add('theme-' + t);
+          root.className = root.className
+            .split(' ')
+            .filter(c => !/^theme-/.test(c))
+            .join(' ')
+            .trim();
+          const map = {
+            original: 'original',
+            blue: 'blue',
+            gray: 'gray',
+            red: 'red',
+            white: 'white',
+            rainbow: 'rainbow',
+            nebula: 'nebula'
+          };
+          root.classList.add('theme-' + (map[t] || 'original'));
           if (animate){
             root.classList.add('theme-anim');
             setTimeout(()=> root.classList.remove('theme-anim'), 900);
@@ -386,11 +451,9 @@
           });
         };
 
-        // default: original
         const saved = localStorage.getItem(KEY) || 'original';
         applyTheme(saved, false);
 
-        // clicks
         document.querySelectorAll('.palette-btn').forEach(btn=>{
           btn.addEventListener('click', ()=>{
             const t = btn.dataset.theme;
@@ -402,7 +465,7 @@
     });
   </script>
 
-  <!-- ================= Firebase (módulo) + Auth + Firestore ================= -->
+  <!-- ================= Firebase + Auth + Firestore (completo) ================= -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
     import { getAuth, setPersistence, browserLocalPersistence, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
@@ -425,6 +488,7 @@
     await setPersistence(auth, browserLocalPersistence);
     const db = getFirestore(app);
 
+    // =========== ChatStore ===========
     window.ChatStore = (function(){
       let currentChatId = null;
       let currentUser   = null;
@@ -502,7 +566,44 @@
         await loadChatList();
       }
 
-      // Render lista con botón ⋯ → abre modal
+      // ---- Modal de acciones ----
+      const modal = document.getElementById('chat-actions-modal');
+      const modalTitle = document.getElementById('cam-chat-title');
+      const btnOpen   = document.getElementById('cam-open');
+      const btnRename = document.getElementById('cam-rename');
+      const btnDelete = document.getElementById('cam-delete');
+      const btnClose  = document.getElementById('cam-close');
+      let selectedId = null;
+
+      function openActions(id, title){
+        selectedId = id;
+        modalTitle.textContent = title || '(sin título)';
+        modal.classList.remove('hidden');
+        modal.setAttribute('aria-hidden', 'false');
+      }
+      function closeActions(){
+        modal.classList.add('hidden');
+        modal.setAttribute('aria-hidden', 'true');
+        selectedId = null;
+      }
+      btnClose?.addEventListener('click', closeActions);
+      modal?.querySelector('.modal-backdrop')?.addEventListener('click', closeActions);
+
+      btnOpen?.addEventListener('click', async ()=>{ if (selectedId){ await loadChat(selectedId); closeActions(); } });
+      btnRename?.addEventListener('click', async ()=>{
+        if (!selectedId) return;
+        const current = modalTitle.textContent || '';
+        const nuevo = prompt('Nuevo nombre del chat:', current);
+        if (nuevo && nuevo.trim()) await renameChat(selectedId, nuevo.trim());
+        closeActions();
+      });
+      btnDelete?.addEventListener('click', async ()=>{
+        if (!selectedId) return;
+        if (confirm('¿Eliminar este chat?')) await deleteChat(selectedId);
+        closeActions();
+      });
+
+      // Render lista
       async function loadChatList(){
         const list = document.getElementById('chat-list'); if (!list) return;
         list.innerHTML = "";
@@ -513,13 +614,9 @@
           row.dataset.id = id;
           row.innerHTML = `
             <div class="chat-main">
-              <span class="chat-title">${(title || "Chat")}</span>
-              <button class="kebab-btn" title="Más acciones">⋯</button>
+              <button class="chat-title-btn"><span class="chat-title">${(title || "Chat")}</span></button>
+              <button class="kebab-btn" title="Acciones">⋯</button>
             </div>`;
-          row.querySelector('.kebab-btn').addEventListener('click', (e)=>{
-            e.stopPropagation();
-            openChatActionsModal(id, title || "Chat");
-          });
           list.appendChild(row);
         };
 
@@ -532,44 +629,19 @@
         }
 
         list.onclick = async (e) => {
-          const titleEl = e.target.closest('.chat-title');
-          if (titleEl) {
+          const kebab = e.target.closest('.kebab-btn');
+          if (kebab){
+            const item = kebab.closest('.chat-item');
+            openActions(item.dataset.id, item.querySelector('.chat-title').textContent.trim());
+            return;
+          }
+          const titleEl = e.target.closest('.chat-title-btn');
+          if (titleEl){
             const item = titleEl.closest('.chat-item');
             await loadChat(item.dataset.id);
+            return;
           }
         };
-      }
-
-      // Modal acciones
-      function openChatActionsModal(id, title){
-        const modal = document.getElementById('chat-actions-modal');
-        if (!modal) return;
-        modal.classList.remove('hidden');
-        modal.dataset.chatId = id;
-
-        const t = modal.querySelector('#cam-chat-title');
-        if (t) t.textContent = title;
-
-        const close = ()=> modal.classList.add('hidden');
-
-        modal.querySelector('#cam-close')?.addEventListener('click', close, { once:true });
-        modal.querySelector('.modal-backdrop')?.addEventListener('click', close, { once:true });
-
-        modal.querySelector('#cam-open')?.addEventListener('click', async ()=>{
-          await loadChat(id); close();
-        }, { once:true });
-
-        modal.querySelector('#cam-rename')?.addEventListener('click', async ()=>{
-          const current = title;
-          const nuevo = prompt('Nuevo nombre del chat:', current);
-          if (nuevo && nuevo.trim()) await renameChat(id, nuevo.trim());
-          close();
-        }, { once:true });
-
-        modal.querySelector('#cam-delete')?.addEventListener('click', async ()=>{
-          if (confirm('¿Eliminar este chat?')) await deleteChat(id);
-          close();
-        }, { once:true });
       }
 
       async function loadChat(chatId){
@@ -623,6 +695,7 @@
       return { setUser, saveMessage, loadChatList, loadChat, newChat, renameChat, deleteChat, deleteAllChats };
     })();
 
+    // ====== Wiring auth UI ======
     const $authSection = document.getElementById('auth');
     const $landing     = document.getElementById('landing');
     const $authBar     = document.getElementById('auth-bar');
@@ -696,7 +769,7 @@
     });
   </script>
 
-  <!-- Lógica del chat -->
+  <!-- Lógica del chat (voz, visión, adjuntos, etc.) -->
   <script src="chat.js"></script>
 </body>
 </html>
