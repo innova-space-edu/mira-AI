@@ -65,23 +65,19 @@ function stripEmojis(s) {
   try { return s.replace(/[\p{Extended_Pictographic}\uFE0F\u200D]/gu, ""); }
   catch { return s.replace(/[\u{1F1E6}-\u{1F1FF}\u{1F300}-\u{1FAFF}\u{2600}-\u{26FF}]/gu, ""); }
 }
-/** Limpia markdown/código/links pero deja puntuación (.,;:!?) y saltos */
 function sanitizeForTTS(md) {
   let t = md || "";
-  // quitar bloques de código y LaTeX
   t = t.replace(/```[\s\S]*?```/g, " ");
   t = t.replace(/`[^`]*`/g, " ");
   t = t.replace(/\$\$[\s\S]*?\$\$/g, " ");
   t = t.replace(/\$[^$]*\$/g, " ");
-  // quitar urls
   t = t.replace(/https?:\/\/\S+/g, " ");
-  // quitar markdown inline (asteriscos, etc.) pero no puntos/commas
-  t = t.replace(/[>*_~`{}\[\]<>|#]/g, " ");
-  // puntos de lista -> pausas
-  t = t.replace(/^\s*[-•·]\s+/gm, "");
-  // normalizar espacios y respetar saltos
-  t = t.replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim();
+  t = t.replace(/(^|\s)[#\/][^\s]+/g, " ");
+  t = t.replace(/[>*_~`{}\[\]()<>|]/g, " ");
+  t = t.replace(/[•·\-] /g, " ");
   t = stripEmojis(t);
+  t = t.replace(/:\s/g, ". ");
+  t = t.replace(/\s+/g, " ").trim();
   return t;
 }
 const VOICE_NAME_PREFS = ["Paloma","Elvira","Dalia","Lola","Paulina","Sabina","Helena","Lucia","Lucía","Elena","Camila","Sofía","Sofia","Marina","Conchita","Google español"];
@@ -104,26 +100,25 @@ function pickVoice(){
   const byLang = voicesCache.find(v => VOICE_LANG_PREFS.some(l => (v.lang||"").toLowerCase().startsWith(l)));
   return byLang || voicesCache[0] || null;
 }
-function splitIntoChunks(text, maxLen = 220) {
-  // separa por oraciones conservando puntuación
-  const parts = text.split(/(?<=[\.\!\?\:\;])\s+|\n+/g);
+function splitIntoChunks(text, maxLen = 200) {
+  const parts = text.split(/(?<=[\.!?;:])\s+|\n+/g);
   const chunks = [];
   let buf = "";
   for (const p of parts) {
     const s = p.trim(); if (!s) continue;
     if ((buf + " " + s).trim().length <= maxLen) buf = (buf ? buf + " " : "") + s;
-    else { if (buf) chunks.push(buf); (s.length <= maxLen) ? chunks.push(s) : chunks.push(...s.match(/.{1,220}/g)); buf = ""; }
+    else { if (buf) chunks.push(buf); (s.length <= maxLen) ? chunks.push(s) : chunks.push(...s.match(/.{1,200}/g)); buf = ""; }
   }
   if (buf) chunks.push(buf);
   return chunks;
 }
-const INTER_CHUNK_PAUSE_MS = 140;
+const INTER_CHUNK_PAUSE_MS = 120;
 function playNext() {
   const next = speechQueue.shift();
   if (!next) { speaking = false; setAvatarTalking(false); return; }
   const utter = new SpeechSynthesisUtterance(next);
   const v = pickVoice(); if (v) utter.voice = v;
-  utter.lang = (v && v.lang) || "es-ES"; utter.rate = 0.98; utter.pitch = 1.02; utter.volume = 1;
+  utter.lang = (v && v.lang) || "es-ES"; utter.rate = 0.94; utter.pitch = 1.08; utter.volume = 1;
   setAvatarTalking(true);
   utter.onend = () => setTimeout(playNext, INTER_CHUNK_PAUSE_MS);
   utter.onerror = () => setTimeout(playNext, INTER_CHUNK_PAUSE_MS);
@@ -132,7 +127,7 @@ function playNext() {
 }
 function enqueueSpeak(text){ if (!text) return; speechQueue.push(text); if (!speaking) playNext(); }
 function cancelAllSpeech(){ try{ window.speechSynthesis.cancel(); }catch{} speechQueue.length = 0; speaking = false; setAvatarTalking(false); }
-function speakMarkdown(md){ const plain = sanitizeForTTS(md); if (!plain) return; splitIntoChunks(plain, 220).forEach(c => enqueueSpeak(c)); }
+function speakMarkdown(md){ const plain = sanitizeForTTS(md); if (!plain) return; splitIntoChunks(plain, 200).forEach(c => enqueueSpeak(c)); }
 function speakAfterVoices(md){
   try{
     if (window.speechSynthesis?.getVoices().length) speakMarkdown(md);
@@ -336,12 +331,12 @@ function renderAttachmentChips(){
   attachments.forEach(att => {
     const chip = document.createElement("span");
     chip.className = "attachment-chip";
-    chip.innerHTML = `<img src="${att.urlPreview}" alt="img" style="width:42px;height:42px;object-fit:cover;border-radius:8px;border:1px solid var(--border);margin-right:4px;"><span>${att.file.name}</span>`;
+    chip.innerHTML = `<img src="${att.urlPreview}" alt="img"><span>${att.file.name}</span>`;
     $attachments.appendChild(chip);
   });
 }
 
-// Menú “Adjuntar”
+// Menú “+” (el click al file input se maneja en index.js también)
 $attachBtn?.addEventListener("click", (e) => {
   e.stopPropagation();
   if ($attachMenu) {
@@ -350,12 +345,7 @@ $attachBtn?.addEventListener("click", (e) => {
     $attachBtn.setAttribute("aria-expanded", String(isHidden));
   }
 });
-document.addEventListener("click", (e) => {
-  if ($attachMenu && !$attachMenu.contains(e.target) && e.target !== $attachBtn) {
-    $attachMenu.classList.add("hidden");
-    $attachBtn.setAttribute("aria-expanded","false");
-  }
-});
+document.addEventListener("click", () => { if ($attachMenu) $attachMenu.classList.add("hidden"); });
 $attachMenu?.addEventListener("click", (e)=> e.stopPropagation());
 
 // Opción imagen
@@ -417,7 +407,7 @@ async function sendMessage() {
   try {
     if (files.length > 0) {
       showThinking("Analizando imagen…");
-      const visualContext = await analyzeImages(files);
+      const visualContext = await analyzeImages(files); // Visión + OCR automáticamente
       hideThinking();
 
       const question = userMessage || "Describe y analiza detalladamente la(s) imagen(es).";
@@ -466,7 +456,7 @@ if (document.readyState === "loading") {
 }
 
 /* ============================================================
-   === DICTADO POR VOZ (push-to-talk / mantener presionado) ===
+   === DICTADO POR VOZ (Web Speech API) — toggle click ===
    ============================================================ */
 (function initVoiceDictation() {
   const MicRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -513,7 +503,7 @@ if (document.readyState === "loading") {
     manualStop = false;
     lastCommitted = input.value ? (input.value.trim() + " ") : "";
     micBtn.classList.add('recording');
-    micBtn.title = "Grabando… suelta para detener";
+    micBtn.title = "Escuchando… toca para detener";
   };
 
   recognition.onerror = (e) => {
@@ -525,35 +515,29 @@ if (document.readyState === "loading") {
     listening = false;
     micBtn.classList.remove('recording');
     if (!manualStop) {
-      // En móviles puede cortarse; no auto-reanudar en push-to-talk
-      micBtn.title = "Mantén presionado para dictar";
+      try { recognition.start(); } catch {}
     } else {
-      micBtn.title = "Mantén presionado para dictar";
+      micBtn.title = "Dictar por voz";
     }
   };
 
-  // Push-to-talk: pointerdown = start, pointerup/leave = stop
-  const startListen = () => {
-    if (!recognition || listening) return;
-    manualStop = false;
-    try { recognition.start(); } catch (err) { console.error("No se pudo iniciar:", err); }
-  };
-  const stopListen = () => {
-    if (!recognition || !listening) return;
-    manualStop = true;
-    try { recognition.stop(); } catch {}
-  };
+  micBtn.addEventListener('click', () => {
+    if (!recognition) return;
+    if (!listening) {
+      manualStop = false;
+      try { recognition.start(); } catch (err) { console.error("No se pudo iniciar el dictado:", err); }
+    } else {
+      manualStop = true;
+      try { recognition.stop(); } catch {}
+    }
+  });
 
-  micBtn.addEventListener('pointerdown', (e)=>{ e.preventDefault(); startListen(); });
-  micBtn.addEventListener('pointerup',   (e)=>{ e.preventDefault(); stopListen(); });
-  micBtn.addEventListener('pointerleave',(e)=>{ e.preventDefault(); stopListen(); });
-  // por accesibilidad, también click alterna
-  micBtn.addEventListener('click', (e)=>{ e.preventDefault(); listening ? stopListen() : startListen(); });
-
-  // Al enviar, detener si está escuchando
   if (sendBtn) {
     sendBtn.addEventListener('click', () => {
-      if (listening) stopListen();
+      if (listening) {
+        manualStop = true;
+        try { recognition.stop(); } catch {}
+      }
     });
   }
 })();
