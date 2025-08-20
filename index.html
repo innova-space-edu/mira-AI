@@ -126,7 +126,7 @@
       </button>
     </div>
 
-    <!-- Configuración anclado abajo -->
+    <!-- Configuración anclada abajo -->
     <div class="side-dock-bottom">
       <button id="btn-settings" class="dock-btn" title="Configuración">
         <span class="dock-icon">
@@ -243,17 +243,26 @@
         <div class="text-xs opacity-70 mt-2">Se guarda automáticamente.</div>
       </div>
 
-      <!-- Modal acciones chat -->
+      <!-- Modal acciones chat (compacto) -->
       <div id="chat-actions-modal" class="modal hidden" aria-hidden="true">
         <div class="modal-backdrop"></div>
-        <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="cam-title">
+        <div class="modal-card small" role="dialog" aria-modal="true" aria-labelledby="cam-title">
           <div class="modal-header">
             <div id="cam-title" class="modal-title">Acciones del chat</div>
             <button id="cam-close" class="modal-close" aria-label="Cerrar">✕</button>
           </div>
+
           <div class="modal-body">
             <div class="modal-chat-title" id="cam-chat-title">—</div>
-            <div class="modal-actions">
+
+            <!-- Renombrar inline -->
+            <div id="rename-inline" class="rename-inline" hidden>
+              <input id="rename-input" type="text" class="rename-input" placeholder="Nuevo nombre"/>
+              <button id="rename-save" class="rename-save">Guardar</button>
+              <button id="rename-cancel" class="rename-cancel">Cancelar</button>
+            </div>
+
+            <div class="modal-actions" id="cam-actions">
               <button id="cam-open"   class="modal-btn primary">Abrir</button>
               <button id="cam-rename" class="modal-btn">Renombrar</button>
               <button id="cam-delete" class="modal-btn danger">Eliminar</button>
@@ -316,7 +325,7 @@
     </section>
   </main>
 
-  <!-- ====== Panel / Playlists + microinteracciones + temas ====== -->
+  <!-- ====== UI / Temas / Adjuntar ====== -->
   <script>
     const PLAYLISTS = [
       { id:'4Ldou77MwYfWBV288FirwL', title:'Electro House mix',       description:'Beats para concentrarte con energía' },
@@ -330,11 +339,11 @@
     ];
     let currentPlaylist = PLAYLISTS[0];
 
-    const panel    = document.getElementById('side-panel');
-    const titleEl  = document.getElementById('panel-title');
-    const secMusic = document.getElementById('panel-music');
-    const secChats = document.getElementById('panel-chats');
-    const secSettings = document.getElementById('panel-settings');
+    const panel        = document.getElementById('side-panel');
+    const titleEl      = document.getElementById('panel-title');
+    const secMusic     = document.getElementById('panel-music');
+    const secChats     = document.getElementById('panel-chats');
+    const secSettings  = document.getElementById('panel-settings');
 
     function setPanelMode(mode){
       const isMusic    = (mode === 'music');
@@ -390,6 +399,9 @@
       // ===== Menú de adjuntar (+ que gira)
       const attachBtn  = document.getElementById('attachBtn');
       const attachMenu = document.getElementById('attachMenu');
+      const imgOpt     = document.getElementById('attachImageOption');
+      const fileInput  = document.getElementById('fileInput');
+
       attachBtn?.addEventListener('click', (e)=>{
         e.stopPropagation();
         const isOpen = attachBtn.getAttribute('aria-expanded') === 'true';
@@ -403,25 +415,20 @@
         }
       });
 
-      // Opción adjuntar imagen (abre el file picker)
-      const imgOpt = document.getElementById('attachImageOption');
-      const fileInput = document.getElementById('fileInput');
+      // Opción: abrir picker y cerrar menú (tick para iOS)
       imgOpt?.addEventListener('click', (e)=>{
         e.stopPropagation();
-        try { fileInput?.click(); } catch(_) {}
+        attachMenu.classList.add('hidden');
+        attachBtn.setAttribute('aria-expanded','false');
+        setTimeout(()=> fileInput?.click(), 0);
       });
 
-      // ===== Efecto en enviar
-      const sendBtn = document.getElementById('send-btn');
-      sendBtn?.addEventListener('click', (e)=>{
-        const r = sendBtn.getBoundingClientRect();
-        const x = e.clientX - r.left;
-        const y = e.clientY - r.top;
-        sendBtn.style.setProperty('--ripple-x', x + 'px');
-        sendBtn.style.setProperty('--ripple-y', y + 'px');
-        sendBtn.classList.remove('do-ripple');
-        void sendBtn.offsetWidth;
-        sendBtn.classList.add('do-ripple');
+      // Feedback si se seleccionaron archivos
+      fileInput?.addEventListener('change', ()=>{
+        if (fileInput.files?.length){
+          attachBtn.classList.add('pulse-once');
+          setTimeout(()=> attachBtn.classList.remove('pulse-once'), 500);
+        }
       });
 
       // ===== Temas
@@ -435,15 +442,7 @@
             .filter(c => !/^theme-/.test(c))
             .join(' ')
             .trim();
-
-          const map = {
-            original: 'original',
-            blue: 'blue',
-            gray: 'gray',
-            red: 'red',
-            rainbow: 'rainbow',
-            starfall: 'starfall'
-          };
+          const map = { original:'original', blue:'blue', gray:'gray', red:'red', rainbow:'rainbow', starfall:'starfall' };
           root.classList.add('theme-' + (map[t] || 'original'));
           if (animate){
             root.classList.add('theme-anim');
@@ -468,7 +467,7 @@
     });
   </script>
 
-  <!-- ================= Firebase + Auth + Firestore (completo) ================= -->
+  <!-- ================= Firebase + Auth + Firestore ================= -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
     import { getAuth, setPersistence, browserLocalPersistence, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
@@ -569,18 +568,26 @@
         await loadChatList();
       }
 
-      /* ------- Modal de acciones ------- */
-      const modal = document.getElementById('chat-actions-modal');
-      const modalTitle = document.getElementById('cam-chat-title');
-      const btnOpen   = document.getElementById('cam-open');
-      const btnRename = document.getElementById('cam-rename');
-      const btnDelete = document.getElementById('cam-delete');
-      const btnClose  = document.getElementById('cam-close');
+      /* ------- Modal de acciones (compacto + rename inline) ------- */
+      const modal       = document.getElementById('chat-actions-modal');
+      const modalTitle  = document.getElementById('cam-chat-title');
+      const actionsList = document.getElementById('cam-actions');
+      const btnOpen     = document.getElementById('cam-open');
+      const btnRename   = document.getElementById('cam-rename');
+      const btnDelete   = document.getElementById('cam-delete');
+      const btnClose    = document.getElementById('cam-close');
+      const renameWrap  = document.getElementById('rename-inline');
+      const renameInput = document.getElementById('rename-input');
+      const renameSave  = document.getElementById('rename-save');
+      const renameCancel= document.getElementById('rename-cancel');
       let selectedId = null;
 
       function openActions(id, title){
         selectedId = id;
         modalTitle.textContent = title || '(sin título)';
+        renameWrap.hidden = true;
+        actionsList.hidden = false;
+        renameInput.value = title || '';
         modal.classList.remove('hidden');
         modal.setAttribute('aria-hidden', 'false');
       }
@@ -589,20 +596,22 @@
         modal.setAttribute('aria-hidden', 'true');
         selectedId = null;
       }
+      function showRename(){
+        actionsList.hidden = true;
+        renameWrap.hidden   = false;
+        renameInput.focus();
+        renameInput.select();
+      }
+
       btnClose?.addEventListener('click', closeActions);
       modal?.querySelector('.modal-backdrop')?.addEventListener('click', closeActions);
-
       btnOpen?.addEventListener('click', async ()=>{ if (selectedId){ await loadChat(selectedId); closeActions(); } });
-      btnRename?.addEventListener('click', async ()=>{
-        if (!selectedId) return;
-        const current = modalTitle.textContent || '';
-        const nuevo = prompt('Nuevo nombre del chat:', current);
-        if (nuevo && nuevo.trim()) await renameChat(selectedId, nuevo.trim());
-        closeActions();
-      });
-      btnDelete?.addEventListener('click', async ()=>{
-        if (!selectedId) return;
-        if (confirm('¿Eliminar este chat?')) await deleteChat(selectedId);
+      btnRename?.addEventListener('click', showRename);
+      renameCancel?.addEventListener('click', ()=>{ renameWrap.hidden = true; actionsList.hidden = false; });
+      renameSave?.addEventListener('click', async ()=>{
+        const nuevo = (renameInput.value || '').trim();
+        if (!nuevo || !selectedId) return;
+        await renameChat(selectedId, nuevo);
         closeActions();
       });
 
