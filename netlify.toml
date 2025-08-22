@@ -2,7 +2,17 @@
 directory = "netlify/functions"
 node_bundler = "esbuild"
 
-# Rutas limpias tipo /api/*
+# (Opcional) timeouts por función – útil para modelos/LLMs
+[functions.vqa]
+timeout = 26
+
+[functions.vision]
+timeout = 26
+
+[functions.ocrspace]
+timeout = 26
+
+# ============ Rutas limpias /api/* ============
 [[redirects]]
 from = "/api/chat"
 to = "/.netlify/functions/chat"
@@ -13,6 +23,13 @@ from = "/api/groq"
 to = "/.netlify/functions/groq-proxy"
 status = 200
 
+# Tu frontend llama /api/ocrspace -> ocrspace
+[[redirects]]
+from = "/api/ocrspace"
+to = "/.netlify/functions/ocrspace"
+status = 200
+
+# (mantengo también /api/ocr por compatibilidad si lo usas en otra parte)
 [[redirects]]
 from = "/api/ocr"
 to = "/.netlify/functions/ocrspace"
@@ -21,4 +38,10 @@ status = 200
 [[redirects]]
 from = "/api/vision"
 to = "/.netlify/functions/vision"
+status = 200
+
+# Nuevo: VQA
+[[redirects]]
+from = "/api/vqa"
+to = "/.netlify/functions/vqa"
 status = 200
