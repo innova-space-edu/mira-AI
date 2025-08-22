@@ -132,7 +132,7 @@
         <span class="dock-icon">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor">
             <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/>
-            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.07a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 5 15a1.65 1.65 0 0 0-1.51-1H3.4a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 5 8a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 3.4V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19 9c0 .6.23 1.18.64 1.6.42.41 1 .64 1.6.64h.36a2 2 0 1 1 0 4h-.36c-.6 0-1.18.23-1.6.64Z" stroke-width="1.2"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.07a1.65 1.65 0 0 0-1 1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 5 15a1.65 1.65 0 0 0-1.51-1H3.4a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 5 8a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 3.4V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19 9c0 .6.23 1.18.64 1.6.42.41 1 .64 1.6.64h.36a2 2 0 1 1 0 4h-.36c-.6 0-1.18.23-1.6.64Z" stroke-width="1.2"/>
           </svg>
         </span>
         <span class="dock-label">Configuración</span>
@@ -402,25 +402,36 @@
       const imgOpt     = document.getElementById('attachImageOption');
       const fileInput  = document.getElementById('fileInput');
 
+      // 👉 Cambio principal: el "+" abre DIRECTO el selector de archivos (sin depender del menú)
       attachBtn?.addEventListener('click', (e)=>{
+        e.preventDefault();
         e.stopPropagation();
-        const isOpen = attachBtn.getAttribute('aria-expanded') === 'true';
-        attachBtn.setAttribute('aria-expanded', String(!isOpen));
-        attachMenu.classList.toggle('hidden', isOpen);
+        // Cierra el menú por si estaba abierto
+        if (attachMenu) {
+          attachMenu.classList.add('hidden');
+          attachBtn.setAttribute('aria-expanded','false');
+        }
+        // iOS/Safari requieren gesto directo del usuario
+        try { fileInput?.click(); } catch(_) {}
       });
+
+      // (Fallback) Mantener opción de menú por si luego quieres otras acciones
       document.addEventListener('click', (e)=>{
-        if (!attachMenu.contains(e.target) && e.target !== attachBtn){
+        if (attachMenu && !attachMenu.contains(e.target) && e.target !== attachBtn){
           attachMenu.classList.add('hidden');
           attachBtn.setAttribute('aria-expanded','false');
         }
       });
 
-      // Opción: abrir picker y cerrar menú (tick para iOS)
+      // Opción de menú: abrir picker (sigue funcionando si lo usas)
       imgOpt?.addEventListener('click', (e)=>{
         e.stopPropagation();
-        attachMenu.classList.add('hidden');
-        attachBtn.setAttribute('aria-expanded','false');
-        setTimeout(()=> fileInput?.click(), 0);
+        if (attachMenu){
+          attachMenu.classList.add('hidden');
+          attachBtn.setAttribute('aria-expanded','false');
+        }
+        // Llamada directa por gesto del usuario
+        try { fileInput?.click(); } catch(_) {}
       });
 
       // Feedback si se seleccionaron archivos
