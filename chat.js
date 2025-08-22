@@ -16,6 +16,8 @@ Habla SIEMPRE en español, clara y estructurada.
 // Endpoints (intenta /api/* y si no, /.netlify/functions/*)
 const BLIP_ENDPOINTS = ["/api/vision", "/.netlify/functions/vision"];
 const OCR_ENDPOINTS  = ["/api/ocrspace", "/.netlify/functions/ocrspace"];
+// NUEVO: VQA (preguntas/razonamiento sobre la imagen)
+const VQA_ENDPOINTS  = ["/api/vqa", "/.netlify/functions/vqa"];
 
 // ============ AVATAR ============
 let __innerAvatarSvg = null;
@@ -199,7 +201,7 @@ function fileToBase64(file){
   });
 }
 
-// ============ VISIÓN (caption + OCR) ============
+// ============ VISIÓN (caption + OCR + VQA) ============
 async function httpError(res) {
   let body = "";
   try { body = await res.text(); } catch {}
@@ -236,6 +238,18 @@ async function tryFetchOCR(bodyJson){
   return last;
 }
 
+// NUEVO: VQA (preguntas sobre la imagen)
+async function tryFetchVQA(bodyJson){
+  for (const url of VQA_ENDPOINTS) {
+    const r = await fetch(url, { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(bodyJson) });
+    if (r.ok) return r;
+    if (r.status !== 404) throw await httpError(r);
+  }
+  const last = await fetch(VQA_ENDPOINTS[VQA_ENDPOINTS.length-1], { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(bodyJson) });
+  if (!last.ok) throw await httpError(last);
+  return last;
+}
+
 async function callBLIP(file) {
   const imageBase64 = await fileToBase64(file);
   const r = await tryFetchVision({ imageBase64 });
@@ -248,25 +262,49 @@ async function callOCR(file) {
   const imageBase64 = await fileToBase64(file);
   const r = await tryFetchOCR({ imageBase64, language: "spa" });
   const data = await r.json();
-  if (typeof data?.text !== "string") throw new Error("Respuesta OCR inválida.");
-  return data.text.trim();
+  const text = (typeof data?.text === "string" ? data.text : (data?.ocrText || data?.result || ""));
+  if (typeof text !== "string") throw new Error("Respuesta OCR inválida.");
+  return text.trim();
+}
+// NUEVO: callVQA (usa tu pregunta del usuario si existe, o una por defecto)
+async function callVQA(file, question) {
+  const imageBase64 = await fileToBase64(file);
+  const q = (question && String(question).trim()) || "Describe y responde: ¿qué información principal muestra la imagen?";
+  const r = await tryFetchVQA({ imageBase64, question: q });
+  const data = await r.json();
+  const ans = (data?.answer || data?.generated_text || data?.label || "").toString().trim();
+  if (!ans) throw new Error("Respuesta VQA inválida.");
+  return ans;
 }
 
 async function analyzeImages(files) {
+  // Toma como "pregunta" el texto que el usuario escribió (si lo hay)
+  const input = document.getElementById("user-input");
+  const userQuestion = (input?.value || "").trim();
+
   const results = [];
   for (const file of files) {
-    const [blip, ocr] = await Promise.allSettled([ callBLIP(file), callOCR(file) ]);
-    const desc = blip.status === "fulfilled" ? blip.value : "";
-    const text = ocr.status  === "fulfilled" ? ocr.value  : "";
+    const promises = [
+      callBLIP(file),                    // descripción
+      callOCR(file)                      // texto
+    ];
+    // Si hay texto del usuario, también pregunta al VQA
+    if (userQuestion) promises.push(callVQA(file, userQuestion));
 
-    if (!desc && !text) {
-      const why = (blip.reason && blip.reason.message) || (ocr.reason && ocr.reason.message) || "Fallo desconocido.";
+    const settled = await Promise.allSettled(promises);
+    const desc = settled[0]?.status === "fulfilled" ? settled[0].value : "";
+    const text = settled[1]?.status === "fulfilled" ? settled[1].value : "";
+    const vqa  = userQuestion && settled[2]?.status === "fulfilled" ? settled[2].value : "";
+
+    if (!desc && !text && !vqa) {
+      const why = (settled.find(s => s.status==="rejected")?.reason?.message) || "Fallo desconocido.";
       throw new Error(why);
     }
 
     const block = [
       desc ? `• **Descripción (IA):** ${desc}` : "",
-      text ? `• **Texto detectado (OCR):** ${text}` : ""
+      text ? `• **Texto detectado (OCR):** ${text}` : "",
+      vqa  ? `• **Respuesta a tu pregunta:** ${vqa}` : ""
     ].filter(Boolean).join("\n");
 
     results.push(block);
@@ -407,7 +445,7 @@ async function sendMessage() {
   try {
     if (files.length > 0) {
       showThinking("Analizando imagen…");
-      const visualContext = await analyzeImages(files); // Visión + OCR automáticamente
+      const visualContext = await analyzeImages(files); // Visión + OCR (+ VQA si hay pregunta) automáticamente
       hideThinking();
 
       const question = userMessage || "Describe y analiza detalladamente la(s) imagen(es).";
