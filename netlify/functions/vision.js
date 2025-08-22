@@ -1,111 +1,97 @@
-// netlify/functions/vision.js
+// File: netlify/functions/vision.js
 // Caption de imágenes con Hugging Face Inference API
-// Env requerida: HF_TOKEN
-// Espera: { imageBase64: "data:image/...;base64,XXXX" }
+// Env requerida: HF_API_KEY
+// Opcionales: HF_VISION_MODELS (csv), HF_VQA_MODEL (para fallback con Qwen2‑VL)
 
-const fetch = (...args) => import('node-fetch').then(({ default: f }) => f(...args));
-
-const MODELS = [
-  "Salesforce/blip-image-captioning-base",   // 1) BLIP (rápido, bueno)
-  "nlpconnect/vit-gpt2-image-captioning"     // 2) Fallback popular
-];
+const HF_API_KEY   = process.env.HF_API_KEY;
+const HF_VQA_MODEL = process.env.HF_VQA_MODEL || "";
+const HF_VISION_MODELS = (process.env.HF_VISION_MODELS ||
+  "Salesforce/blip-image-captioning-base,nlpconnect/vit-gpt2-image-captioning"
+).split(",").map(s => s.trim()).filter(Boolean);
 
 const cors = () => ({
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
   "Access-Control-Allow-Methods": "POST, OPTIONS"
 });
-const json = (obj, status = 200) => ({
-  statusCode: status,
-  headers: { "Content-Type": "application/json", ...cors() },
-  body: JSON.stringify(obj)
-});
+const json = (obj, status = 200) => ({ statusCode: status, headers: { "Content-Type": "application/json", ...cors() }, body: JSON.stringify(obj) });
+const bad  = (msg, status = 400) => json({ error: msg }, status);
 
-function parseCaptionPayload(data) {
-  // BLIP → [{generated_text:"..."}]
-  if (Array.isArray(data) && data[0]?.generated_text) return data[0].generated_text;
-  // vit-gpt2 → [{"generated_text":"..."}] o {"generated_text":"..."}
-  if (Array.isArray(data) && data[0]?.generated_text) return data[0].generated_text;
-  if (data && typeof data.generated_text === "string") return data.generated_text;
-  // Otros pipelines devuelven { "caption": "..." } o { "summary_text": "..." }
-  if (data?.caption) return data.caption;
-  if (data?.summary_text) return data.summary_text;
-  return "";
+function dataUrlToBuffer(dataUrl = "") {
+  const m = /^data:(.+?);base64,(.+)$/.exec(dataUrl);
+  if (!m) throw new Error("Formato dataURL inválido");
+  const [, mime, b64] = m; return { buffer: Buffer.from(b64, "base64"), mime };
 }
 
-async function callHF(model, buffer, tries = 3) {
+async function callHFImageToText(model, buffer, mime) {
   const url = `https://api-inference.huggingface.co/models/${model}?wait_for_model=true`;
-  let lastTxt = "", lastStatus = 0;
+  const r = await fetch(url, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${HF_API_KEY}`, "Content-Type": mime || "application/octet-stream", Accept: "application/json" },
+    body: buffer
+  });
+  const text = await r.text();
+  let out; try { out = JSON.parse(text); } catch { out = text; }
 
-  for (let i = 0; i < tries; i++) {
-    const r = await fetch(url, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${process.env.HF_TOKEN}` },
-      body: buffer
-    });
+  if (r.status === 404) { const e = new Error(`Model ${model} not found`); e.code = 404; throw e; }
+  if (!r.ok) throw new Error(`HF ${model} ${r.status}: ${typeof out === "string" ? out : JSON.stringify(out)}`);
 
-    lastStatus = r.status;
-    if (r.ok) {
-      const data = await r.json();
-      const caption = parseCaptionPayload(data);
-      if (caption) return { ok: true, caption, raw: data, model };
-      return { ok: false, status: r.status, error: "Respuesta sin caption", raw: data, model };
-    }
+  let caption = "";
+  if (Array.isArray(out)) caption = out[0]?.generated_text || out[0]?.caption || out[0]?.text || "";
+  else if (out && typeof out === "object") caption = out.generated_text || out.caption || out.text || "";
+  caption = String(caption || "").trim();
+  if (!caption) throw new Error(`Respuesta vacía de ${model}`);
+  return { model, caption, raw: out };
+}
 
-    // Lee texto de error (a veces sólo dice "Not Found")
-    try { lastTxt = await r.text(); } catch { lastTxt = ""; }
-
-    // Reintenta 429/5xx/408 (modelo dormido o rate limit)
-    if (r.status === 429 || r.status === 408 || r.status >= 500) {
-      await new Promise(res => setTimeout(res, 1200 * (i + 1)));
-      continue;
-    }
-    break; // Para otros códigos (404/401/403), no tiene sentido reintentar
-  }
-  return { ok: false, status: lastStatus, error: lastTxt || "HF unknown error", model };
+async function callQwenFallback(dataURL) {
+  if (!/qwen2-vl/i.test(HF_VQA_MODEL)) throw new Error("Qwen fallback no disponible");
+  const url = `https://api-inference.huggingface.co/models/${HF_VQA_MODEL}?wait_for_model=true`;
+  const payload = {
+    inputs: [{ role: "user", content: [ { type: "image", image_url: dataURL }, { type: "text", text: "Describe detalladamente la imagen en español." } ] }],
+    parameters: { max_new_tokens: 160, do_sample: false }
+  };
+  const r = await fetch(url, { method: "POST", headers: { Authorization: `Bearer ${HF_API_KEY}`, "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+  const out = await r.json();
+  if (!r.ok) throw new Error(`HF Qwen fallback ${r.status}: ${JSON.stringify(out)}`);
+  const caption = (out.generated_text || (Array.isArray(out.outputs) && out.outputs[0]?.generated_text) || "").trim();
+  if (!caption) throw new Error("Respuesta vacía de Qwen fallback");
+  return { model: HF_VQA_MODEL, caption, via: "qwen-fallback" };
 }
 
 exports.handler = async (event) => {
   if (event.httpMethod === "OPTIONS") return { statusCode: 200, headers: cors(), body: "" };
-  if (event.httpMethod !== "POST") return json({ error: "Method not allowed" }, 405);
+  if (event.httpMethod !== "POST")   return bad("Method not allowed", 405);
+  if (!HF_API_KEY) return bad("Falta HF_API_KEY en variables de entorno (Netlify).", 500);
 
   try {
     const { imageBase64 } = JSON.parse(event.body || "{}");
-    if (!imageBase64 || !imageBase64.includes(",")) return json({ error: "imageBase64 requerido" }, 400);
+    if (!imageBase64) return bad("Falta imageBase64 (dataURL)");
 
-    if (!process.env.HF_TOKEN) {
-      return json({ error: "Falta HF_TOKEN en variables de entorno Netlify." }, 500);
-    }
+    const { buffer, mime } = dataUrlToBuffer(imageBase64);
 
-    const base64 = imageBase64.split(",")[1];
-    const buffer = Buffer.from(base64, "base64");
-
-    // Intenta con varios modelos
     const errors = [];
-    for (const m of MODELS) {
-      const resp = await callHF(m, buffer, 3);
-      if (resp.ok) return json({ ok: true, model: resp.model, caption: resp.caption, raw: resp.raw });
-      errors.push({ model: m, status: resp.status, detail: resp.error });
-      // Si es 401/403: token inválido o sin permisos → corta antes
-      if (resp.status === 401 || resp.status === 403) break;
+    for (const model of HF_VISION_MODELS) {
+      try {
+        const ok = await callHFImageToText(model, buffer, mime);
+        return json({ ok: true, model: ok.model, caption: ok.caption, raw: ok.raw });
+      } catch (e) {
+        errors.push({ model, status: e.code || undefined, detail: e.message });
+        continue;
+      }
     }
 
-    // Construye un mensaje claro para depurar
-    let hint = "Revisa HF_TOKEN y nombre del modelo.";
-    const has404 = errors.some(e => e.status === 404);
-    const has401 = errors.some(e => e.status === 401);
-    const has403 = errors.some(e => e.status === 403);
-    if (has401) hint = "HF_TOKEN inválido o expirado (401).";
-    else if (has403) hint = "El token no tiene permisos para este modelo (403).";
-    else if (has404) hint = "Modelo no encontrado (404) o ruta incorrecta.";
-    else if (errors.some(e => e.status >= 500)) hint = "Servicio HF con problemas (5xx); intenta de nuevo.";
+    // Fallback con Qwen si está disponible
+    try {
+      const fb = await callQwenFallback(imageBase64);
+      return json({ ok: true, model: fb.model, caption: fb.caption, via: fb.via });
+    } catch (e) {
+      // sin fallback o también falló
+    }
 
-    return json({
-      error: "HF request failed",
-      details: errors,
-      hint
-    }, 502);
-
+    let hint = "Revisa HF_API_KEY y nombres de modelos en HF_VISION_MODELS.";
+    if (errors.some(e => e.status === 404)) hint = "Modelo(s) no encontrado(s) (404). Corrige los nombres o permisos.";
+    return json({ error: "HF request failed", details: errors, hint }, 502);
   } catch (err) {
     return json({ error: "Exception", details: String(err) }, 500);
   }
