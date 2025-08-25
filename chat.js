@@ -56,8 +56,8 @@ function appendMessage(role, contentHTML) {
 
   const bubble = document.createElement("div");
   bubble.className = "bubble chat-markdown enter"; // estado inicial fuera de vista
-  bubble.dataset.role = role; // permite CSS direccional
-  // direcciones (la CSS puede animar distinto asistente/usuario)
+  // Para animación direccional según el rol (izquierda/derecha)
+  bubble.dataset.role = role;
   bubble.classList.add(role === "assistant" ? "from-left" : "from-right");
   bubble.innerHTML = contentHTML;
 
@@ -77,12 +77,13 @@ function showThinking(text = "MIRA está pensando…") {
   const div = document.createElement("div");
   div.id = "thinking";
   div.className = "msg assistant";
-  const b = document.createElement("div");
-  b.className = "bubble enter from-left bubble--thinking";
-  b.textContent = text;
-  div.appendChild(b);
+  const bubble = document.createElement("div");
+  bubble.className = "bubble chat-markdown enter from-left";
+  bubble.innerHTML = text;
+  div.appendChild(bubble);
   box.appendChild(div);
-  requestAnimationFrame(()=> b.classList.add("show"));
+  // Activar transición
+  requestAnimationFrame(() => bubble.classList.add("show"));
   box.scrollTop = box.scrollHeight;
 }
 function hideThinking() { document.getElementById("thinking")?.remove(); }
@@ -134,7 +135,11 @@ function splitIntoChunks(text, maxLen = 200) {
   for (const p of parts) {
     const s = p.trim(); if (!s) continue;
     if ((buf + " " + s).trim().length <= maxLen) buf = (buf ? buf + " " : "") + s;
-    else { if (buf) chunks.push(buf); (s.length <= maxLen) ? chunks.push(s) : chunks.push(...s.match(/.{1,200}/g)); buf = ""; }
+    else { 
+      if (buf) chunks.push(buf);
+      (s.length <= maxLen) ? chunks.push(s) : chunks.push(...s.match(/.{1,200}/g));
+      buf = ""; 
+    }
   }
   if (buf) chunks.push(buf);
   return chunks;
@@ -145,7 +150,10 @@ function playNext() {
   if (!next) { speaking = false; setAvatarTalking(false); return; }
   const utter = new SpeechSynthesisUtterance(next);
   const v = pickVoice(); if (v) utter.voice = v;
-  utter.lang = (v && v.lang) || "es-ES"; utter.rate = 0.94; utter.pitch = 1.08; utter.volume = 1;
+  utter.lang = (v && v.lang) || "es-ES"; 
+  utter.rate = 0.94; 
+  utter.pitch = 1.08; 
+  utter.volume = 1;
   setAvatarTalking(true);
   utter.onend = () => setTimeout(playNext, INTER_CHUNK_PAUSE_MS);
   utter.onerror = () => setTimeout(playNext, INTER_CHUNK_PAUSE_MS);
@@ -153,31 +161,49 @@ function playNext() {
   speaking = true;
 }
 function enqueueSpeak(text){ if (!text) return; speechQueue.push(text); if (!speaking) playNext(); }
-function cancelAllSpeech(){ try{ window.speechSynthesis.cancel(); }catch{} speechQueue.length = 0; speaking = false; setAvatarTalking(false); }
-function speakMarkdown(md){ const plain = sanitizeForTTS(md); if (!plain) return; splitIntoChunks(plain, 200).forEach(c => enqueueSpeak(c)); }
+function cancelAllSpeech(){ 
+  try{ window.speechSynthesis.cancel(); }catch{} 
+  speechQueue.length = 0; 
+  speaking = false; 
+  setAvatarTalking(false); 
+}
+function speakMarkdown(md){ 
+  const plain = sanitizeForTTS(md); 
+  if (!plain) return; 
+  splitIntoChunks(plain, 200).forEach(c => enqueueSpeak(c)); 
+}
 function speakAfterVoices(md){
   try{
     if (window.speechSynthesis?.getVoices().length) speakMarkdown(md);
     else {
-      const once = () => { window.speechSynthesis.removeEventListener("voiceschanged", once); speakMarkdown(md); };
+      const once = () => { 
+        window.speechSynthesis.removeEventListener("voiceschanged", once); 
+        speakMarkdown(md); 
+      };
       window.speechSynthesis?.addEventListener("voiceschanged", once);
     }
   }catch(e){}
 }
 
 // ============ RENDER ============
-function renderMarkdown(text){ return typeof marked !== "undefined" ? marked.parse(text) : text; }
+function renderMarkdown(text){ 
+  return (typeof marked !== "undefined") ? marked.parse(text) : text; 
+}
 
 // ============ Fallback Wikipedia ============
 async function wikiFallback(q){
   try {
     const r = await fetch(`https://es.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(q)}`);
-    if (!r.ok) return null; const d = await r.json(); return d?.extract || null;
+    if (!r.ok) return null; 
+    const d = await r.json(); 
+    return d?.extract || null;
   } catch { return null; }
 }
 
 // Guardado (si hay ChatStore)
-async function saveMsg(role, content){ try{ await window.ChatStore?.saveMessage?.(role, content); }catch{} }
+async function saveMsg(role, content){ 
+  try{ await window.ChatStore?.saveMessage?.(role, content); }catch{} 
+}
 
 // ============ CLIENTE /api/chat ============
 async function callChatAPI_base(url, messages, temperature) {
@@ -247,7 +273,10 @@ async function tryFetchVision(bodyJson){
     if (r.ok) return r;
     if (r.status !== 404) throw await httpError(r);
   }
-  const last = await fetch(BLIP_ENDPOINTS[BLIP_ENDPOINTS.length-1], { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(bodyJson) });
+  const last = await fetch(
+    BLIP_ENDPOINTS[BLIP_ENDPOINTS.length-1], 
+    { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(bodyJson) }
+  );
   if (!last.ok) throw await httpError(last);
   return last;
 }
@@ -258,7 +287,10 @@ async function tryFetchOCR(bodyJson){
     if (r.ok) return r;
     if (r.status !== 404) throw await httpError(r);
   }
-  const last = await fetch(OCR_ENDPOINTS[OCR_ENDPOINTS.length-1], { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(bodyJson) });
+  const last = await fetch(
+    OCR_ENDPOINTS[OCR_ENDPOINTS.length-1], 
+    { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(bodyJson) }
+  );
   if (!last.ok) throw await httpError(last);
   return last;
 }
@@ -270,7 +302,10 @@ async function tryFetchVQA(bodyJson){
     if (r.ok) return r;
     if (r.status !== 404) throw await httpError(r);
   }
-  const last = await fetch(VQA_ENDPOINTS[VQA_ENDPOINTS.length-1], { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(bodyJson) });
+  const last = await fetch(
+    VQA_ENDPOINTS[VQA_ENDPOINTS.length-1], 
+    { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(bodyJson) }
+  );
   if (!last.ok) throw await httpError(last);
   return last;
 }
@@ -475,7 +510,7 @@ async function sendMessage() {
 
       const question = userMessage || "Describe y analiza detalladamente la(s) imagen(es).";
       await window.pipelineFromVision(visualContext, question, { userMessage });
-      requestSucceeded = true; // el habla ya ocurre dentro de pipelineFromVision
+      requestSucceeded = true;
     } else {
       showThinking();
       aiReply = await callLLMFromText(userMessage);
