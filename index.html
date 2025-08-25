@@ -239,6 +239,17 @@
             <span class="swatch" style="background:#38bdf8"></span>
             <span class="label">Animado: Lluvia de estrellas</span>
           </button>
+
+          <!-- NUEVO: Blanco -->
+          <button class="palette-btn" data-theme="white">
+            <span class="swatch" style="background:#ffffff; border-color:#e5e7eb"></span>
+            <span class="swatch" style="background:#f7f7f7; border-color:#e5e7eb"></span>
+            <span class="swatch" style="background:#efefef; border-color:#e5e7eb"></span>
+            <span class="swatch" style="background:#e8e8e8; border-color:#e5e7eb"></span>
+            <span class="swatch" style="background:#161616"></span>
+            <span class="swatch" style="background:#6f6f6f"></span>
+            <span class="label">Escala blanco</span>
+          </button>
         </div>
         <div class="text-xs opacity-70 mt-2">Se guarda automáticamente.</div>
       </div>
@@ -453,7 +464,7 @@
             .filter(c => !/^theme-/.test(c))
             .join(' ')
             .trim();
-          const map = { original:'original', blue:'blue', gray:'gray', red:'red', rainbow:'rainbow', starfall:'starfall' };
+          const map = { original:'original', blue:'blue', gray:'gray', red:'red', rainbow:'rainbow', starfall:'starfall', white:'white' };
           root.classList.add('theme-' + (map[t] || 'original'));
           if (animate){
             root.classList.add('theme-anim');
