@@ -47,9 +47,26 @@ function appendHTML(html) {
   chatBox.insertAdjacentHTML("beforeend", html);
   chatBox.scrollTop = chatBox.scrollHeight;
 }
+
+/* === ACTUALIZADO: inserta mensaje con clase de entrada y transición === */
 function appendMessage(role, contentHTML) {
-  appendHTML(`<div class="msg ${role}"><div class="bubble chat-markdown">${contentHTML}</div></div>`);
+  const chatBox = document.getElementById("chat-box");
+  const wrap = document.createElement("div");
+  wrap.className = `msg ${role}`;
+  const bubble = document.createElement("div");
+  bubble.className = "bubble chat-markdown enter"; // estado inicial fuera de vista
+  bubble.innerHTML = contentHTML;
+  wrap.appendChild(bubble);
+  chatBox.appendChild(wrap);
+
+  // Forzar relayout y activar animación
+  // (asistente entra desde izquierda, usuario desde derecha; definido en CSS)
+  requestAnimationFrame(() => {
+    bubble.classList.add("show");
+    chatBox.scrollTop = chatBox.scrollHeight;
+  });
 }
+
 function showThinking(text = "MIRA está pensando…") {
   const box = document.getElementById("chat-box");
   if (!box || document.getElementById("thinking")) return;
