@@ -18,6 +18,10 @@
 
   --btn:var(--primary-strong); --btn-hov:color-mix(in srgb, var(--btn) 88%, white 12%);
   --glow-1: rgba(167,139,250,.28); --glow-2: rgba(96,165,250,.18);
+
+  /* Input/Composer por defecto (un poco más claro que surface/bubble) */
+  --input-bg: color-mix(in srgb, var(--surface-2) 80%, white 20%);
+  --input-border: var(--border);
 }
 
 /* AZUL */
@@ -33,6 +37,8 @@ body.theme-blue{
   --title-1:#22d3ee; --title-2:#60a5fa; --title-3:#a78bfa;
   --btn:var(--primary-strong); --btn-hov:color-mix(in srgb, var(--btn) 88%, white 12%);
   --glow-1: rgba(96,165,250,.28); --glow-2: rgba(34,211,238,.20);
+  --input-bg: color-mix(in srgb, var(--surface-2) 75%, white 25%);
+  --input-border: var(--border);
 }
 
 /* GRIS */
@@ -48,6 +54,8 @@ body.theme-gray{
   --title-1:#a855f7; --title-2:#c084fc; --title-3:#60a5fa;
   --btn:var(--primary-strong); --btn-hov:color-mix(in srgb, var(--primary-strong) 88%, white 12%);
   --glow-1: rgba(168,85,247,.28); --glow-2: rgba(96,165,250,.20);
+  --input-bg: color-mix(in srgb, var(--surface-2) 78%, white 22%);
+  --input-border: var(--border);
 }
 
 /* ROJO */
@@ -63,6 +71,8 @@ body.theme-red{
   --title-1:#fb7185; --title-2:#f43f5e; --title-3:#f472b6;
   --btn:var(--primary-strong); --btn-hov:color-mix(in srgb, var(--primary-strong) 88%, white 12%);
   --glow-1: rgba(244,63,94,.28); --glow-2: rgba(244,114,182,.20);
+  --input-bg: color-mix(in srgb, var(--surface-2) 78%, white 22%);
+  --input-border: var(--border);
 }
 
 /* ARCOÍRIS (fondo vibrante) */
@@ -76,6 +86,8 @@ body.theme-rainbow{
   --bubble-user-bg:color-mix(in srgb, var(--primary) 18%, transparent);
   --bubble-user-borde:var(--primary-strong);
   --title-1:#ef4444; --title-2:#3b82f6; --title-3:#a855f7;
+  --input-bg: color-mix(in srgb, var(--surface-2) 75%, white 25%);
+  --input-border: var(--border);
 }
 body.theme-rainbow{
   background-image:
@@ -93,6 +105,8 @@ body.theme-starfall{
   --bubble-assistant-bg:var(--surface-2); --bubble-assistant-borde:#7c3aed;
   --bubble-user-bg:color-mix(in srgb, var(--primary) 18%, transparent); --bubble-user-borde:#7c3aed;
   --title-1:#22d3ee; --title-2:#7c3aed; --title-3:#38bdf8;
+  --input-bg: color-mix(in srgb, var(--surface-2) 75%, white 25%);
+  --input-border: var(--border);
 }
 body.theme-starfall{
   background-image: linear-gradient(135deg,var(--bg-start),var(--bg-mid),var(--bg-end)) !important;
@@ -108,6 +122,42 @@ body.theme-starfall::before{
 @keyframes starfall{
   from { background-position: 0 0, 0 0; }
   to   { background-position: 0 800px, 0 1200px; }
+}
+
+/* ========= NUEVO TEMA: BLANCO ========= */
+body.theme-white{
+  /* Fondo base y capas tipo “white / gray-10 / gray-20” */
+  --bg-start:#ffffff; --bg-mid:#ffffff; --bg-end:#ffffff;
+
+  --surface-0:#ffffff; /* base */
+  --surface-1:#f7f7f7; /* 1ª capa */
+  --surface-2:#efefef; /* 2ª capa */
+  --surface-3:#e8e8e8; /* 3ª capa */
+
+  --text:#161616;
+  --text-muted:#6f6f6f;
+
+  --border:#d4d8dd;      /* gris claro */
+  --border-soft:#e9ecef; /* gris más suave */
+  --shadow:0 10px 30px rgba(0,0,0,.08);
+
+  --primary:#2563eb;        /* azul sobrio para acentos */
+  --primary-strong:#1d4ed8;
+  --accent:#60a5fa; --accent-2:#a78bfa;
+
+  --bubble-assistant-bg:var(--surface-1);
+  --bubble-assistant-borde:#d7dbe0;
+  --bubble-user-bg:color-mix(in srgb, var(--primary) 13%, transparent);
+  --bubble-user-borde:color-mix(in srgb, var(--primary-strong) 70%, #0000 30%);
+
+  --title-1:#2563eb; --title-2:#7c3aed; --title-3:#0ea5e9;
+  --btn:var(--primary-strong); --btn-hov:color-mix(in srgb, var(--btn) 88%, white 12%);
+
+  /* Composer un pelín más claro que las burbujas */
+  --input-bg: var(--surface-2);
+  --input-border: #d0d5db;
+
+  --glow-1: rgba(59,130,246,.08); --glow-2: rgba(167,139,250,.08);
 }
 
 /* Animación general al cambiar tema */
@@ -204,8 +254,8 @@ body.panel-open #landing{ padding-left: calc(var(--panel-w) + 20px); }
 .input-group{ position:relative; display:grid; align-items:center; min-width:0; }
 .composer-input{
   width:100%; min-height:52px; font-size:1rem;
-  background: var(--surface-2); color: var(--text);
-  border:1px solid var(--border); border-radius:.75rem; outline:none;
+  background: var(--input-bg); color: var(--text);
+  border:1px solid var(--input-border); border-radius:.75rem; outline:none;
   padding:.7rem 6.2rem .7rem .8rem;
 }
 
@@ -249,9 +299,19 @@ body.panel-open #landing{ padding-left: calc(var(--panel-w) + 20px); }
 /* Burbujas */
 .msg{ display:flex; gap:8px; margin:8px 0; }
 .msg.assistant{ justify-content:flex-start; } .msg.user{ justify-content:flex-end; }
-.bubble{ max-width:78%; padding:10px 12px; border-radius:14px; line-height:1.55; word-wrap: break-word; overflow-wrap: anywhere; box-shadow: 0 4px 10px rgba(0,0,0,.25); }
+.bubble{
+  max-width:78%; padding:10px 12px; border-radius:14px; line-height:1.55; word-wrap: break-word; overflow-wrap: anywhere; box-shadow: 0 4px 10px rgba(0,0,0,.25);
+  transition: transform .45s ease, opacity .45s ease, box-shadow .45s ease, background-color .45s ease, border-color .45s ease, color .45s ease;
+  will-change: transform, opacity;
+  opacity:1; transform: translateX(0);
+}
 .msg.assistant .bubble{ background: var(--bubble-assistant-bg); border:1px solid var(--bubble-assistant-borde); }
 .msg.user .bubble{ background: var(--bubble-user-bg); border:1px solid var(--bubble-user-borde); text-align:right; }
+
+/* === ENTRADA DESLIZANTE (nuevo) === */
+.msg.assistant .bubble.enter{ transform: translateX(-8%); opacity: 0; }
+.msg.user .bubble.enter{ transform: translateX(8%); opacity: 0; }
+.bubble.enter.show{ transform: translateX(0); opacity: 1; }
 
 /* Markdown */
 .chat-markdown pre{
@@ -339,7 +399,7 @@ mjx-container[jax="CHTML"]{ font-size:1.42em; background:transparent!important; 
 .rename-cancel{ background:transparent; color:var(--text-muted) }
 .rename-cancel:hover{ background:var(--surface-3) }
 
-/* Paletas (6 swatches) */
+/* Paletas (6+ swatches) */
 .palette-grid{ display:flex; flex-direction:column; gap:10px; margin:8px 0 4px; }
 .palette-btn{
   display:flex; align-items:center; gap:10px; width:100%; padding:10px; border-radius:10px;
