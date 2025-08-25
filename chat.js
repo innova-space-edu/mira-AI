@@ -53,14 +53,18 @@ function appendMessage(role, contentHTML) {
   const chatBox = document.getElementById("chat-box");
   const wrap = document.createElement("div");
   wrap.className = `msg ${role}`;
+
   const bubble = document.createElement("div");
   bubble.className = "bubble chat-markdown enter"; // estado inicial fuera de vista
+  bubble.dataset.role = role; // permite CSS direccional
+  // direcciones (la CSS puede animar distinto asistente/usuario)
+  bubble.classList.add(role === "assistant" ? "from-left" : "from-right");
   bubble.innerHTML = contentHTML;
+
   wrap.appendChild(bubble);
   chatBox.appendChild(wrap);
 
   // Forzar relayout y activar animación
-  // (asistente entra desde izquierda, usuario desde derecha; definido en CSS)
   requestAnimationFrame(() => {
     bubble.classList.add("show");
     chatBox.scrollTop = chatBox.scrollHeight;
@@ -73,8 +77,12 @@ function showThinking(text = "MIRA está pensando…") {
   const div = document.createElement("div");
   div.id = "thinking";
   div.className = "msg assistant";
-  div.innerHTML = `<div class="bubble">${text}</div>`;
+  const b = document.createElement("div");
+  b.className = "bubble enter from-left bubble--thinking";
+  b.textContent = text;
+  div.appendChild(b);
   box.appendChild(div);
+  requestAnimationFrame(()=> b.classList.add("show"));
   box.scrollTop = box.scrollHeight;
 }
 function hideThinking() { document.getElementById("thinking")?.remove(); }
@@ -467,7 +475,7 @@ async function sendMessage() {
 
       const question = userMessage || "Describe y analiza detalladamente la(s) imagen(es).";
       await window.pipelineFromVision(visualContext, question, { userMessage });
-      requestSucceeded = true;
+      requestSucceeded = true; // el habla ya ocurre dentro de pipelineFromVision
     } else {
       showThinking();
       aiReply = await callLLMFromText(userMessage);
@@ -491,7 +499,7 @@ async function sendMessage() {
     localUrls.forEach(u => URL.revokeObjectURL(u));
   }
 
-  try { if (requestSucceeded) speakMarkdown(aiReply); } catch (e) { console.warn("TTS no disponible:", e); }
+  try { if (requestSucceeded && aiReply) speakMarkdown(aiReply); } catch (e) { console.warn("TTS no disponible:", e); }
 }
 window.sendMessage = sendMessage;
 
