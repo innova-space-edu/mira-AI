@@ -124,6 +124,18 @@
         </span>
         <span class="dock-label">Usuario</span>
       </button>
+
+      <!-- NUEVO: botón Imágenes -->
+      <button id="btn-images" class="dock-btn" title="Imágenes (T2I / I2T)">
+        <span class="dock-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <rect x="3" y="5" width="18" height="14" rx="2"></rect>
+            <circle cx="8.5" cy="10" r="1.5"></circle>
+            <path d="M21 15l-5-5-4 4-2-2-5 5"></path>
+          </svg>
+        </span>
+        <span class="dock-label">Imágenes</span>
+      </button>
     </div>
 
     <!-- Configuración anclada abajo -->
@@ -132,7 +144,7 @@
         <span class="dock-icon">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor">
             <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/>
-            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.07a1.65 1.65 0 0 0-1 1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 5 15a1.65 1.65 0 0 0-1.51-1H3.4a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 5 8a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 3.4V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19 9c0 .6.23 1.18.64 1.6.42.41 1 .64 1.6.64h.36a2 2 0 1 1 0 4h-.36c-.6 0-1.18.23-1.6.64Z" stroke-width="1.2"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.07a1 1 0 0 0-1 1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 5 15a1.65 1.65 0 0 0-1.51-1H3.4a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 5 8a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 3.4V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19 9c0 .6.23 1.18.64 1.6.42.41 1 .64 1.6.64h.36a2 2 0 1 1 0 4h-.36c-.6 0-1.18.23-1.6.64Z" stroke-width="1.2"/>
           </svg>
         </span>
         <span class="dock-label">Configuración</span>
@@ -254,6 +266,38 @@
         <div class="text-xs opacity-70 mt-2">Se guarda automáticamente.</div>
       </div>
 
+      <!-- NUEVO: Laboratorio de Imágenes -->
+      <div id="panel-images" class="panel-section">
+        <div class="space-y-5">
+          <!-- T2I -->
+          <section class="bg-gray-900/60 rounded-lg p-3 border border-white/10">
+            <h4 class="font-semibold mb-2">Generar imagen (Text → Image)</h4>
+            <div class="grid gap-2">
+              <input id="t2i-prompt" class="w-full p-2 rounded bg-gray-800 border border-gray-700" placeholder="Describe la imagen (ej: Un aula en acuarela, luz cálida)"/>
+              <div class="grid grid-cols-3 gap-2">
+                <input id="t2i-width"  type="number" min="256" max="1280" value="768" class="p-2 rounded bg-gray-800 border border-gray-700" placeholder="Ancho"/>
+                <input id="t2i-height" type="number" min="256" max="1280" value="768" class="p-2 rounded bg-gray-800 border border-gray-700" placeholder="Alto"/>
+                <input id="t2i-steps"  type="number" min="6"   max="50"   value="12"  class="p-2 rounded bg-gray-800 border border-gray-700" placeholder="Pasos"/>
+              </div>
+              <button id="t2i-run" class="px-3 py-2 rounded bg-purple-600 hover:bg-purple-700 w-full">Generar</button>
+              <div class="text-xs opacity-70">Usa <code>/api/t2i</code> (Hugging Face FLUX.1-schnell)</div>
+            </div>
+            <div class="mt-3 grid place-items-center">
+              <img id="t2i-preview" class="max-h-72 rounded border border-white/10" alt="Vista previa generada"/>
+            </div>
+          </section>
+
+          <!-- I2T (Caption) -->
+          <section class="bg-gray-900/60 rounded-lg p-3 border border-white/10">
+            <h4 class="font-semibold mb-2">Describir imagen (Image → Text)</h4>
+            <input id="i2t-file" type="file" accept="image/*" class="block w-full"/>
+            <button id="i2t-run" class="mt-2 px-3 py-2 rounded bg-blue-600 hover:bg-blue-700 w-full">Describir</button>
+            <div class="text-xs opacity-70 mt-1">Usa <code>/api/caption</code> (BLIP)</div>
+            <pre id="i2t-output" class="mt-3 whitespace-pre-wrap text-sm bg-gray-950/60 p-2 rounded border border-white/10"></pre>
+          </section>
+        </div>
+      </div>
+
       <!-- Modal acciones chat (compacto) -->
       <div id="chat-actions-modal" class="modal hidden" aria-hidden="true">
         <div class="modal-backdrop"></div>
@@ -308,7 +352,7 @@
                 </button>
 
                 <!-- Botón + (gira al abrir) -->
-                <button id="attachBtn" class="attach-btn" title="Adjuntar" aria-haspopup="true" aria-controls="attachMenu" aria-expanded="false" aria-label="Abrir opciones de adjunto">
+                <button id="attachBtn" class="attach-btn" title="Adjuntar" aria-haspopup="true" aria-controls="attachMenu" aria-expanded="false" aria-label="Abrir opciones de adjuntar">
                   <span class="plus" aria-hidden="true">+</span>
                 </button>
 
@@ -355,17 +399,23 @@
     const secMusic     = document.getElementById('panel-music');
     const secChats     = document.getElementById('panel-chats');
     const secSettings  = document.getElementById('panel-settings');
+    const secImages    = document.getElementById('panel-images'); // NUEVO
 
     function setPanelMode(mode){
       const isMusic    = (mode === 'music');
       const isChats    = (mode === 'chats');
       const isSettings = (mode === 'settings');
+      const isImages   = (mode === 'images'); // NUEVO
 
       secMusic.classList.toggle('active', isMusic);
       secChats.classList.toggle('active', isChats);
       secSettings.classList.toggle('active', isSettings);
+      if (secImages) secImages.classList.toggle('active', isImages); // NUEVO
 
-      titleEl.textContent = isMusic ? 'Música para el aprendizaje' : (isChats ? 'Tus chats' : 'Configuración');
+      titleEl.textContent = isMusic ? 'Música para el aprendizaje'
+                        : isChats ? 'Tus chats'
+                        : isSettings ? 'Configuración'
+                        : 'Laboratorio de Imágenes'; // NUEVO
       panel.classList.add('open');
       document.body.classList.add('panel-open');
       const u = window._currentUser;
@@ -383,6 +433,7 @@
     document.getElementById('btn-spotify')?.addEventListener('click', ()=>setPanelMode('music'));
     document.getElementById('btn-user')?.addEventListener('click',   ()=>setPanelMode('chats'));
     document.getElementById('btn-settings')?.addEventListener('click', ()=>setPanelMode('settings'));
+    document.getElementById('btn-images')?.addEventListener('click', ()=>setPanelMode('images')); // NUEVO
     document.getElementById('close-panel')?.addEventListener('click', closePanel);
 
     document.addEventListener('DOMContentLoaded', () => {
@@ -486,6 +537,56 @@
           });
         });
       })();
+
+      // ===== NUEVO: Wiring para Laboratorio de Imágenes =====
+      const t2iRun   = document.getElementById('t2i-run');
+      const t2iPrompt= document.getElementById('t2i-prompt');
+      const t2iW     = document.getElementById('t2i-width');
+      const t2iH     = document.getElementById('t2i-height');
+      const t2iSteps = document.getElementById('t2i-steps');
+      const t2iPrev  = document.getElementById('t2i-preview');
+
+      t2iRun?.addEventListener('click', async ()=>{
+        const payload = {
+          prompt: (t2iPrompt.value || '').trim(),
+          width:  parseInt(t2iW.value||'768',10),
+          height: parseInt(t2iH.value||'768',10),
+          steps:  parseInt(t2iSteps.value||'12',10)
+        };
+        if (!payload.prompt){ alert('Escribe un prompt.'); return; }
+        t2iRun.disabled = true; t2iRun.textContent = 'Generando...';
+        try{
+          const r = await fetch('/api/t2i', {
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body: JSON.stringify(payload)
+          });
+          const data = await r.json();
+          if (data?.image) t2iPrev.src = data.image;
+          else alert('Error T2I: ' + (data?.error || 'desconocido'));
+        }catch(err){ alert('Error T2I: '+err.message); }
+        finally{ t2iRun.disabled = false; t2iRun.textContent = 'Generar'; }
+      });
+
+      const i2tRun = document.getElementById('i2t-run');
+      const i2tFile= document.getElementById('i2t-file');
+      const i2tOut = document.getElementById('i2t-output');
+
+      i2tRun?.addEventListener('click', async ()=>{
+        if (!i2tFile.files?.[0]){ alert('Selecciona una imagen.'); return; }
+        i2tRun.disabled = true; i2tRun.textContent = 'Analizando...';
+        i2tOut.textContent = '';
+        try{
+          const fd = new FormData();
+          fd.append('image', i2tFile.files[0]);
+          const r = await fetch('/api/caption', { method:'POST', body: fd });
+          const data = await r.json();
+          if (data?.text) i2tOut.textContent = data.text;
+          else i2tOut.textContent = 'Error: ' + (data?.error || 'desconocido');
+        }catch(err){ i2tOut.textContent = 'Error: '+err.message; }
+        finally{ i2tRun.disabled = false; i2tRun.textContent = 'Describir'; }
+      });
+      // ===== FIN Laboratorio de Imágenes =====
     });
   </script>
 
