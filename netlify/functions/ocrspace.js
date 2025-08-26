@@ -1,41 +1,42 @@
-// File: netlify/functions/ocrspace.js
-// OCR con OCR.space
-// Env requerida: OCRSPACE_API_KEY
-// Espera: { imageBase64: "data:image/...;base64,XXXX", language?: "spa"|"eng"|... }
+// netlify/functions/ocrspace.js
+const fetch = (...args) => import("node-fetch").then(({ default: f }) => f(...args));
 
-const FormData = require("form-data");
-
-const OCR_URL = "https://api.ocr.space/parse/image";
-
-const cors = () => ({
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization",
-  "Access-Control-Allow-Methods": "POST, OPTIONS"
-});
-const json = (obj, status = 200) => ({ statusCode: status, headers: { "Content-Type": "application/json", ...cors() }, body: JSON.stringify(obj) });
+function cors() {
+  return {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+  };
+}
 
 exports.handler = async (event) => {
   if (event.httpMethod === "OPTIONS") return { statusCode: 200, headers: cors(), body: "" };
-  if (event.httpMethod !== "POST")   return json({ error: "Method not allowed" }, 405);
+  if (event.httpMethod !== "POST") return { statusCode: 405, headers: cors(), body: JSON.stringify({ error: "Method not allowed" }) };
 
   try {
     const { imageBase64, language = "spa" } = JSON.parse(event.body || "{}");
-    if (!imageBase64) return json({ error: "imageBase64 requerido" }, 400);
-    if (!process.env.OCRSPACE_API_KEY) return json({ error: "Falta OCRSPACE_API_KEY" }, 500);
+    if (!imageBase64) return { statusCode: 400, headers: cors(), body: JSON.stringify({ error: "Falta imageBase64" }) };
+    if (!process.env.OCRSPACE_API_KEY) return { statusCode: 500, headers: cors(), body: JSON.stringify({ error: "Falta OCRSPACE_API_KEY" }) };
 
-    const fd = new FormData();
-    fd.append("base64Image", imageBase64);
-    fd.append("language", language);
-    fd.append("scale", "true");
-    fd.append("isTable", "true");
+    const form = new URLSearchParams();
+    form.append("base64Image", imageBase64);
+    form.append("language", language);
+    form.append("isOverlayRequired", "false");
 
-    const r = await fetch(OCR_URL, { method: "POST", headers: { apikey: process.env.OCRSPACE_API_KEY }, body: fd });
-    const data = await r.json();
-    if (!r.ok) return json({ error: "OCR call failed", details: data }, r.status);
+    const resp = await fetch("https://api.ocr.space/parse/image", {
+      method: "POST",
+      headers: { "apikey": process.env.OCRSPACE_API_KEY, "Content-Type": "application/x-www-form-urlencoded" },
+      body: form.toString(),
+    });
 
-    const text = data?.ParsedResults?.[0]?.ParsedText || "";
-    return json({ ok: true, text, raw: data });
-  } catch (err) {
-    return json({ error: "Exception", details: String(err) }, 500);
+    const data = await resp.json();
+    if (!resp.ok || data.IsErroredOnProcessing) {
+      return { statusCode: 500, headers: cors(), body: JSON.stringify({ error: "OCR error", details: data }) };
+    }
+
+    const text = (data.ParsedResults || []).map(r => r.ParsedText).join("\n").trim();
+    return { statusCode: 200, headers: cors(), body: JSON.stringify({ text }) };
+  } catch (e) {
+    return { statusCode: 500, headers: cors(), body: JSON.stringify({ error: e.message }) };
   }
 };
