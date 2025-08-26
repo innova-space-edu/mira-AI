@@ -253,6 +253,19 @@ function fileToBase64(file){
 }
 
 // ============ VISIÓN (caption + OCR + VQA) ============
+// Helper con timeout para evitar colgadas (ACTUALIZADO)
+const DEFAULT_FETCH_TIMEOUT_MS = 25000;
+async function fetchWithTimeout(url, options = {}, timeoutMs = DEFAULT_FETCH_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const t = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const r = await fetch(url, { ...options, signal: controller.signal });
+    return r;
+  } finally {
+    clearTimeout(t);
+  }
+}
+
 async function httpError(res) {
   let body = "";
   try { body = await res.text(); } catch {}
@@ -264,16 +277,17 @@ function parseNiceError(err) {
   if (s.includes("401")) return "El servidor respondió 401 (revisa tokens/variables de entorno).";
   if (s.includes("429")) return "Límite de uso alcanzado (rate limit).";
   if (s.toLowerCase().includes("cors")) return "Bloqueo CORS (habilita tu dominio en el backend).";
+  if (s.toLowerCase().includes("aborted")) return "La solicitud tardó demasiado (timeout).";
   return s;
 }
 
 async function tryFetchVision(bodyJson){
   for (const url of BLIP_ENDPOINTS) {
-    const r = await fetch(url, { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(bodyJson) });
+    const r = await fetchWithTimeout(url, { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(bodyJson) });
     if (r.ok) return r;
     if (r.status !== 404) throw await httpError(r);
   }
-  const last = await fetch(
+  const last = await fetchWithTimeout(
     BLIP_ENDPOINTS[BLIP_ENDPOINTS.length-1], 
     { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(bodyJson) }
   );
@@ -283,11 +297,11 @@ async function tryFetchVision(bodyJson){
 
 async function tryFetchOCR(bodyJson){
   for (const url of OCR_ENDPOINTS) {
-    const r = await fetch(url, { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(bodyJson) });
+    const r = await fetchWithTimeout(url, { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(bodyJson) });
     if (r.ok) return r;
     if (r.status !== 404) throw await httpError(r);
   }
-  const last = await fetch(
+  const last = await fetchWithTimeout(
     OCR_ENDPOINTS[OCR_ENDPOINTS.length-1], 
     { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(bodyJson) }
   );
@@ -296,13 +310,14 @@ async function tryFetchOCR(bodyJson){
 }
 
 // NUEVO: VQA (preguntas sobre la imagen)
+// *** Cambio importante: el backend espera { imageBase64, prompt } ***
 async function tryFetchVQA(bodyJson){
   for (const url of VQA_ENDPOINTS) {
-    const r = await fetch(url, { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(bodyJson) });
+    const r = await fetchWithTimeout(url, { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(bodyJson) });
     if (r.ok) return r;
     if (r.status !== 404) throw await httpError(r);
   }
-  const last = await fetch(
+  const last = await fetchWithTimeout(
     VQA_ENDPOINTS[VQA_ENDPOINTS.length-1], 
     { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(bodyJson) }
   );
@@ -314,9 +329,17 @@ async function callBLIP(file) {
   const imageBase64 = await fileToBase64(file);
   const r = await tryFetchVision({ imageBase64 });
   const data = await r.json();
-  const desc = data?.caption || data?.description || data?.summary_text || "";
+  // BLIP/VIT pueden responder como [{generated_text: "..."}] o { text: "..." }
+  const desc =
+    data?.caption ||
+    data?.description ||
+    data?.summary_text ||
+    (Array.isArray(data) && data[0]?.generated_text) ||
+    data?.generated_text ||
+    data?.text ||
+    "";
   if (!desc) throw new Error("Respuesta de visión inválida (caption).");
-  return desc;
+  return String(desc).trim();
 }
 async function callOCR(file) {
   const imageBase64 = await fileToBase64(file);
@@ -327,14 +350,21 @@ async function callOCR(file) {
   return text.trim();
 }
 // NUEVO: callVQA (usa tu pregunta del usuario si existe, o una por defecto)
+// *** Cambio: enviamos { prompt } y aceptamos { text } como respuesta principal ***
 async function callVQA(file, question) {
   const imageBase64 = await fileToBase64(file);
   const q = (question && String(question).trim()) || "Describe y responde: ¿qué información principal muestra la imagen?";
-  const r = await tryFetchVQA({ imageBase64, question: q });
+  const r = await tryFetchVQA({ imageBase64, prompt: q });
   const data = await r.json();
-  const ans = (data?.answer || data?.generated_text || data?.label || "").toString().trim();
+  const ans =
+    (typeof data?.text === "string" && data.text) ||
+    data?.answer ||
+    data?.generated_text ||
+    data?.label ||
+    (Array.isArray(data) && data[0]?.generated_text) ||
+    "";
   if (!ans) throw new Error("Respuesta VQA inválida.");
-  return ans;
+  return String(ans).trim();
 }
 
 async function analyzeImages(files) {
