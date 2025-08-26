@@ -6,7 +6,7 @@
   directory    = "netlify/functions"
   node_bundler = "esbuild"
 
-# (Opcional) timeouts por función – útil para modelos/LLMs
+# (Opcional) timeouts por función – útil para modelos/LLMs ya existentes
 [functions.vqa]
   timeout = 26
 
@@ -15,6 +15,13 @@
 
 [functions.ocrspace]
   timeout = 26
+
+# NUEVO: timeouts para T2I y Caption
+[functions.t2i]
+  timeout = 30
+
+[functions.caption]
+  timeout = 30
 
 # ============ Rutas limpias /api/* ============
 # Chat general (tu proxy a Groq u OpenAI)
@@ -51,6 +58,18 @@
 [[redirects]]
   from = "/api/vqa"
   to   = "/.netlify/functions/vqa"
+  status = 200
+
+# NUEVO: Text→Image
+[[redirects]]
+  from = "/api/t2i"
+  to   = "/.netlify/functions/t2i"
+  status = 200
+
+# NUEVO: Image→Text (captioning)
+[[redirects]]
+  from = "/api/caption"
+  to   = "/.netlify/functions/caption"
   status = 200
 
 # (Opcional) seguridad básica de headers
