@@ -1,47 +1,62 @@
+[build]
+  functions = "netlify/functions"
+  publish   = "."
+
 [functions]
-directory = "netlify/functions"
-node_bundler = "esbuild"
+  directory    = "netlify/functions"
+  node_bundler = "esbuild"
 
 # (Opcional) timeouts por función – útil para modelos/LLMs
 [functions.vqa]
-timeout = 26
+  timeout = 26
 
 [functions.vision]
-timeout = 26
+  timeout = 26
 
 [functions.ocrspace]
-timeout = 26
+  timeout = 26
 
 # ============ Rutas limpias /api/* ============
+# Chat general (tu proxy a Groq u OpenAI)
 [[redirects]]
-from = "/api/chat"
-to = "/.netlify/functions/chat"
-status = 200
+  from = "/api/chat"
+  to   = "/.netlify/functions/chat"
+  status = 200
 
+# Proxy alternativo (por si llamas directo)
 [[redirects]]
-from = "/api/groq"
-to = "/.netlify/functions/groq-proxy"
-status = 200
+  from = "/api/groq"
+  to   = "/.netlify/functions/groq-proxy"
+  status = 200
 
-# Tu frontend llama /api/ocrspace -> ocrspace
+# OCR (OCR.space)
 [[redirects]]
-from = "/api/ocrspace"
-to = "/.netlify/functions/ocrspace"
-status = 200
+  from = "/api/ocrspace"
+  to   = "/.netlify/functions/ocrspace"
+  status = 200
 
-# (mantengo también /api/ocr por compatibilidad si lo usas en otra parte)
+# Compatibilidad con /api/ocr
 [[redirects]]
-from = "/api/ocr"
-to = "/.netlify/functions/ocrspace"
-status = 200
+  from = "/api/ocr"
+  to   = "/.netlify/functions/ocrspace"
+  status = 200
 
+# BLIP / VIT captioning (visión clásica)
 [[redirects]]
-from = "/api/vision"
-to = "/.netlify/functions/vision"
-status = 200
+  from = "/api/vision"
+  to   = "/.netlify/functions/vision"
+  status = 200
 
-# Nuevo: VQA
+# VQA (Qwen-VL multimodal)
 [[redirects]]
-from = "/api/vqa"
-to = "/.netlify/functions/vqa"
-status = 200
+  from = "/api/vqa"
+  to   = "/.netlify/functions/vqa"
+  status = 200
+
+# (Opcional) seguridad básica de headers
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "SAMEORIGIN"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
