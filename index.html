@@ -43,6 +43,13 @@
 
   <!-- Estilos -->
   <link rel="stylesheet" href="style.css"/>
+
+  <!-- FIX: evita que el menú de adjuntos tape el input/botón cuando está oculto -->
+  <style>
+    .upload-tray.hidden { display: none !important; pointer-events: none !important; opacity: 0 !important; }
+    .upload-tray { position: absolute; z-index: 50; }
+    .composer, #user-input, #send-btn { position: relative; z-index: 60; }
+  </style>
 </head>
 
 <body class="text-white font-sans">
@@ -365,7 +372,7 @@
     const secSettings  = document.getElementById('panel-settings');
     const secGallery   = document.getElementById('panel-gallery');
 
-    // ======= GALERÍA (LocalStorage) =======
+    // ======= GALERÍA (LocalStorage) =======>
     window.Gallery = (function(){
       const KEY = 'mira_gallery_v1';
       function all(){ try { return JSON.parse(localStorage.getItem(KEY)||'[]'); } catch { return []; } }
@@ -836,5 +843,35 @@
 
   <!-- Lógica del chat -->
   <script src="chat.js"></script>
+
+  <!-- FIX: wirear Enter y botón Enviar al sendMessage del chat -->
+  <script>
+    (function(){
+      function wireComposerEvents(){
+        const input = document.getElementById('user-input');
+        const sendBtn = document.getElementById('send-btn');
+
+        if (input) {
+          input.addEventListener('keydown', function(e){
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              if (typeof window.sendMessage === 'function') window.sendMessage();
+            }
+          });
+        }
+        if (sendBtn) {
+          sendBtn.addEventListener('click', function(e){
+            e.preventDefault();
+            if (typeof window.sendMessage === 'function') window.sendMessage();
+          });
+        }
+      }
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', wireComposerEvents);
+      } else {
+        wireComposerEvents();
+      }
+    })();
+  </script>
 </body>
 </html>
