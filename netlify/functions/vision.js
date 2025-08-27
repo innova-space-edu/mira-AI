@@ -1,77 +1,72 @@
 // netlify/functions/vision.js
-// Endpoint unificado de visión para tu frontend:
-//  body JSON:
-//   { task: "describe" | "qa" | "ocr", imageB64?: string, imageUrl?: string, question?: string, model?: string }
+// Visión unificado: { task: "describe"|"qa"|"ocr", imageB64|imageUrl, question? }
 // Requiere: OPENROUTER_API_KEY
+// Opcional: OPENROUTER_SITE_URL, OPENROUTER_APP_NAME, VISION_MODEL
 
 const ALLOW_ORIGIN = "*";
+const ORIGIN_HEADERS = {
+  "Access-Control-Allow-Origin": ALLOW_ORIGIN,
+  "Access-Control-Allow-Methods": "POST,OPTIONS",
+  "Access-Control-Allow-Headers": "content-type, authorization",
+};
 
-function cors() {
-  return {
-    "Access-Control-Allow-Origin": ALLOW_ORIGIN,
-    "Access-Control-Allow-Methods": "POST,OPTIONS",
-    "Access-Control-Allow-Headers": "content-type, authorization",
-  };
-}
-function json(res, status = 200) {
-  return { statusCode: status, headers: { ...cors(), "Content-Type": "application/json" }, body: JSON.stringify(res) };
-}
-function text(body, status = 200) {
-  return { statusCode: status, headers: { ...cors(), "Content-Type": "text/plain; charset=utf-8" }, body };
-}
+const VALID_MODELS = [
+  process.env.VISION_MODEL, // si la defines, se prueba primero
+  "qwen/qwen-2-vl-72b-instruct",
+  "meta-llama/llama-3.2-11b-vision-instruct",
+  "openai/gpt-4o-mini", // si tu cuenta lo tiene disponible en OpenRouter
+].filter(Boolean);
 
-const PREFERRED_MODELS = [
-  // Qwen VL suele aceptar data: URLs mejor que varios LLaVA
-  "qwen/qwen-2.5-vl-7b-instruct",
-  "qwen/qwen-2.5-vl-3b-instruct",
-  // Fallbacks LLaVA (pueden exigir URL pública; a veces rechazan data:)
-  "llava/llava-v1.6-mistral-7b",
-  "llava/llava-v1.6-34b",
-];
+// Sanitiza headers ASCII (evita ByteString 8211)
+const safeHeader = (v, f="") => String(v ?? f).replace(/[^\x20-\x7E]/g, "-").slice(0, 200);
 
-const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
+const json = (body, status=200) => ({
+  statusCode: status,
+  headers: { ...ORIGIN_HEADERS, "Content-Type": "application/json" },
+  body: JSON.stringify(body),
+});
+const text = (body, status=200) => ({
+  statusCode: status,
+  headers: { ...ORIGIN_HEADERS, "Content-Type": "text/plain; charset=utf-8" },
+  body,
+});
 
-function toDataUrlMaybe(b64) {
-  if (!b64) return null;
-  if (/^data:image\//i.test(b64)) return b64; // ya es data URL
-  return `data:image/png;base64,${b64}`;
-}
-
-function buildMessages({ task, question, imageUrlOrData }) {
-  const promptBase =
-    task === "ocr"
-      ? "Transcribe TODO el texto visible en la imagen en español. Mantén el orden y no inventes texto."
-      : task === "qa"
-      ? (question?.trim() || "Responde con precisión a la pregunta sobre la imagen.")
-      : "Describe con detalle la imagen en español (objetos, texto visible, colores, contexto).";
-
-  return [
-    {
-      role: "user",
-      content: [
-        { type: "input_text", text: promptBase },
-        { type: "input_image", image_url: imageUrlOrData },
-      ],
-    },
-  ];
+function asDataUrl({ imageB64, imageUrl }) {
+  if (imageUrl && /^data:image\//i.test(imageUrl)) return imageUrl;
+  if (imageUrl) return imageUrl; // URL remota
+  if (!imageB64) return null;
+  if (/^data:image\//i.test(imageB64)) return imageB64;
+  // asumimos PNG si viene base64 "puro"
+  return `data:image/png;base64,${imageB64}`;
 }
 
-async function callOpenRouterVision({ model, messages, temperature = 0.2 }) {
+async function callOpenRouterVision({ model, prompt, dataUrl }) {
   const apiKey = process.env.OPENROUTER_API_KEY;
-  if (!apiKey) throw new Error("OPENROUTER_API_KEY no configurada");
+  if (!apiKey) throw new Error("OPENROUTER_API_KEY not set");
 
-  const siteUrl = process.env.OPENROUTER_SITE_URL || "https://example.com";
-  const appName = process.env.OPENROUTER_APP_NAME || "Innova Space MIRA";
+  const site = safeHeader(process.env.OPENROUTER_SITE_URL || "https://example.com");
+  const app  = safeHeader(process.env.OPENROUTER_APP_NAME || "Innova Space MIRA");
 
-  const r = await fetch(OPENROUTER_URL, {
+  const messages = [
+    { role: "system", content:
+      "Eres un asistente de visión. Responde SIEMPRE en español. " +
+      "Sé conciso y claro. En OCR transcribe fiel al original; en describe da detalles útiles; en QA responde directo." },
+    { role: "user", content: [
+        { type: "text", text: prompt || "Describe la imagen con detalle en español." },
+        { type: "image_url", image_url: dataUrl }
+      ]
+    }
+  ];
+
+  const r = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
-      "HTTP-Referer": siteUrl,
-      "X-Title": appName,
+      "HTTP-Referer": site,
+      "X-Title": app,
     },
-    body: JSON.stringify({ model, messages, temperature }),
+    body: JSON.stringify({ model, messages, temperature: 0.2 }),
   });
 
   const raw = await r.text();
@@ -79,68 +74,54 @@ async function callOpenRouterVision({ model, messages, temperature = 0.2 }) {
   try { data = JSON.parse(raw || "{}"); } catch {}
 
   if (!r.ok) {
-    const detail = (data?.error?.message || data?.error || raw || "").slice(0, 2000);
-    const err = new Error(`OpenRouter ${model} error ${r.status}: ${detail}`);
+    const msg = data?.error?.message || data?.error || raw || `HTTP ${r.status}`;
+    const err = new Error(msg);
     err.status = r.status;
     throw err;
   }
-
-  const text =
-    data?.choices?.[0]?.message?.content?.trim?.() ||
-    data?.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments ||
-    "";
-  return text;
+  return data?.choices?.[0]?.message?.content?.trim?.() || "";
 }
 
 exports.handler = async (event) => {
-  if (event.httpMethod === "OPTIONS") return { statusCode: 200, headers: cors(), body: "" };
+  if (event.httpMethod === "OPTIONS") {
+    return { statusCode: 200, headers: ORIGIN_HEADERS, body: "" };
+  }
   if (event.httpMethod !== "POST") return text("Method Not Allowed", 405);
 
   let body = {};
-  try { body = JSON.parse(event.body || "{}"); }
-  catch { return json({ error: "Body JSON inválido." }, 400); }
+  try { body = JSON.parse(event.body || "{}"); } catch { return json({ error: "JSON inválido" }, 400); }
 
   const task = (body.task || "describe").toLowerCase();
-  const question = String(body.question || "");
-  const imageUrl = body.imageUrl && String(body.imageUrl);
-  const imageB64 = body.imageB64 && String(body.imageB64);
-  const userModel = body.model && String(body.model);
-  const imageUrlOrData = imageUrl || toDataUrlMaybe(imageB64);
+  const question = (body.question || "").trim();
+  const dataUrl = asDataUrl({ imageB64: body.imageB64, imageUrl: body.imageUrl });
+  if (!dataUrl) return json({ error: "Falta la imagen (imageB64 o imageUrl)." }, 400);
 
-  if (!imageUrlOrData) return json({ error: "Falta 'imageUrl' o 'imageB64'." }, 400);
+  let prompt = "Describe la imagen con detalle y contexto.";
+  if (task === "ocr") prompt = "Transcribe exactamente todo el texto de la imagen (OCR). Conserva mayúsculas, saltos y símbolos.";
+  else if (task === "qa") prompt = `Responde con precisión a la siguiente pregunta sobre la imagen: ${question || "(no se proporcionó pregunta)"}\nSi no hay suficiente evidencia visual, dilo explícitamente.`;
 
-  const messages = buildMessages({ task, question, imageUrlOrData });
-  const modelsToTry = userModel ? [userModel, ...PREFERRED_MODELS.filter(m => m !== userModel)] : PREFERRED_MODELS;
-
-  // Intentos en cascada
-  let lastError = null;
-  for (const model of modelsToTry) {
+  // prueba modelos válidos en orden
+  let lastErr = null;
+  for (const model of VALID_MODELS) {
     try {
-      const out = await callOpenRouterVision({ model, messages });
-      // Devolvemos un formato homogéneo con tu frontend:
-      const field = task === "ocr" ? "text" : task === "qa" ? "answer" : "caption";
-      return json({ content: out, [field]: out, model });
+      const content = await callOpenRouterVision({ model, prompt, dataUrl });
+      if (!content) continue;
+      return json({ content });
     } catch (e) {
-      lastError = e;
-      // Si el modelo rechaza data: URL (400), intentamos el siguiente
-      if (e?.status && e.status >= 500) {
-        // errores 5xx: breve pausa podría ayudar, pero lo omitimos por simplicidad
-      }
+      lastErr = e;
+      // model inválido → intenta con el siguiente
+      if (String(e?.message||"").toLowerCase().includes("not a valid model")) continue;
     }
   }
 
-  // Si nada funcionó:
-  return json(
-    {
-      error: "Ningún modelo de visión aceptó la imagen.",
-      detail: String(lastError?.message || lastError || "desconocido"),
-      hints: [
-        "Usa JPG/PNG ≤ ~2 MB.",
-        "Si sigue fallando, prueba entregar una URL https pública en lugar de base64.",
-        "Modelos LLaVA a veces no aceptan data: URLs; Qwen-VL suele funcionar mejor.",
-      ],
-    },
-    // Importante: mantener 400 (no 502) para que el frontend muestre algo claro
-    400
-  );
+  const hints = [
+    "Usa JPG/PNG ≤ ~2 MB.",
+    "Evita imágenes CMYK; usa RGB.",
+    "Si falla un modelo, se intenta con otros automáticamente."
+  ];
+  return json({
+    error: "Ningún modelo de visión aceptó la imagen.",
+    detail: String(lastErr?.message || lastErr || "desconocido"),
+    hints
+  }, lastErr?.status || 400);
 };
