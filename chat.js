@@ -19,6 +19,9 @@ const OCR_ENDPOINTS     = ["/api/ocrspace", "/.netlify/functions/ocrspace"];
 const VQA_ENDPOINTS     = ["/api/vqa", "/.netlify/functions/vqa"];
 const T2I_ENDPOINTS     = ["/api/t2i", "/.netlify/functions/t2i"];            // Text->image
 
+// NUEVO: endpoint unificado de visión (describe/qa/ocr)
+const VISION_ENDPOINTS  = ["/api/vision", "/.netlify/functions/vision"];
+
 // ============ AVATAR ============
 let __innerAvatarSvg = null;
 function hookAvatarInnerSvg() {
@@ -248,6 +251,12 @@ function fileToBase64(file){
     fr.readAsDataURL(file);
   });
 }
+// NUEVO: DataURL → sólo base64 sin prefijo
+function dataUrlToB64(dataUrl) {
+  if (!dataUrl) return "";
+  const m = String(dataUrl).match(/^data:.*?;base64,(.*)$/);
+  return m ? m[1] : dataUrl;
+}
 
 // ============ VISIÓN (VQA + OCR; caption queda disponible pero sin uso) ============
 const DEFAULT_FETCH_TIMEOUT_MS = 25000;
@@ -298,8 +307,18 @@ async function callCaption(file) {
   return String(desc).trim();
 }
 
-/* ======= OCR ======= */
+/* ======= OCR (legacy + VISIÓN unificado) ======= */
 async function tryFetchOCR(bodyJson){
+  // PRIMERO: nuevo endpoint unificado
+  try {
+    const b = { task: "ocr" };
+    if (bodyJson?.imageBase64) b.imageB64 = dataUrlToB64(bodyJson.imageBase64);
+    if (bodyJson?.imageUrl)   b.imageUrl  = bodyJson.imageUrl;
+    const r = await tryFetchVision(b);
+    if (r) return r; // si devolvió Response ok
+  } catch (_e) { /* cae a legacy */ }
+
+  // LEGACY
   for (const url of OCR_ENDPOINTS) {
     const r = await fetchWithTimeout(url, { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(bodyJson) });
     if (r.ok) return r;
@@ -316,13 +335,25 @@ async function callOCR(file) {
   const imageBase64 = await fileToBase64(file);
   const r = await tryFetchOCR({ imageBase64, language: "spa" });
   const data = await r.json();
-  const text = (typeof data?.text === "string" ? data.text : (data?.ocrText || data?.result || ""));
+  const text = (typeof data?.content === "string" ? data.content :
+               (typeof data?.text === "string" ? data.text :
+               (data?.ocrText || data?.result || "")));
   if (typeof text !== "string") throw new Error("Respuesta OCR inválida.");
   return text.trim();
 }
 
-/* ======= VQA ======= */
+/* ======= VQA (legacy + VISIÓN unificado) ======= */
 async function tryFetchVQA(bodyJson){
+  // PRIMERO: nuevo endpoint unificado
+  try {
+    const b = { task: "qa", question: bodyJson?.prompt || bodyJson?.question || "" };
+    if (bodyJson?.imageBase64) b.imageB64 = dataUrlToB64(bodyJson.imageBase64);
+    if (bodyJson?.imageUrl)   b.imageUrl  = bodyJson.imageUrl;
+    const r = await tryFetchVision(b);
+    if (r) return r;
+  } catch (_e) { /* cae a legacy */ }
+
+  // LEGACY
   for (const url of VQA_ENDPOINTS) {
     const r = await fetchWithTimeout(url, { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(bodyJson) });
     if (r.ok) return r;
@@ -341,6 +372,7 @@ async function callVQA(file, question) {
   const r = await tryFetchVQA({ imageBase64, prompt: q });
   const data = await r.json();
   const ans =
+    (typeof data?.content === "string" && data.content) ||
     (typeof data?.text === "string" && data.text) ||
     data?.answer ||
     data?.generated_text ||
@@ -351,7 +383,32 @@ async function callVQA(file, question) {
   return String(ans).trim();
 }
 
-/* ======= Analizar imágenes: SOLO VQA + OCR ======= */
+/* ======= NUEVO: VISIÓN unificado helper ======= */
+async function tryFetchVision(bodyJson){
+  let lastNon404 = null;
+  for (const url of VISION_ENDPOINTS) {
+    const r = await fetchWithTimeout(url, { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(bodyJson) });
+    if (r.ok) return r;
+    if (r.status !== 404) { lastNon404 = await httpError(r); }
+  }
+  if (lastNon404) throw lastNon404;
+  // Si todos fueron 404, no existe → devuelve null para que caller pruebe legacy
+  return null;
+}
+async function callVision(file, { task = "describe", question = "" } = {}) {
+  const imageBase64 = await fileToBase64(file);
+  const r = await tryFetchVision({ task, imageB64: dataUrlToB64(imageBase64), question });
+  if (!r) throw new Error("Endpoint de visión no disponible.");
+  const data = await r.json();
+  const content =
+    (typeof data?.content === "string" && data.content) ||
+    (typeof data?.text === "string" && data.text) ||
+    data?.answer || data?.caption || data?.generated_text || "";
+  if (!content) throw new Error("Respuesta de visión vacía.");
+  return String(content).trim();
+}
+
+/* ======= Analizar imágenes (versión original) ======= */
 async function analyzeImages(files) {
   const input = document.getElementById("user-input");
   const userQuestion = (input?.value || "").trim();
@@ -426,6 +483,139 @@ Recuerda: usa LaTeX grande para fórmulas con $$ ... $$ cuando apliquen. Respond
   }
 };
 
+// ======== INTENCIÓN NATURAL (mejorada): T2I / I2T ========
+function wantsT2I(text, hasFiles){
+  const t = (text||"").toLowerCase();
+  const genVerbs = /(genera|genérame|haz|hazme|crea|créame|crear|dibuja|pinta|píntame|ilustra|renderiza|constr(uye|uir)|arma|ház)/i;
+  const imgNoun  = /(imagen|logo|portada|banner|afiche|fondo|wallpaper|ilustración|dibujo|arte)/i;
+  // Evita falsos positivos tipo "haz el ejercicio de la imagen"
+  if (hasFiles) return genVerbs.test(t) && /\b(imagen|ilustración|logo|banner|portada|fondo)\b/i.test(t);
+  return genVerbs.test(t) || (genVerbs.test(t) && imgNoun.test(t));
+}
+function extractT2IPrompt(text){
+  return text
+    .replace(/(genera|genérame|haz|hazme|crea|créame|crear|dibuja|pinta|píntame|ilustra|renderiza)\s*(una|un)?\s*(imagen|logo|banner|portada|fondo)?\s*(de|del|de la|con)?/i, "")
+    .trim();
+}
+function wantsCaptionIntention(text){
+  return /(describe|describir|descripción|descripcion|reconoce|identifica|analiza|qué ves|que ves|dime sobre esta imagen)/i.test(text||"");
+}
+
+// NUEVO: clasificador completo de intención con imágenes
+function detectImageIntent(text){
+  const t = (text||"").toLowerCase();
+
+  const ocr = /\b(ocr|lee(?:r)?(?:\s*el)?\s*texto|transcribe|extrae\s*texto|copiar\s*texto|reconoce\s*texto|detectar\s*texto)\b/.test(t);
+  const describe = /\b(describe|describir|descripción|descripcion|reconoce|identifica|analiza|detalla|resume\s*la\s*imagen)\b/.test(t);
+  const qa = /(\?|¿)|\b(pregunta|respónd(?:e|eme)|qué\s+hay|que\s+hay|qué\s+dice|que\s+dice|qué\s+color|dónde|donde|cuánto|cuanto|por\s*qué|porque)\b/.test(t);
+  const solve = /\b(resuelve|resolver|soluciona|calcula|desarrolla|demuestra|halla|obt[eé]n|explica|aplica)\b/.test(t);
+  const analyze = /\b(analiza|analizar|estudia|evalúa|evalua|interpreta|diagnostica|clasifica|segmenta)\b/.test(t);
+
+  return { ocr, describe, qa, solve, analyze };
+}
+
+// ======== Llamador T2I =========
+async function tryFetchT2I(bodyJson){
+  for (const url of T2I_ENDPOINTS) {
+    const r = await fetchWithTimeout(url, { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(bodyJson) }, 60000);
+    if (r.ok) return r;
+    if (r.status !== 404) throw await httpError(r);
+  }
+  const last = await fetchWithTimeout(
+    T2I_ENDPOINTS[T2I_ENDPOINTS.length-1], 
+    { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(bodyJson) }, 
+    60000
+  );
+  if (!last.ok) throw await httpError(last);
+  return last;
+}
+
+/* ======= NUEVO: Analizar imágenes inteligente según intención ======= */
+async function analyzeImagesSmart(files, userMessage) {
+  const intent = detectImageIntent(userMessage);
+  const wantsAny = intent.ocr || intent.describe || intent.qa || intent.solve || intent.analyze;
+
+  const results = [];
+  let aggregatedOCR = "";
+
+  for (const [idx, file] of files.entries()) {
+    const perImageBlocks = [];
+
+    // Si no hay intención explícita, hacemos describe + OCR por defecto
+    const doDescribe = intent.describe || (!wantsAny);
+    const doOCR      = intent.ocr      || (!wantsAny);
+    const doQA       = intent.qa;
+
+    // DESCRIBIR
+    if (doDescribe) {
+      try {
+        const desc = await callVision(file, { task: "describe" });
+        if (desc) perImageBlocks.push(`• **Descripción:** ${desc}`);
+      } catch (e) {
+        // fallback: VQA con prompt de descripción
+        try {
+          const alt = await callVQA(file, "Describe con detalle la imagen (objetos, texto visible, contexto).");
+          if (alt) perImageBlocks.push(`• **Descripción:** ${alt}`);
+        } catch (ee) {
+          perImageBlocks.push(`• **Descripción:** (error: ${escapeHtml(String(e.message||e))})`);
+        }
+      }
+    }
+
+    // OCR
+    if (doOCR) {
+      try {
+        const text = await callOCR(file);
+        if (text) {
+          aggregatedOCR += (aggregatedOCR ? "\n\n" : "") + text;
+          perImageBlocks.push(`• **Texto (OCR):** ${text}`);
+        }
+      } catch (e) {
+        // fallback por visión como OCR
+        try {
+          const alt = await callVision(file, { task: "ocr" });
+          if (alt) {
+            aggregatedOCR += (aggregatedOCR ? "\n\n" : "") + alt;
+            perImageBlocks.push(`• **Texto (OCR):** ${alt}`);
+          }
+        } catch (ee) {
+          perImageBlocks.push(`• **Texto (OCR):** (error: ${escapeHtml(String(e.message||e))})`);
+        }
+      }
+    }
+
+    // QA
+    if (doQA) {
+      const q = userMessage && /[?¿]/.test(userMessage) ? userMessage : "Responde a la pregunta implícita sobre la imagen.";
+      try {
+        const ans = await callVision(file, { task: "qa", question: q });
+        if (ans) perImageBlocks.push(`• **Respuesta a la pregunta:** ${ans}`);
+      } catch (e) {
+        // fallback legacy
+        try {
+          const alt = await callVQA(file, q);
+          if (alt) perImageBlocks.push(`• **Respuesta a la pregunta:** ${alt}`);
+        } catch (ee) {
+          perImageBlocks.push(`• **Respuesta a la pregunta:** (error: ${escapeHtml(String(e.message||e))})`);
+        }
+      }
+    }
+
+    if (!perImageBlocks.length) {
+      perImageBlocks.push("• (No se pudo obtener información de la imagen).");
+    }
+
+    results.push(`Imagen ${idx+1}:\n${perImageBlocks.join("\n")}`);
+  }
+
+  // Guarda OCR global en contexto por si se pide resolver
+  window.setVisionContext({ ocrText: aggregatedOCR });
+
+  // Si la intención es "resolver/analizar", activa pipeline con LLM.
+  const shouldSolve = intent.solve || intent.analyze;
+  return { textBlock: results.join("\n\n"), shouldSolve };
+}
+
 // ============ ENVÍO MENSAJE ============
 const $fileInput   = document.getElementById("fileInput");
 const $attachBtn   = document.getElementById("attachBtn");
@@ -476,16 +666,16 @@ $fileInput?.addEventListener("change", async (e) => {
 });
 
 // ======== INTENCIÓN NATURAL: T2I / I2T ========
-function wantsT2I(text){
-  return /(genera|genérame|haz|hazme|crea|créame|crear|crearás).*(una )?imagen/i.test(text);
+function wantsT2I_Light(text){
+  return /(genera|genérame|haz|hazme|crea|créame|crear|crearás).*(una )?imagen/i.test(text||"");
 }
 function extractT2IPrompt(text){
-  return text
-    .replace(/(genera|genérame|haz|hazme|crea|créame|crear|crearás)\s*la?\s*imagen\s*(de|del|de la)?/i, "")
+  return (text||"")
+    .replace(/(genera|genérame|haz|hazme|crea|créame|crear|crearás|dibuja|pinta|ilustra)\s*(una|un)?\s*(imagen|logo|banner|portada|fondo)?\s*(de|del|de la|con)?/i, "")
     .trim();
 }
 function wantsCaptionIntention(text){
-  return /(describe|reconoce|analiza|qué ves|que ves|dime sobre esta imagen)/i.test(text);
+  return /(describe|reconoce|analiza|qué ves|que ves|dime sobre esta imagen)/i.test(text||"");
 }
 
 // Enter y botón enviar
@@ -543,21 +733,24 @@ async function sendMessage() {
   let requestSucceeded = false;
 
   try {
-    // --- Caso 1: Generación de imagen por texto ---
-    if (files.length === 0 && userMessage && wantsT2I(userMessage)) {
+    const hasFiles = files.length > 0;
+
+    // --- Caso 1: Generación de imagen por texto (sin adjuntos) ---
+    if (!hasFiles && userMessage && wantsT2I(userMessage, false)) {
       const prompt = extractT2IPrompt(userMessage) || userMessage;
       showThinking("Generando imagen…");
-      const r = await tryFetchT2I({ prompt });
+      const r = await tryFetchT2I({ prompt, provider: "auto", options: { aspect_ratio: "1:1" } });
       const data = await r.json();
       hideThinking();
 
-      if (data?.image) {
+      const src = data?.image || data?.imageUrl || (data?.imageB64 ? `data:image/png;base64,${data.imageB64}` : null);
+      if (src) {
         const html = `<div class="space-y-2">
-          <img src="${data.image}" alt="imagen generada" class="rounded-lg border border-white/10 max-w-full"/>
+          <img src="${src}" alt="imagen generada" class="rounded-lg border border-white/10 max-w-full"/>
           ${prompt ? `<div class="text-xs opacity-70">Prompt: ${escapeHtml(prompt)}</div>` : ""}
         </div>`;
         appendMessage("assistant", html);
-        try { window.Gallery?.add?.({ src: data.image, prompt }); } catch {}
+        try { window.Gallery?.add?.({ src, prompt }); } catch {}
         saveMsg("assistant", "[Imagen generada]");
         requestSucceeded = true;
       } else {
@@ -567,14 +760,22 @@ async function sendMessage() {
       return;
     }
 
-    // --- Caso 2: Análisis de imagen (VQA + OCR) ---
-    if (files.length > 0) {
+    // --- Caso 2: Análisis de imagen (intención por palabras clave) ---
+    if (hasFiles) {
       showThinking("Analizando imagen…");
-      const visualContext = await analyzeImages(files);
+
+      const { textBlock, shouldSolve } = await analyzeImagesSmart(files, userMessage || "");
       hideThinking();
 
-      const question = userMessage || (wantsCaptionIntention(userMessage) ? "Describe y analiza detalladamente la(s) imagen(es)." : "Describe y analiza detalladamente la(s) imagen(es).");
-      await window.pipelineFromVision(visualContext, question, { userMessage });
+      if (shouldSolve) {
+        await window.pipelineFromVision(textBlock, userMessage || "Resume y resuelve", { userMessage });
+      } else {
+        // Mostrar solo los resultados solicitados (describe/ocr/qa)
+        const html = renderMarkdown(textBlock);
+        appendMessage("assistant", html);
+        saveMsg("assistant", textBlock);
+        try { speakMarkdown(textBlock); } catch {}
+      }
       requestSucceeded = true;
       return;
     }
