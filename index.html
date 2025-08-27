@@ -101,7 +101,7 @@
       </h2>
     </div>
 
-    <!-- Dock (Spotify / Usuario) -->
+    <!-- Dock (Spotify / Usuario / Galería) -->
     <div class="side-dock">
       <button id="btn-spotify" class="dock-btn" title="Spotify">
         <span class="dock-icon">
@@ -125,8 +125,8 @@
         <span class="dock-label">Usuario</span>
       </button>
 
-      <!-- NUEVO: botón Imágenes -->
-      <button id="btn-images" class="dock-btn" title="Imágenes (T2I / I2T)">
+      <!-- Botón Galería -->
+      <button id="btn-images" class="dock-btn" title="Galería de imágenes">
         <span class="dock-icon">
           <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor">
             <rect x="3" y="5" width="18" height="14" rx="2"></rect>
@@ -134,7 +134,7 @@
             <path d="M21 15l-5-5-4 4-2-2-5 5"></path>
           </svg>
         </span>
-        <span class="dock-label">Imágenes</span>
+        <span class="dock-label">Galería</span>
       </button>
     </div>
 
@@ -241,18 +241,7 @@
             <span class="label">Escala de arcoíris</span>
           </button>
 
-          <!-- Animado: Lluvia de estrellas -->
-          <button class="palette-btn" data-theme="starfall">
-            <span class="swatch" style="background:#0f102b"></span>
-            <span class="swatch" style="background:#201a47"></span>
-            <span class="swatch" style="background:#3a1d67"></span>
-            <span class="swatch" style="background:#7c3aed"></span>
-            <span class="swatch" style="background:#22d3ee"></span>
-            <span class="swatch" style="background:#38bdf8"></span>
-            <span class="label">Animado: Lluvia de estrellas</span>
-          </button>
-
-          <!-- NUEVO: Blanco -->
+          <!-- Blanco -->
           <button class="palette-btn" data-theme="white">
             <span class="swatch" style="background:#ffffff; border-color:#e5e7eb"></span>
             <span class="swatch" style="background:#f7f7f7; border-color:#e5e7eb"></span>
@@ -266,36 +255,11 @@
         <div class="text-xs opacity-70 mt-2">Se guarda automáticamente.</div>
       </div>
 
-      <!-- NUEVO: Laboratorio de Imágenes -->
-      <div id="panel-images" class="panel-section">
-        <div class="space-y-5">
-          <!-- T2I -->
-          <section class="bg-gray-900/60 rounded-lg p-3 border border-white/10">
-            <h4 class="font-semibold mb-2">Generar imagen (Text → Image)</h4>
-            <div class="grid gap-2">
-              <input id="t2i-prompt" class="w-full p-2 rounded bg-gray-800 border border-gray-700" placeholder="Describe la imagen (ej: Un aula en acuarela, luz cálida)"/>
-              <div class="grid grid-cols-3 gap-2">
-                <input id="t2i-width"  type="number" min="256" max="1280" value="768" class="p-2 rounded bg-gray-800 border border-gray-700" placeholder="Ancho"/>
-                <input id="t2i-height" type="number" min="256" max="1280" value="768" class="p-2 rounded bg-gray-800 border border-gray-700" placeholder="Alto"/>
-                <input id="t2i-steps"  type="number" min="6"   max="50"   value="12"  class="p-2 rounded bg-gray-800 border border-gray-700" placeholder="Pasos"/>
-              </div>
-              <button id="t2i-run" class="px-3 py-2 rounded bg-purple-600 hover:bg-purple-700 w-full">Generar</button>
-              <div class="text-xs opacity-70">Usa <code>/api/t2i</code> (Hugging Face FLUX.1-schnell)</div>
-            </div>
-            <div class="mt-3 grid place-items-center">
-              <img id="t2i-preview" class="max-h-72 rounded border border-white/10" alt="Vista previa generada"/>
-            </div>
-          </section>
-
-          <!-- I2T (Caption) -->
-          <section class="bg-gray-900/60 rounded-lg p-3 border border-white/10">
-            <h4 class="font-semibold mb-2">Describir imagen (Image → Text)</h4>
-            <input id="i2t-file" type="file" accept="image/*" class="block w-full"/>
-            <button id="i2t-run" class="mt-2 px-3 py-2 rounded bg-blue-600 hover:bg-blue-700 w-full">Describir</button>
-            <div class="text-xs opacity-70 mt-1">Usa <code>/api/caption</code> (BLIP)</div>
-            <pre id="i2t-output" class="mt-3 whitespace-pre-wrap text-sm bg-gray-950/60 p-2 rounded border border-white/10"></pre>
-          </section>
-        </div>
+      <!-- GALERÍA (solo visualización) -->
+      <div id="panel-gallery" class="panel-section">
+        <div class="text-sm opacity-80 mb-3">Imágenes generadas / subidas</div>
+        <div id="gallery-grid" class="grid grid-cols-2 gap-2"></div>
+        <div class="text-xs opacity-60 mt-2">Se guarda localmente en este navegador.</div>
       </div>
 
       <!-- Modal acciones chat (compacto) -->
@@ -399,28 +363,51 @@
     const secMusic     = document.getElementById('panel-music');
     const secChats     = document.getElementById('panel-chats');
     const secSettings  = document.getElementById('panel-settings');
-    const secImages    = document.getElementById('panel-images'); // NUEVO
+    const secGallery   = document.getElementById('panel-gallery');
+
+    // ======= GALERÍA (LocalStorage) =======
+    window.Gallery = (function(){
+      const KEY = 'mira_gallery_v1';
+      function all(){ try { return JSON.parse(localStorage.getItem(KEY)||'[]'); } catch { return []; } }
+      function save(list){ localStorage.setItem(KEY, JSON.stringify(list)); }
+      function add({src, prompt, ts}){ const list = all(); list.unshift({src, prompt: prompt||'', ts: ts||Date.now()}); save(list); render(); }
+      function render(){
+        const grid = document.getElementById('gallery-grid'); if (!grid) return;
+        grid.innerHTML = '';
+        const list = all();
+        list.forEach((it,i)=>{
+          const card = document.createElement('div');
+          card.className = 'bg-gray-900/60 border border-white/10 rounded-lg p-2';
+          card.innerHTML = `
+            <img src="${it.src}" alt="img-${i}" class="rounded mb-2 w-full object-cover max-h-48">
+            <div class="text-xs opacity-80 line-clamp-2">${(it.prompt||'')}</div>`;
+          grid.appendChild(card);
+        });
+      }
+      return { add, render, all };
+    })();
 
     function setPanelMode(mode){
       const isMusic    = (mode === 'music');
       const isChats    = (mode === 'chats');
       const isSettings = (mode === 'settings');
-      const isImages   = (mode === 'images'); // NUEVO
+      const isGallery  = (mode === 'gallery');
 
       secMusic.classList.toggle('active', isMusic);
       secChats.classList.toggle('active', isChats);
       secSettings.classList.toggle('active', isSettings);
-      if (secImages) secImages.classList.toggle('active', isImages); // NUEVO
+      secGallery.classList.toggle('active', isGallery);
 
       titleEl.textContent = isMusic ? 'Música para el aprendizaje'
                         : isChats ? 'Tus chats'
                         : isSettings ? 'Configuración'
-                        : 'Laboratorio de Imágenes'; // NUEVO
+                        : 'Galería de imágenes';
       panel.classList.add('open');
       document.body.classList.add('panel-open');
       const u = window._currentUser;
       if (u) document.getElementById('panel-user-email').textContent = u.email || u.uid;
       updateViewportVars();
+      if (isGallery) window.Gallery.render();
     }
     function closePanel(){ panel.classList.remove('open'); document.body.classList.remove('panel-open'); }
     function selectPlaylist(id) {
@@ -433,7 +420,7 @@
     document.getElementById('btn-spotify')?.addEventListener('click', ()=>setPanelMode('music'));
     document.getElementById('btn-user')?.addEventListener('click',   ()=>setPanelMode('chats'));
     document.getElementById('btn-settings')?.addEventListener('click', ()=>setPanelMode('settings'));
-    document.getElementById('btn-images')?.addEventListener('click', ()=>setPanelMode('images')); // NUEVO
+    document.getElementById('btn-images')?.addEventListener('click', ()=>setPanelMode('gallery'));
     document.getElementById('close-panel')?.addEventListener('click', closePanel);
 
     document.addEventListener('DOMContentLoaded', () => {
@@ -464,20 +451,16 @@
       const imgOpt     = document.getElementById('attachImageOption');
       const fileInput  = document.getElementById('fileInput');
 
-      // 👉 Cambio principal: el "+" abre DIRECTO el selector de archivos (sin depender del menú)
       attachBtn?.addEventListener('click', (e)=>{
         e.preventDefault();
         e.stopPropagation();
-        // Cierra el menú por si estaba abierto
         if (attachMenu) {
           attachMenu.classList.add('hidden');
           attachBtn.setAttribute('aria-expanded','false');
         }
-        // iOS/Safari requieren gesto directo del usuario
         try { fileInput?.click(); } catch(_) {}
       });
 
-      // (Fallback) Mantener opción de menú por si luego quieres otras acciones
       document.addEventListener('click', (e)=>{
         if (attachMenu && !attachMenu.contains(e.target) && e.target !== attachBtn){
           attachMenu.classList.add('hidden');
@@ -485,18 +468,15 @@
         }
       });
 
-      // Opción de menú: abrir picker (sigue funcionando si lo usas)
       imgOpt?.addEventListener('click', (e)=>{
         e.stopPropagation();
         if (attachMenu){
           attachMenu.classList.add('hidden');
           attachBtn.setAttribute('aria-expanded','false');
         }
-        // Llamada directa por gesto del usuario
         try { fileInput?.click(); } catch(_) {}
       });
 
-      // Feedback si se seleccionaron archivos
       fileInput?.addEventListener('change', ()=>{
         if (fileInput.files?.length){
           attachBtn.classList.add('pulse-once');
@@ -537,56 +517,6 @@
           });
         });
       })();
-
-      // ===== NUEVO: Wiring para Laboratorio de Imágenes =====
-      const t2iRun   = document.getElementById('t2i-run');
-      const t2iPrompt= document.getElementById('t2i-prompt');
-      const t2iW     = document.getElementById('t2i-width');
-      const t2iH     = document.getElementById('t2i-height');
-      const t2iSteps = document.getElementById('t2i-steps');
-      const t2iPrev  = document.getElementById('t2i-preview');
-
-      t2iRun?.addEventListener('click', async ()=>{
-        const payload = {
-          prompt: (t2iPrompt.value || '').trim(),
-          width:  parseInt(t2iW.value||'768',10),
-          height: parseInt(t2iH.value||'768',10),
-          steps:  parseInt(t2iSteps.value||'12',10)
-        };
-        if (!payload.prompt){ alert('Escribe un prompt.'); return; }
-        t2iRun.disabled = true; t2iRun.textContent = 'Generando...';
-        try{
-          const r = await fetch('/api/t2i', {
-            method:'POST',
-            headers:{'Content-Type':'application/json'},
-            body: JSON.stringify(payload)
-          });
-          const data = await r.json();
-          if (data?.image) t2iPrev.src = data.image;
-          else alert('Error T2I: ' + (data?.error || 'desconocido'));
-        }catch(err){ alert('Error T2I: '+err.message); }
-        finally{ t2iRun.disabled = false; t2iRun.textContent = 'Generar'; }
-      });
-
-      const i2tRun = document.getElementById('i2t-run');
-      const i2tFile= document.getElementById('i2t-file');
-      const i2tOut = document.getElementById('i2t-output');
-
-      i2tRun?.addEventListener('click', async ()=>{
-        if (!i2tFile.files?.[0]){ alert('Selecciona una imagen.'); return; }
-        i2tRun.disabled = true; i2tRun.textContent = 'Analizando...';
-        i2tOut.textContent = '';
-        try{
-          const fd = new FormData();
-          fd.append('image', i2tFile.files[0]);
-          const r = await fetch('/api/caption', { method:'POST', body: fd });
-          const data = await r.json();
-          if (data?.text) i2tOut.textContent = data.text;
-          else i2tOut.textContent = 'Error: ' + (data?.error || 'desconocido');
-        }catch(err){ i2tOut.textContent = 'Error: '+err.message; }
-        finally{ i2tRun.disabled = false; i2tRun.textContent = 'Describir'; }
-      });
-      // ===== FIN Laboratorio de Imágenes =====
     });
   </script>
 
