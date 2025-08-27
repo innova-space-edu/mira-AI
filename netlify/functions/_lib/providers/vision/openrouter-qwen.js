@@ -1,1 +1,49 @@
-asaSA
+// functions/_lib/providers/vision/openrouter-qwen.js
+const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
+
+
+async function qwenVL_OpenRouter({ apiKey, task, image, question }) {
+if (!apiKey) throw new Error("OPENROUTER_API_KEY missing");
+const model = "qwen/qwen-2.5-vl-7b-instruct"; // sólido y rápido
+
+
+const userParts = [];
+if (image?.type === "url") userParts.push({ type: "image_url", image_url: { url: image.data } });
+if (image?.type === "b64") userParts.push({ type: "input_text", text: "[Imagen en base64 adjunta]" }, { type: "image_url", image_url: { url: `data:image/png;base64,${image.data}` } });
+
+
+// Plantilla por tarea
+const instruction = task === "ocr" ?
+"Transcribe TODO el texto visible con buena ortografía. Devuelve solo el texto principal."
+: task === "qa" ?
+`Responde la pregunta sobre la imagen de forma breve y precisa. Pregunta: ${question || "(sin pregunta)"}`
+: "Describe la imagen con detalle (elementos, contexto y detalles relevantes).";
+
+
+const body = {
+model,
+messages: [
+{ role: "system", content: "Eres un asistente experto en análisis de imágenes (OCR, descripción y razonamiento visual). Responde en español." },
+{ role: "user", content: [ ...userParts, { type: "input_text", text: instruction } ] }
+]
+};
+
+
+const res = await fetch(OPENROUTER_URL, {
+method: "POST",
+headers: {
+"Authorization": `Bearer ${apiKey}`,
+"Content-Type": "application/json",
+"HTTP-Referer": "https://innova-space-edu.github.io/",
+"X-Title": "Innova Space – MIRA"
+},
+body: JSON.stringify(body)
+});
+if (!res.ok) throw new Error(`OpenRouter QwenVL error ${res.status}`);
+const data = await res.json();
+const content = data?.choices?.[0]?.message?.content || "";
+return { provider: "openrouter:qwen-vl", content };
+}
+
+
+module.exports = { qwenVL_OpenRouter };
