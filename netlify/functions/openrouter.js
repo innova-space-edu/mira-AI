@@ -55,11 +55,18 @@ exports.handler = async (event) => {
     model = "qwen/qwen-2.5-32b-instruct",
     messages = [],
     temperature = 0.7,
-    // Campos opcionales, por si los quieres pasar
+
+    // Campos opcionales que pasamos tal cual si vienen:
     max_tokens,
     top_p,
     presence_penalty,
     frequency_penalty,
+    response_format,
+    tools,
+    tool_choice,
+    seed,
+    // (cualquier otro campo quedará en extras)
+    ...extras
   } = body;
 
   if (!Array.isArray(messages) || messages.length === 0) {
@@ -70,23 +77,27 @@ exports.handler = async (event) => {
   const siteUrl = process.env.OPENROUTER_SITE_URL || "https://example.com";
   const appName = process.env.OPENROUTER_APP_NAME || "Innova Space MIRA";
 
+  // Construye payload y adjunta solo lo que exista
   const payload = {
     model,
     messages,
     temperature,
+    ...extras,
   };
-
-  // Adjunta hiper-parámetros solo si vienen
   if (max_tokens !== undefined) payload.max_tokens = max_tokens;
   if (top_p !== undefined) payload.top_p = top_p;
   if (presence_penalty !== undefined) payload.presence_penalty = presence_penalty;
   if (frequency_penalty !== undefined) payload.frequency_penalty = frequency_penalty;
+  if (response_format !== undefined) payload.response_format = response_format;
+  if (tools !== undefined) payload.tools = tools;
+  if (tool_choice !== undefined) payload.tool_choice = tool_choice;
+  if (seed !== undefined) payload.seed = seed;
 
   try {
     const r = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${apiKey}`,
+        Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
         // Recomendado por OpenRouter para atribución
         "HTTP-Referer": siteUrl,
@@ -96,20 +107,18 @@ exports.handler = async (event) => {
     });
 
     const raw = await r.text();
+    let data = {};
+    try { data = JSON.parse(raw || "{}"); } catch { data = {}; }
+
     if (!r.ok) {
-      // Propaga detalle legible a tu frontend (lo capturas ya con parseNiceError)
-      return json(
-        { error: `OpenRouter HTTP ${r.status}`, detail: raw?.slice(0, 1000) || "" },
-        r.status
-      );
+      // Propaga el status original (400/401/403/429/5xx) para que el frontend lo muestre claro
+      const detail = (data?.error?.message || data?.error || raw || "").slice(0, 2000);
+      return json({ error: `OpenRouter HTTP ${r.status}`, detail }, r.status);
     }
 
     // Respuesta homogénea con tu cliente:
-    // 1) Si existe `choices[0].message.content` lo exponemos en `text`
-    // 2) También devolvemos el objeto original por si lo quieres usar
-    let data = {};
-    try { data = JSON.parse(raw || "{}"); } catch { data = {}; }
     const viaOpenAI = data?.choices?.[0]?.message?.content?.trim?.() || "";
+    // devolvemos "text" para tu callChatAPI_base + todo el objeto por si lo quieres usar
     return json({ text: viaOpenAI, ...data }, 200);
   } catch (e) {
     return json(
