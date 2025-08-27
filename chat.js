@@ -14,10 +14,10 @@ Habla SIEMPRE en español, clara y estructurada.
 `;
 
 // Endpoints (intenta /api/* y si no, /.netlify/functions/*)
-const BLIP_ENDPOINTS = ["/api/vision", "/.netlify/functions/vision"];
-const OCR_ENDPOINTS  = ["/api/ocrspace", "/.netlify/functions/ocrspace"];
-// NUEVO: VQA (preguntas/razonamiento sobre la imagen)
-const VQA_ENDPOINTS  = ["/api/vqa", "/.netlify/functions/vqa"];
+const CAPTION_ENDPOINTS = ["/api/caption", "/.netlify/functions/caption"];   // NUEVO (multipart)
+const OCR_ENDPOINTS     = ["/api/ocrspace", "/.netlify/functions/ocrspace"];
+const VQA_ENDPOINTS     = ["/api/vqa", "/.netlify/functions/vqa"];
+const T2I_ENDPOINTS     = ["/api/t2i", "/.netlify/functions/t2i"];            // NUEVO (text->image)
 
 // ============ AVATAR ============
 let __innerAvatarSvg = null;
@@ -48,15 +48,14 @@ function appendHTML(html) {
   chatBox.scrollTop = chatBox.scrollHeight;
 }
 
-/* === ACTUALIZADO: inserta mensaje con clase de entrada y transición === */
+/* === Mensaje con transición === */
 function appendMessage(role, contentHTML) {
   const chatBox = document.getElementById("chat-box");
   const wrap = document.createElement("div");
   wrap.className = `msg ${role}`;
 
   const bubble = document.createElement("div");
-  bubble.className = "bubble chat-markdown enter"; // estado inicial fuera de vista
-  // Para animación direccional según el rol (izquierda/derecha)
+  bubble.className = "bubble chat-markdown enter";
   bubble.dataset.role = role;
   bubble.classList.add(role === "assistant" ? "from-left" : "from-right");
   bubble.innerHTML = contentHTML;
@@ -64,7 +63,6 @@ function appendMessage(role, contentHTML) {
   wrap.appendChild(bubble);
   chatBox.appendChild(wrap);
 
-  // Forzar relayout y activar animación
   requestAnimationFrame(() => {
     bubble.classList.add("show");
     chatBox.scrollTop = chatBox.scrollHeight;
@@ -82,7 +80,6 @@ function showThinking(text = "MIRA está pensando…") {
   bubble.innerHTML = text;
   div.appendChild(bubble);
   box.appendChild(div);
-  // Activar transición
   requestAnimationFrame(() => bubble.classList.add("show"));
   box.scrollTop = box.scrollHeight;
 }
@@ -253,7 +250,7 @@ function fileToBase64(file){
 }
 
 // ============ VISIÓN (caption + OCR + VQA) ============
-// Helper con timeout para evitar colgadas (ACTUALIZADO)
+// Helper con timeout
 const DEFAULT_FETCH_TIMEOUT_MS = 25000;
 async function fetchWithTimeout(url, options = {}, timeoutMs = DEFAULT_FETCH_TIMEOUT_MS) {
   const controller = new AbortController();
@@ -265,7 +262,6 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = DEFAULT_FETCH_TIM
     clearTimeout(t);
   }
 }
-
 async function httpError(res) {
   let body = "";
   try { body = await res.text(); } catch {}
@@ -281,20 +277,29 @@ function parseNiceError(err) {
   return s;
 }
 
-async function tryFetchVision(bodyJson){
-  for (const url of BLIP_ENDPOINTS) {
-    const r = await fetchWithTimeout(url, { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(bodyJson) });
+// CAPTION (usa /api/caption con multipart)
+async function tryFetchCaption(formData){
+  for (const url of CAPTION_ENDPOINTS) {
+    const r = await fetchWithTimeout(url, { method:"POST", body: formData });
     if (r.ok) return r;
     if (r.status !== 404) throw await httpError(r);
   }
-  const last = await fetchWithTimeout(
-    BLIP_ENDPOINTS[BLIP_ENDPOINTS.length-1], 
-    { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(bodyJson) }
-  );
+  const last = await fetchWithTimeout(CAPTION_ENDPOINTS[CAPTION_ENDPOINTS.length-1], { method:"POST", body: formData });
   if (!last.ok) throw await httpError(last);
   return last;
 }
+async function callCaption(file) {
+  const fd = new FormData();
+  fd.append("image", file, file.name || "image.png");
+  const r = await tryFetchCaption(fd);
+  const data = await r.json();
+  const desc = (typeof data?.text === "string" && data.text) ||
+               data?.caption || data?.generated_text || "";
+  if (!desc) throw new Error("Respuesta de caption vacía.");
+  return String(desc).trim();
+}
 
+// OCR (se mantiene JSON con base64)
 async function tryFetchOCR(bodyJson){
   for (const url of OCR_ENDPOINTS) {
     const r = await fetchWithTimeout(url, { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(bodyJson) });
@@ -308,9 +313,16 @@ async function tryFetchOCR(bodyJson){
   if (!last.ok) throw await httpError(last);
   return last;
 }
+async function callOCR(file) {
+  const imageBase64 = await fileToBase64(file);
+  const r = await tryFetchOCR({ imageBase64, language: "spa" });
+  const data = await r.json();
+  const text = (typeof data?.text === "string" ? data.text : (data?.ocrText || data?.result || ""));
+  if (typeof text !== "string") throw new Error("Respuesta OCR inválida.");
+  return text.trim();
+}
 
-// NUEVO: VQA (preguntas sobre la imagen)
-// *** Cambio importante: el backend espera { imageBase64, prompt } ***
+// VQA (preguntas sobre la imagen)
 async function tryFetchVQA(bodyJson){
   for (const url of VQA_ENDPOINTS) {
     const r = await fetchWithTimeout(url, { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(bodyJson) });
@@ -324,33 +336,6 @@ async function tryFetchVQA(bodyJson){
   if (!last.ok) throw await httpError(last);
   return last;
 }
-
-async function callBLIP(file) {
-  const imageBase64 = await fileToBase64(file);
-  const r = await tryFetchVision({ imageBase64 });
-  const data = await r.json();
-  // BLIP/VIT pueden responder como [{generated_text: "..."}] o { text: "..." }
-  const desc =
-    data?.caption ||
-    data?.description ||
-    data?.summary_text ||
-    (Array.isArray(data) && data[0]?.generated_text) ||
-    data?.generated_text ||
-    data?.text ||
-    "";
-  if (!desc) throw new Error("Respuesta de visión inválida (caption).");
-  return String(desc).trim();
-}
-async function callOCR(file) {
-  const imageBase64 = await fileToBase64(file);
-  const r = await tryFetchOCR({ imageBase64, language: "spa" });
-  const data = await r.json();
-  const text = (typeof data?.text === "string" ? data.text : (data?.ocrText || data?.result || ""));
-  if (typeof text !== "string") throw new Error("Respuesta OCR inválida.");
-  return text.trim();
-}
-// NUEVO: callVQA (usa tu pregunta del usuario si existe, o una por defecto)
-// *** Cambio: enviamos { prompt } y aceptamos { text } como respuesta principal ***
 async function callVQA(file, question) {
   const imageBase64 = await fileToBase64(file);
   const q = (question && String(question).trim()) || "Describe y responde: ¿qué información principal muestra la imagen?";
@@ -368,17 +353,15 @@ async function callVQA(file, question) {
 }
 
 async function analyzeImages(files) {
-  // Toma como "pregunta" el texto que el usuario escribió (si lo hay)
   const input = document.getElementById("user-input");
   const userQuestion = (input?.value || "").trim();
 
   const results = [];
   for (const file of files) {
     const promises = [
-      callBLIP(file),                    // descripción
-      callOCR(file)                      // texto
+      callCaption(file),                // descripción robusta (HF BLIP/VIT vía /api/caption)
+      callOCR(file)                     // texto
     ];
-    // Si hay texto del usuario, también pregunta al VQA
     if (userQuestion) promises.push(callVQA(file, userQuestion));
 
     const settled = await Promise.allSettled(promises);
@@ -464,7 +447,7 @@ function renderAttachmentChips(){
   });
 }
 
-// Menú “+” (el click al file input se maneja en index.js también)
+// Menú “+”
 $attachBtn?.addEventListener("click", (e) => {
   e.stopPropagation();
   if ($attachMenu) {
@@ -494,6 +477,19 @@ $fileInput?.addEventListener("change", async (e) => {
   if ($fileInput) $fileInput.value = "";
 });
 
+// ======== INTENCIÓN NATURAL: T2I / I2T ========
+function wantsT2I(text){
+  return /(genera|genérame|haz|hazme|crea|créame|crear|crearás).*(una )?imagen/i.test(text);
+}
+function extractT2IPrompt(text){
+  return text
+    .replace(/(genera|genérame|haz|hazme|crea|créame|crear|crearás)\s*la?\s*imagen\s*(de|del|de la)?/i, "")
+    .trim();
+}
+function wantsCaptionIntention(text){
+  return /(describe|reconoce|analiza|qué ves|que ves|dime sobre esta imagen)/i.test(text);
+}
+
 // Enter y botón enviar
 (function bindEnterSend(){
   const input = document.getElementById("user-input");
@@ -506,6 +502,22 @@ $fileInput?.addEventListener("change", async (e) => {
   btn?.addEventListener("click", sendMessage);
 })();
 
+// ======== Llamador T2I =========
+async function tryFetchT2I(bodyJson){
+  for (const url of T2I_ENDPOINTS) {
+    const r = await fetchWithTimeout(url, { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(bodyJson) }, 60000);
+    if (r.ok) return r;
+    if (r.status !== 404) throw await httpError(r);
+  }
+  const last = await fetchWithTimeout(
+    T2I_ENDPOINTS[T2I_ENDPOINTS.length-1], 
+    { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(bodyJson) }, 
+    60000
+  );
+  if (!last.ok) throw await httpError(last);
+  return last;
+}
+
 async function sendMessage() {
   const input = document.getElementById("user-input");
   const userMessage = (input?.value || "").trim();
@@ -513,7 +525,7 @@ async function sendMessage() {
 
   cancelAllSpeech();
 
-  // Mensaje del usuario
+  // Render mensaje del usuario
   let htmlUser = "";
   if (userMessage) htmlUser += renderMarkdown(userMessage);
   if (attachments.length) {
@@ -533,27 +545,56 @@ async function sendMessage() {
   let requestSucceeded = false;
 
   try {
-    if (files.length > 0) {
-      showThinking("Analizando imagen…");
-      const visualContext = await analyzeImages(files); // Visión + OCR (+ VQA si hay pregunta) automáticamente
+    // --- Caso 1: Generación de imagen por texto ---
+    if (files.length === 0 && userMessage && wantsT2I(userMessage)) {
+      const prompt = extractT2IPrompt(userMessage) || userMessage;
+      showThinking("Generando imagen…");
+      const r = await tryFetchT2I({ prompt });
+      const data = await r.json();
       hideThinking();
 
-      const question = userMessage || "Describe y analiza detalladamente la(s) imagen(es).";
+      if (data?.image) {
+        const html = `<div class="space-y-2">
+          <img src="${data.image}" alt="imagen generada" class="rounded-lg border border-white/10 max-w-full"/>
+          ${prompt ? `<div class="text-xs opacity-70">Prompt: ${escapeHtml(prompt)}</div>` : ""}
+        </div>`;
+        appendMessage("assistant", html);
+        // Guardar en galería local (si existe)
+        try { window.Gallery?.add?.({ src: data.image, prompt }); } catch {}
+        saveMsg("assistant", "[Imagen generada]");
+        requestSucceeded = true;
+      } else {
+        const err = data?.error || "Error desconocido en T2I.";
+        appendMessage("assistant", `⚠️ Error generando la imagen: ${escapeHtml(err)}`);
+      }
+      return;
+    }
+
+    // --- Caso 2: Análisis de imagen (caption/ocr/vqa) ---
+    if (files.length > 0) {
+      // Si el usuario escribió un comando tipo "describe / reconoce", igual analizamos (analyzeImages usa caption + ocr + vqa)
+      showThinking("Analizando imagen…");
+      const visualContext = await analyzeImages(files);
+      hideThinking();
+
+      const question = userMessage || (wantsCaptionIntention(userMessage) ? "Describe y analiza detalladamente la(s) imagen(es)." : "Describe y analiza detalladamente la(s) imagen(es).");
       await window.pipelineFromVision(visualContext, question, { userMessage });
       requestSucceeded = true;
-    } else {
-      showThinking();
-      aiReply = await callLLMFromText(userMessage);
-      hideThinking();
-
-      if (!aiReply) aiReply = (await wikiFallback(userMessage)) || "Lo siento, no encontré una respuesta adecuada.";
-
-      const html = renderMarkdown(aiReply);
-      appendMessage("assistant", html);
-      saveMsg("assistant", aiReply);
-      if (window.MathJax?.typesetPromise) MathJax.typesetPromise();
-      requestSucceeded = true;
+      return;
     }
+
+    // --- Caso 3: Chat normal (LLM) ---
+    showThinking();
+    aiReply = await callLLMFromText(userMessage);
+    hideThinking();
+
+    if (!aiReply) aiReply = (await wikiFallback(userMessage)) || "Lo siento, no encontré una respuesta adecuada.";
+
+    const html = renderMarkdown(aiReply);
+    appendMessage("assistant", html);
+    saveMsg("assistant", aiReply);
+    if (window.MathJax?.typesetPromise) MathJax.typesetPromise();
+    requestSucceeded = true;
   } catch (err) {
     hideThinking();
     console.error("Chat/Visión error:", err);
@@ -567,6 +608,9 @@ async function sendMessage() {
   try { if (requestSucceeded && aiReply) speakMarkdown(aiReply); } catch (e) { console.warn("TTS no disponible:", e); }
 }
 window.sendMessage = sendMessage;
+
+// Helpers
+function escapeHtml(s){ return (s||"").replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
 
 // ============ INICIALIZACIÓN ============
 function initChat() {
