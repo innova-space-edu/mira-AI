@@ -694,7 +694,56 @@ const $attachBtn   = document.getElementById("attachBtn");
 const $attachMenu  = document.getElementById("attachMenu");
 const $attachImageOption = document.getElementById("attachImageOption");
 const $attachments = document.getElementById("attachments");
+
 let attachments = []; // { file, urlPreview }
+
+/* === Ventana flotante de adjuntos === */
+function ensureFloatingBox(){
+  const card = document.getElementById('chat-card');
+  let box = document.getElementById('floating-attachments');
+  if (!box) {
+    box = document.createElement('div');
+    box.id = 'floating-attachments';
+    box.className = 'floating-attachments hidden';
+    box.innerHTML = `
+      <div class="fa-header">
+        <span class="fa-title">Adjuntos</span>
+        <button id="fa-clear" class="fa-clear" title="Quitar todos">✕</button>
+      </div>
+      <div id="fa-grid" class="fa-grid"></div>`;
+    card.appendChild(box);
+  }
+  const btn = box.querySelector('#fa-clear');
+  if (btn && !btn._wired){
+    btn._wired = true;
+    btn.addEventListener('click', ()=>{
+      attachments.forEach(a=> URL.revokeObjectURL(a.urlPreview));
+      attachments = [];
+      renderAttachmentChips();
+      renderFloatingPreviews();
+      if ($fileInput) $fileInput.value = "";
+    });
+  }
+}
+function renderFloatingPreviews(){
+  ensureFloatingBox();
+  const box  = document.getElementById('floating-attachments');
+  const grid = document.getElementById('fa-grid');
+  if (!box || !grid) return;
+
+  grid.innerHTML = "";
+  if (!attachments.length){ box.classList.remove('show'); box.classList.add('hidden'); return; }
+
+  attachments.slice(0,4).forEach((att, i)=>{
+    const img = document.createElement('img');
+    img.src   = att.urlPreview;
+    img.alt   = `adjunto-${i+1}`;
+    img.title = att.file?.name || `adjunto ${i+1}`;
+    grid.appendChild(img);
+  });
+  box.classList.remove('hidden');
+  box.classList.add('show');
+}
 
 function renderAttachmentChips(){
   if (!$attachments) return;
@@ -705,21 +754,23 @@ function renderAttachmentChips(){
     chip.innerHTML = `<img src="${att.urlPreview}" alt="img"><span>${att.file.name}</span>`;
     $attachments.appendChild(chip);
   });
+  renderFloatingPreviews();
 }
 
-// Menú “+”
+// Menú “+” (dejamos por compatibilidad; tu index también lo maneja)
 $attachBtn?.addEventListener("click", (e) => {
   e.stopPropagation();
   if ($attachMenu) {
-    const isHidden = $attachMenu.classList.contains("hidden");
-    $attachMenu.classList.toggle("hidden", !isHidden);
-    $attachBtn.setAttribute("aria-expanded", String(isHidden));
+    // abrimos selector directo; el menú queda de respaldo
+    $attachMenu.classList.add("hidden");
+    $attachBtn.setAttribute("aria-expanded", "false");
   }
+  try { $fileInput?.click(); } catch {}
 });
 document.addEventListener("click", () => { if ($attachMenu) $attachMenu.classList.add("hidden"); });
 $attachMenu?.addEventListener("click", (e)=> e.stopPropagation());
 
-// Opción imagen
+// Opción imagen (menú)
 $attachImageOption?.addEventListener("click", (e) => {
   e.stopPropagation();
   $fileInput?.click();
@@ -850,8 +901,27 @@ function escapeHtml(s){ return (s||"").replace(/[&<>"']/g, m => ({'&':'&amp;','<
 
 
 // ============ INICIALIZACIÓN ============
+function wireComposer(){
+  const sendBtn = document.getElementById("send-btn");
+  const input   = document.getElementById("user-input");
+  if (sendBtn && !sendBtn._wired){
+    sendBtn._wired = true;
+    sendBtn.addEventListener("click", (e)=>{ e.preventDefault(); sendMessage(); });
+  }
+  if (input && !input._wired){
+    input._wired = true;
+    input.addEventListener("keydown", (e)=>{
+      if (e.key === "Enter" && !e.shiftKey){
+        e.preventDefault();
+        sendMessage();
+      }
+    });
+  }
+}
+
 function initChat() {
   hookAvatarInnerSvg();
+  wireComposer();
   const saludo = "¡Hola! Soy MIRA. ¿En qué puedo ayudarte hoy?";
   appendMessage("assistant", renderMarkdown(saludo));
   try { speakAfterVoices(saludo); } catch {}
