@@ -14,10 +14,10 @@ Habla SIEMPRE en español, clara y estructurada.
 `;
 
 // Endpoints (intenta /api/* y si no, /.netlify/functions/*)
-const CAPTION_ENDPOINTS = ["/api/caption", "/.netlify/functions/caption"];   // NUEVO (multipart)
+const CAPTION_ENDPOINTS = ["/api/caption", "/.netlify/functions/caption"];   // (queda disponible, ya no se usa)
 const OCR_ENDPOINTS     = ["/api/ocrspace", "/.netlify/functions/ocrspace"];
 const VQA_ENDPOINTS     = ["/api/vqa", "/.netlify/functions/vqa"];
-const T2I_ENDPOINTS     = ["/api/t2i", "/.netlify/functions/t2i"];            // NUEVO (text->image)
+const T2I_ENDPOINTS     = ["/api/t2i", "/.netlify/functions/t2i"];            // Text->image
 
 // ============ AVATAR ============
 let __innerAvatarSvg = null;
@@ -249,8 +249,7 @@ function fileToBase64(file){
   });
 }
 
-// ============ VISIÓN (caption + OCR + VQA) ============
-// Helper con timeout
+// ============ VISIÓN (VQA + OCR; caption queda disponible pero sin uso) ============
 const DEFAULT_FETCH_TIMEOUT_MS = 25000;
 async function fetchWithTimeout(url, options = {}, timeoutMs = DEFAULT_FETCH_TIMEOUT_MS) {
   const controller = new AbortController();
@@ -277,7 +276,7 @@ function parseNiceError(err) {
   return s;
 }
 
-// CAPTION (usa /api/caption con multipart)
+/* ======= CAPTION (dejo la función, NO se usa) ======= */
 async function tryFetchCaption(formData){
   for (const url of CAPTION_ENDPOINTS) {
     const r = await fetchWithTimeout(url, { method:"POST", body: formData });
@@ -299,7 +298,7 @@ async function callCaption(file) {
   return String(desc).trim();
 }
 
-// OCR (se mantiene JSON con base64)
+/* ======= OCR ======= */
 async function tryFetchOCR(bodyJson){
   for (const url of OCR_ENDPOINTS) {
     const r = await fetchWithTimeout(url, { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(bodyJson) });
@@ -322,7 +321,7 @@ async function callOCR(file) {
   return text.trim();
 }
 
-// VQA (preguntas sobre la imagen)
+/* ======= VQA ======= */
 async function tryFetchVQA(bodyJson){
   for (const url of VQA_ENDPOINTS) {
     const r = await fetchWithTimeout(url, { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(bodyJson) });
@@ -338,7 +337,7 @@ async function tryFetchVQA(bodyJson){
 }
 async function callVQA(file, question) {
   const imageBase64 = await fileToBase64(file);
-  const q = (question && String(question).trim()) || "Describe y responde: ¿qué información principal muestra la imagen?";
+  const q = (question && String(question).trim()) || "Describe la imagen con detalle e indica qué texto aparece.";
   const r = await tryFetchVQA({ imageBase64, prompt: q });
   const data = await r.json();
   const ans =
@@ -352,32 +351,31 @@ async function callVQA(file, question) {
   return String(ans).trim();
 }
 
+/* ======= Analizar imágenes: SOLO VQA + OCR ======= */
 async function analyzeImages(files) {
   const input = document.getElementById("user-input");
   const userQuestion = (input?.value || "").trim();
 
   const results = [];
   for (const file of files) {
+    // Ejecutamos VQA (si hay pregunta, la usamos; si no, prompt por defecto) + OCR
     const promises = [
-      callCaption(file),                // descripción robusta (HF BLIP/VIT vía /api/caption)
-      callOCR(file)                     // texto
+      callVQA(file, userQuestion || "Describe la imagen con detalle e indica qué texto aparece."),
+      callOCR(file)
     ];
-    if (userQuestion) promises.push(callVQA(file, userQuestion));
 
     const settled = await Promise.allSettled(promises);
-    const desc = settled[0]?.status === "fulfilled" ? settled[0].value : "";
+    const vqa  = settled[0]?.status === "fulfilled" ? settled[0].value : "";
     const text = settled[1]?.status === "fulfilled" ? settled[1].value : "";
-    const vqa  = userQuestion && settled[2]?.status === "fulfilled" ? settled[2].value : "";
 
-    if (!desc && !text && !vqa) {
+    if (!vqa && !text) {
       const why = (settled.find(s => s.status==="rejected")?.reason?.message) || "Fallo desconocido.";
       throw new Error(why);
     }
 
     const block = [
-      desc ? `• **Descripción (IA):** ${desc}` : "",
-      text ? `• **Texto detectado (OCR):** ${text}` : "",
-      vqa  ? `• **Respuesta a tu pregunta:** ${vqa}` : ""
+      vqa  ? `• **Descripción/Respuesta (VQA):** ${vqa}` : "",
+      text ? `• **Texto detectado (OCR):** ${text}` : ""
     ].filter(Boolean).join("\n");
 
     results.push(block);
@@ -559,7 +557,6 @@ async function sendMessage() {
           ${prompt ? `<div class="text-xs opacity-70">Prompt: ${escapeHtml(prompt)}</div>` : ""}
         </div>`;
         appendMessage("assistant", html);
-        // Guardar en galería local (si existe)
         try { window.Gallery?.add?.({ src: data.image, prompt }); } catch {}
         saveMsg("assistant", "[Imagen generada]");
         requestSucceeded = true;
@@ -570,9 +567,8 @@ async function sendMessage() {
       return;
     }
 
-    // --- Caso 2: Análisis de imagen (caption/ocr/vqa) ---
+    // --- Caso 2: Análisis de imagen (VQA + OCR) ---
     if (files.length > 0) {
-      // Si el usuario escribió un comando tipo "describe / reconoce", igual analizamos (analyzeImages usa caption + ocr + vqa)
       showThinking("Analizando imagen…");
       const visualContext = await analyzeImages(files);
       hideThinking();
