@@ -1,3 +1,7 @@
+# =========================
+# Netlify configuration
+# =========================
+
 [build]
   functions = "netlify/functions"
   publish   = "."
@@ -6,7 +10,7 @@
   directory    = "netlify/functions"
   node_bundler = "esbuild"
 
-# (Opcional) timeouts por función – útil para modelos/LLMs ya existentes
+# --- Timeouts por función (ajusta según tu plan) ---
 [functions.vqa]
   timeout = 26
 
@@ -16,21 +20,24 @@
 [functions.ocrspace]
   timeout = 26
 
-# NUEVO: timeouts para T2I y Caption
+# NUEVO: T2I y Caption (subimos un poco T2I por latencia del modelo)
 [functions.t2i]
-  timeout = 30
+  timeout = 55
 
 [functions.caption]
   timeout = 30
 
-# ============ Rutas limpias /api/* ============
-# Chat general (tu proxy a Groq u OpenAI)
+# =========================
+# Rutas limpias /api/*
+# =========================
+
+# Chat general (proxy a Groq/OpenAI)
 [[redirects]]
   from = "/api/chat"
   to   = "/.netlify/functions/chat"
   status = 200
 
-# Proxy alternativo (por si llamas directo)
+# Proxy alternativo (si llamas directo)
 [[redirects]]
   from = "/api/groq"
   to   = "/.netlify/functions/groq-proxy"
@@ -42,40 +49,58 @@
   to   = "/.netlify/functions/ocrspace"
   status = 200
 
-# Compatibilidad con /api/ocr
+# Compatibilidad /api/ocr
 [[redirects]]
   from = "/api/ocr"
   to   = "/.netlify/functions/ocrspace"
   status = 200
 
-# BLIP / VIT captioning (visión clásica)
+# (Legado) Visión clásica BLIP/VIT si la usas
 [[redirects]]
   from = "/api/vision"
   to   = "/.netlify/functions/vision"
   status = 200
 
-# VQA (Qwen-VL multimodal)
+# VQA (Qwen-VL u otro)
 [[redirects]]
   from = "/api/vqa"
   to   = "/.netlify/functions/vqa"
   status = 200
 
-# NUEVO: Text→Image
+# NUEVO: Text → Image
 [[redirects]]
   from = "/api/t2i"
   to   = "/.netlify/functions/t2i"
   status = 200
 
-# NUEVO: Image→Text (captioning)
+# NUEVO: Image → Text (caption)
 [[redirects]]
   from = "/api/caption"
   to   = "/.netlify/functions/caption"
   status = 200
 
-# (Opcional) seguridad básica de headers
+# =========================
+# Headers
+# =========================
+
+# Seguridad básica global
 [[headers]]
   for = "/*"
   [headers.values]
     X-Frame-Options = "SAMEORIGIN"
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
+
+# CORS para tus funciones (por si navegas desde otro origen/subdominio)
+[[headers]]
+  for = "/.netlify/functions/*"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"
+    Access-Control-Allow-Methods = "GET, POST, OPTIONS"
+    Access-Control-Allow-Headers = "Content-Type, Authorization"
+
+# (Opcional) SPA fallback; si usas rutas del lado del cliente, descomenta:
+# [[redirects]]
+#   from = "/*"
+#   to   = "/index.html"
+#   status = 200
