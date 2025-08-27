@@ -1,16 +1,48 @@
 // =============== CONFIGURACIÓN ===============
-const MODEL = "meta-llama/llama-4-scout-17b-16e-instruct";
+const MODEL = "meta-llama/llama-4-scout-17b-16e-instruct"; // Groq (rápido)
+const OPENROUTER_MODEL_PRIMARY   = "qwen/qwen-2.5-32b-instruct";      // potente
+const OPENROUTER_MODEL_FALLBACK  = "meta-llama/llama-3.1-70b-instruct";
+
 const PREFERRED_VOICE_NAME = "Microsoft Helena - Spanish (Spain)";
 
-// Prompt inicial para el LLM
+// Prompt inicial para el LLM (robusto, multiarea)
 const SYSTEM_PROMPT = `
 Eres MIRA (Modular Intelligent Responsive Assistant), creada por Innova Space.
-Habla SIEMPRE en español, clara y estructurada.
-- Primero una idea general en 1–2 frases.
-- Luego pasos o listas cuando ayuden.
-- Fórmulas EN GRANDE con LaTeX usando $$ ... $$.
-- Usa símbolos/unidades cuando aplique (m/s, °C, N).
-- Cuando pidan “la fórmula”, da explicación breve, fórmula y define variables en texto.
+Habla SIEMPRE en español, con claridad y estructura:
+
+1) Abre con una idea general en 1–2 frases.
+2) Luego muestra pasos o listas si aportan claridad.
+3) Las FÓRMULAS deben ir en LaTeX GRANDE con $$ ... $$.
+4) Usa símbolos/unidades correctos (m/s, °C, N, J, mol/L, etc).
+5) Cuando pidan “la fórmula”, da: breve explicación, fórmula y define variables.
+
+### Estilo general
+- Sé preciso y conciso. Evita jergas innecesarias. Nombra supuestos si faltan datos.
+- Cuando calcules, muestra el razonamiento con unidades, redondeo y verificación.
+- Da alternativas o verificaciones si existen caminos distintos.
+
+### Lengua/Escritura
+- Resume y reescribe manteniendo sentido. Ofrece títulos, subtítulos y viñetas.
+- Para “ensayo”, “explica” o “profundiza”, organiza en: introducción, desarrollo y cierre.
+
+### Matemáticas y Física
+- Define variables. Muestra sustitución numérica y unidades. Incluye comprobación dimensional.
+- Si hay múltiples métodos (p. ej., trigonometría vs. vectores), di cuál eliges y por qué.
+
+### Química y Biología
+- Indica condiciones (T, P, pH, solvente). Balancea ecuaciones químicas si aplica.
+- Explica mecanismos o procesos con pasos numerados.
+
+### Programación/Tecnología
+- Indica lenguaje, versión y librerías. Da un ejemplo mínimo funcional.
+- Divide en pasos: “Análisis”, “Algoritmo”, “Código”, “Pruebas”, “Complejidad”.
+- Evita dependencias innecesarias. Señala consideraciones de seguridad.
+
+### Datos/Tablas
+- Si no hay datos suficientes, solicita explícitamente lo faltante o asume con criterio y dilo.
+
+### Razonamiento
+- Justifica tus decisiones y señala errores comunes. Da referencias conceptuales cuando aporte.
 `;
 
 // Endpoints (intenta /api/* y si no, /.netlify/functions/*)
@@ -21,6 +53,10 @@ const T2I_ENDPOINTS     = ["/api/t2i", "/.netlify/functions/t2i"];            //
 
 // NUEVO: endpoint unificado de visión (describe/qa/ocr)
 const VISION_ENDPOINTS  = ["/api/vision", "/.netlify/functions/vision"];
+
+// NUEVO: endpoints para OpenRouter (texto potente). Si no existen, haremos fallback a Groq.
+const OPENROUTER_ENDPOINTS = ["/api/openrouter", "/.netlify/functions/openrouter"];
+
 
 // ============ AVATAR ============
 let __innerAvatarSvg = null;
@@ -205,12 +241,12 @@ async function saveMsg(role, content){
   try{ await window.ChatStore?.saveMessage?.(role, content); }catch{} 
 }
 
-// ============ CLIENTE /api/chat ============
-async function callChatAPI_base(url, messages, temperature) {
+// ============ CLIENTES /api/chat y /api/openrouter ============
+async function callChatAPI_base(url, model, messages, temperature) {
   const resp = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json", "Accept": "application/json" },
-    body: JSON.stringify({ model: MODEL, messages, temperature })
+    body: JSON.stringify({ model, messages, temperature })
   });
   const raw = await resp.text();
   if (!resp.ok) {
@@ -227,19 +263,64 @@ async function callChatAPI_base(url, messages, temperature) {
   const viaOpenAI = data?.choices?.[0]?.message?.content?.trim() || "";
   return (viaProxy || viaOpenAI || "").trim();
 }
-async function callChatAPI(messages, temperature = 0.7) {
+
+async function callGroq(messages, temperature = 0.7, model = MODEL) {
   try { 
-    return await callChatAPI_base("/api/chat", messages, temperature); 
+    return await callChatAPI_base("/api/chat", model, messages, temperature); 
   } catch (e) {
     const msg = String(e?.message || "");
     if (/404|no encontrado|endpoint no encontrado|not\s*found/i.test(msg)) {
-      return await callChatAPI_base("/.netlify/functions/groq-proxy", messages, temperature);
+      return await callChatAPI_base("/.netlify/functions/groq-proxy", model, messages, temperature);
     }
     throw e;
   }
 }
-async function callLLMFromText(userText){
-  return callChatAPI([{ role: "system", content: SYSTEM_PROMPT }, { role: "user", content: userText }]);
+
+async function callOpenRouter(messages, temperature = 0.7, model = OPENROUTER_MODEL_PRIMARY) {
+  let lastErr = null;
+  for (const url of OPENROUTER_ENDPOINTS) {
+    try {
+      return await callChatAPI_base(url, model, messages, temperature);
+    } catch (e) {
+      lastErr = e;
+      // Si el endpoint no existe (404), probamos el siguiente
+      if (!/404|not\s*found|no encontrado/i.test(String(e?.message||""))) throw e;
+    }
+  }
+  // Si no hay endpoint OpenRouter, caemos a Groq para no romper UX
+  if (lastErr) console.warn("OpenRouter no disponible, usando Groq. Detalle:", lastErr?.message||lastErr);
+  return await callGroq(messages, temperature, MODEL);
+}
+
+async function callLLMFromText(userText, opts = {}) {
+  const { forceProvider = "auto" } = opts;
+
+  const messages = [
+    { role: "system", content: SYSTEM_PROMPT },
+    { role: "user", content: userText }
+  ];
+
+  if (forceProvider === "groq") {
+    return callGroq(messages, 0.7, MODEL);
+  }
+  if (forceProvider === "openrouter") {
+    try {
+      return await callOpenRouter(messages, 0.75, OPENROUTER_MODEL_PRIMARY);
+    } catch {
+      return await callOpenRouter(messages, 0.75, OPENROUTER_MODEL_FALLBACK);
+    }
+  }
+
+  // auto: decide según complejidad (ver detectComplexTextIntent)
+  const complex = detectComplexTextIntent(userText);
+  if (complex.isComplex) {
+    try {
+      return await callOpenRouter(messages, 0.75, OPENROUTER_MODEL_PRIMARY);
+    } catch {
+      return await callOpenRouter(messages, 0.75, OPENROUTER_MODEL_FALLBACK);
+    }
+  }
+  return callGroq(messages, 0.7, MODEL);
 }
 
 // ===== File → Base64 =====
@@ -408,37 +489,152 @@ async function callVision(file, { task = "describe", question = "" } = {}) {
   return String(content).trim();
 }
 
-/* ======= Analizar imágenes (versión original) ======= */
-async function analyzeImages(files) {
-  const input = document.getElementById("user-input");
-  const userQuestion = (input?.value || "").trim();
+/* ======= Analizar imágenes (inteligente por intención) ======= */
+function detectImageIntent(text){
+  const t = (text||"").toLowerCase();
+
+  const ocr = /\b(ocr|lee(?:r)?(?:\s*el)?\s*texto|transcribe|extrae\s*texto|copiar\s*texto|reconoce\s*texto|detectar\s*texto)\b/.test(t);
+  const describe = /\b(describe|describir|descripción|descripcion|reconoce|identifica|analiza|detalla|resume\s*la\s*imagen)\b/.test(t);
+  const qa = /(\?|¿)|\b(pregunta|respónd(?:e|eme)|qué\s+hay|que\s+hay|qué\s+dice|que\s+dice|qué\s+color|dónde|donde|cuánto|cuanto|por\s*qué|porque)\b/.test(t);
+  const solve = /\b(resuelve|resolver|soluciona|calcula|desarrolla|demuestra|halla|obt[eé]n|explica|aplica)\b/.test(t);
+  const analyze = /\b(analiza|analizar|estudia|evalúa|evalua|interpreta|diagnostica|clasifica|segmenta)\b/.test(t);
+
+  return { ocr, describe, qa, solve, analyze };
+}
+
+async function analyzeImagesSmart(files, userMessage) {
+  const intent = detectImageIntent(userMessage);
+  const wantsAny = intent.ocr || intent.describe || intent.qa || intent.solve || intent.analyze;
 
   const results = [];
-  for (const file of files) {
-    // Ejecutamos VQA (si hay pregunta, la usamos; si no, prompt por defecto) + OCR
-    const promises = [
-      callVQA(file, userQuestion || "Describe la imagen con detalle e indica qué texto aparece."),
-      callOCR(file)
-    ];
+  let aggregatedOCR = "";
 
-    const settled = await Promise.allSettled(promises);
-    const vqa  = settled[0]?.status === "fulfilled" ? settled[0].value : "";
-    const text = settled[1]?.status === "fulfilled" ? settled[1].value : "";
+  for (const [idx, file] of files.entries()) {
+    const perImageBlocks = [];
 
-    if (!vqa && !text) {
-      const why = (settled.find(s => s.status==="rejected")?.reason?.message) || "Fallo desconocido.";
-      throw new Error(why);
+    const doDescribe = intent.describe || (!wantsAny);
+    const doOCR      = intent.ocr      || (!wantsAny);
+    const doQA       = intent.qa;
+
+    if (doDescribe) {
+      try {
+        const desc = await callVision(file, { task: "describe" });
+        if (desc) perImageBlocks.push(`• **Descripción:** ${desc}`);
+      } catch (e) {
+        try {
+          const alt = await callVQA(file, "Describe con detalle la imagen (objetos, texto visible, contexto).");
+          if (alt) perImageBlocks.push(`• **Descripción:** ${alt}`);
+        } catch (ee) {
+          perImageBlocks.push(`• **Descripción:** (error: ${escapeHtml(String(e.message||e))})`);
+        }
+      }
     }
 
-    const block = [
-      vqa  ? `• **Descripción/Respuesta (VQA):** ${vqa}` : "",
-      text ? `• **Texto detectado (OCR):** ${text}` : ""
-    ].filter(Boolean).join("\n");
+    if (doOCR) {
+      try {
+        const text = await callOCR(file);
+        if (text) {
+          aggregatedOCR += (aggregatedOCR ? "\n\n" : "") + text;
+          perImageBlocks.push(`• **Texto (OCR):** ${text}`);
+        }
+      } catch (e) {
+        try {
+          const alt = await callVision(file, { task: "ocr" });
+          if (alt) {
+            aggregatedOCR += (aggregatedOCR ? "\n\n" : "") + alt;
+            perImageBlocks.push(`• **Texto (OCR):** ${alt}`);
+          }
+        } catch (ee) {
+          perImageBlocks.push(`• **Texto (OCR):** (error: ${escapeHtml(String(e.message||e))})`);
+        }
+      }
+    }
 
-    results.push(block);
+    if (doQA) {
+      const q = userMessage && /[?¿]/.test(userMessage) ? userMessage : "Responde a la pregunta implícita sobre la imagen.";
+      try {
+        const ans = await callVision(file, { task: "qa", question: q });
+        if (ans) perImageBlocks.push(`• **Respuesta a la pregunta:** ${ans}`);
+      } catch (e) {
+        try {
+          const alt = await callVQA(file, q);
+          if (alt) perImageBlocks.push(`• **Respuesta a la pregunta:** ${alt}`);
+        } catch (ee) {
+          perImageBlocks.push(`• **Respuesta a la pregunta:** (error: ${escapeHtml(String(e.message||e))})`);
+        }
+      }
+    }
+
+    if (!perImageBlocks.length) {
+      perImageBlocks.push("• (No se pudo obtener información de la imagen).");
+    }
+
+    results.push(`Imagen ${idx+1}:\n${perImageBlocks.join("\n")}`);
   }
-  return results.map((b,i) => `Imagen ${i+1}:\n${b}`).join("\n\n");
+
+  window.setVisionContext({ ocrText: aggregatedOCR });
+
+  const shouldSolve = intent.solve || intent.analyze;
+  return { textBlock: results.join("\n\n"), shouldSolve };
 }
+
+
+// ========= Clasificador de complejidad (texto → elegir modelo) =========
+function detectComplexTextIntent(text) {
+  const t = (text || "").toLowerCase();
+
+  // Palabras/frases indicadas por ti + añadidos típicos de tareas complejas
+  const patterns = [
+    /detalla(me)?|paso a paso|expl[ií]came|profundiza|explaya(te)?|razona en detalle|analiza a fondo/,
+    /resumen|resúmeme|haz un resumen|s[íi]ntesis|esquem[a|atiza]/,
+    /traduce|traducci[oó]n|translate/,
+    /ensayo|ensáyame|art[ií]culo|monograf[ií]a|redacci[oó]n extensa/,
+    /dame un c[oó]digo|programa|algoritmo|implementa|optimiza|refactoriza|escribe en (js|javascript|python|java|c\+\+|c#|go|rust|sql)/,
+    /pruebas unitarias|tests|testea|benchmark|complejidad (temporal|espacial)/,
+    /demuestra|demostraci[oó]n|teorema|justifica|deriva|deduce|integral|derivada|l[ií]mites|probabilidad|estad[íi]stica/,
+    /plan de estudio|curr[ií]culo|s[íi]labo|roadmap/,
+    /diagram[as]?|arquitectura|diseña el sistema|requisitos|casos de uso/
+  ];
+
+  const isComplex = patterns.some(rx => rx.test(t));
+  return { isComplex };
+}
+
+
+// ======== INTENCIÓN NATURAL: T2I / I2T ========
+function wantsT2I(text, hasFiles){
+  const t = (text||"").toLowerCase();
+  const genVerbs = /(genera|genérame|haz|hazme|crea|créame|crear|dibuja|pinta|píntame|ilustra|renderiza|construye|arma|modela)/i;
+  const imgNoun  = /(imagen|logo|portada|banner|afiche|fondo|wallpaper|ilustración|dibujo|arte)/i;
+  if (hasFiles) return genVerbs.test(t) && /\b(imagen|ilustración|logo|banner|portada|fondo)\b/i.test(t);
+  return genVerbs.test(t) || (genVerbs.test(t) && imgNoun.test(t));
+}
+function extractT2IPrompt(text){
+  return (text||"")
+    .replace(/(genera|genérame|haz|hazme|crea|créame|crear|dibuja|pinta|ilustra|renderiza|modela)\s*(una|un)?\s*(imagen|logo|banner|portada|fondo)?\s*(de|del|de la|con)?/i, "")
+    .trim();
+}
+function wantsCaptionIntention(text){
+  return /(describe|reconoce|analiza|qué ves|que ves|dime sobre esta imagen)/i.test(text||"");
+}
+
+
+// ======== Llamador T2I =========
+async function tryFetchT2I(bodyJson){
+  for (const url of T2I_ENDPOINTS) {
+    const r = await fetchWithTimeout(url, { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(bodyJson) }, 60000);
+    if (r.ok) return r;
+    if (r.status !== 404) throw await httpError(r);
+  }
+  const last = await fetchWithTimeout(
+    T2I_ENDPOINTS[T2I_ENDPOINTS.length-1], 
+    { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(bodyJson) }, 
+    60000
+  );
+  if (!last.ok) throw await httpError(last);
+  return last;
+}
+
 
 // ============ PIPELINE VISIÓN → LLM ============
 let __visionCtx = { ocrText: "" };
@@ -465,11 +661,19 @@ Recuerda: usa LaTeX grande para fórmulas con $$ ... $$ cuando apliquen. Respond
   showThinking("Analizando lo que aparece en la imagen…");
 
   try {
-    const reply = await callChatAPI([
-      { role: "system", content: SYSTEM_PROMPT },
-      ...(userMessage ? [{ role: "user", content: userMessage }] : []),
-      { role: "user", content: prompt }
-    ], 0.7);
+    // En pipeline de visión, forzamos modelo potente si el usuario pidió "resolver/analizar".
+    const complex = detectComplexTextIntent(userMessage);
+    const reply = complex.isComplex
+      ? await callOpenRouter([
+          { role: "system", content: SYSTEM_PROMPT },
+          ...(userMessage ? [{ role: "user", content: userMessage }] : []),
+          { role: "user", content: prompt }
+        ], 0.75, OPENROUTER_MODEL_PRIMARY)
+      : await callGroq([
+          { role: "system", content: SYSTEM_PROMPT },
+          ...(userMessage ? [{ role: "user", content: userMessage }] : []),
+          { role: "user", content: prompt }
+        ], 0.7, MODEL);
 
     hideThinking();
     appendMessage("assistant", renderMarkdown(reply));
@@ -483,138 +687,6 @@ Recuerda: usa LaTeX grande para fórmulas con $$ ... $$ cuando apliquen. Respond
   }
 };
 
-// ======== INTENCIÓN NATURAL (mejorada): T2I / I2T ========
-function wantsT2I(text, hasFiles){
-  const t = (text||"").toLowerCase();
-  const genVerbs = /(genera|genérame|haz|hazme|crea|créame|crear|dibuja|pinta|píntame|ilustra|renderiza|constr(uye|uir)|arma|ház)/i;
-  const imgNoun  = /(imagen|logo|portada|banner|afiche|fondo|wallpaper|ilustración|dibujo|arte)/i;
-  // Evita falsos positivos tipo "haz el ejercicio de la imagen"
-  if (hasFiles) return genVerbs.test(t) && /\b(imagen|ilustración|logo|banner|portada|fondo)\b/i.test(t);
-  return genVerbs.test(t) || (genVerbs.test(t) && imgNoun.test(t));
-}
-function extractT2IPrompt(text){
-  return text
-    .replace(/(genera|genérame|haz|hazme|crea|créame|crear|dibuja|pinta|píntame|ilustra|renderiza)\s*(una|un)?\s*(imagen|logo|banner|portada|fondo)?\s*(de|del|de la|con)?/i, "")
-    .trim();
-}
-function wantsCaptionIntention(text){
-  return /(describe|describir|descripción|descripcion|reconoce|identifica|analiza|qué ves|que ves|dime sobre esta imagen)/i.test(text||"");
-}
-
-// NUEVO: clasificador completo de intención con imágenes
-function detectImageIntent(text){
-  const t = (text||"").toLowerCase();
-
-  const ocr = /\b(ocr|lee(?:r)?(?:\s*el)?\s*texto|transcribe|extrae\s*texto|copiar\s*texto|reconoce\s*texto|detectar\s*texto)\b/.test(t);
-  const describe = /\b(describe|describir|descripción|descripcion|reconoce|identifica|analiza|detalla|resume\s*la\s*imagen)\b/.test(t);
-  const qa = /(\?|¿)|\b(pregunta|respónd(?:e|eme)|qué\s+hay|que\s+hay|qué\s+dice|que\s+dice|qué\s+color|dónde|donde|cuánto|cuanto|por\s*qué|porque)\b/.test(t);
-  const solve = /\b(resuelve|resolver|soluciona|calcula|desarrolla|demuestra|halla|obt[eé]n|explica|aplica)\b/.test(t);
-  const analyze = /\b(analiza|analizar|estudia|evalúa|evalua|interpreta|diagnostica|clasifica|segmenta)\b/.test(t);
-
-  return { ocr, describe, qa, solve, analyze };
-}
-
-// ======== Llamador T2I =========
-async function tryFetchT2I(bodyJson){
-  for (const url of T2I_ENDPOINTS) {
-    const r = await fetchWithTimeout(url, { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(bodyJson) }, 60000);
-    if (r.ok) return r;
-    if (r.status !== 404) throw await httpError(r);
-  }
-  const last = await fetchWithTimeout(
-    T2I_ENDPOINTS[T2I_ENDPOINTS.length-1], 
-    { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(bodyJson) }, 
-    60000
-  );
-  if (!last.ok) throw await httpError(last);
-  return last;
-}
-
-/* ======= NUEVO: Analizar imágenes inteligente según intención ======= */
-async function analyzeImagesSmart(files, userMessage) {
-  const intent = detectImageIntent(userMessage);
-  const wantsAny = intent.ocr || intent.describe || intent.qa || intent.solve || intent.analyze;
-
-  const results = [];
-  let aggregatedOCR = "";
-
-  for (const [idx, file] of files.entries()) {
-    const perImageBlocks = [];
-
-    // Si no hay intención explícita, hacemos describe + OCR por defecto
-    const doDescribe = intent.describe || (!wantsAny);
-    const doOCR      = intent.ocr      || (!wantsAny);
-    const doQA       = intent.qa;
-
-    // DESCRIBIR
-    if (doDescribe) {
-      try {
-        const desc = await callVision(file, { task: "describe" });
-        if (desc) perImageBlocks.push(`• **Descripción:** ${desc}`);
-      } catch (e) {
-        // fallback: VQA con prompt de descripción
-        try {
-          const alt = await callVQA(file, "Describe con detalle la imagen (objetos, texto visible, contexto).");
-          if (alt) perImageBlocks.push(`• **Descripción:** ${alt}`);
-        } catch (ee) {
-          perImageBlocks.push(`• **Descripción:** (error: ${escapeHtml(String(e.message||e))})`);
-        }
-      }
-    }
-
-    // OCR
-    if (doOCR) {
-      try {
-        const text = await callOCR(file);
-        if (text) {
-          aggregatedOCR += (aggregatedOCR ? "\n\n" : "") + text;
-          perImageBlocks.push(`• **Texto (OCR):** ${text}`);
-        }
-      } catch (e) {
-        // fallback por visión como OCR
-        try {
-          const alt = await callVision(file, { task: "ocr" });
-          if (alt) {
-            aggregatedOCR += (aggregatedOCR ? "\n\n" : "") + alt;
-            perImageBlocks.push(`• **Texto (OCR):** ${alt}`);
-          }
-        } catch (ee) {
-          perImageBlocks.push(`• **Texto (OCR):** (error: ${escapeHtml(String(e.message||e))})`);
-        }
-      }
-    }
-
-    // QA
-    if (doQA) {
-      const q = userMessage && /[?¿]/.test(userMessage) ? userMessage : "Responde a la pregunta implícita sobre la imagen.";
-      try {
-        const ans = await callVision(file, { task: "qa", question: q });
-        if (ans) perImageBlocks.push(`• **Respuesta a la pregunta:** ${ans}`);
-      } catch (e) {
-        // fallback legacy
-        try {
-          const alt = await callVQA(file, q);
-          if (alt) perImageBlocks.push(`• **Respuesta a la pregunta:** ${alt}`);
-        } catch (ee) {
-          perImageBlocks.push(`• **Respuesta a la pregunta:** (error: ${escapeHtml(String(e.message||e))})`);
-        }
-      }
-    }
-
-    if (!perImageBlocks.length) {
-      perImageBlocks.push("• (No se pudo obtener información de la imagen).");
-    }
-
-    results.push(`Imagen ${idx+1}:\n${perImageBlocks.join("\n")}`);
-  }
-
-  // Guarda OCR global en contexto por si se pide resolver
-  window.setVisionContext({ ocrText: aggregatedOCR });
-
-  // Si la intención es "resolver/analizar", activa pipeline con LLM.
-  const shouldSolve = intent.solve || intent.analyze;
-  return { textBlock: results.join("\n\n"), shouldSolve };
-}
 
 // ============ ENVÍO MENSAJE ============
 const $fileInput   = document.getElementById("fileInput");
@@ -665,47 +737,11 @@ $fileInput?.addEventListener("change", async (e) => {
   if ($fileInput) $fileInput.value = "";
 });
 
-// ======== INTENCIÓN NATURAL: T2I / I2T ========
-function wantsT2I_Light(text){
-  return /(genera|genérame|haz|hazme|crea|créame|crear|crearás).*(una )?imagen/i.test(text||"");
-}
-function extractT2IPrompt(text){
-  return (text||"")
-    .replace(/(genera|genérame|haz|hazme|crea|créame|crear|crearás|dibuja|pinta|ilustra)\s*(una|un)?\s*(imagen|logo|banner|portada|fondo)?\s*(de|del|de la|con)?/i, "")
-    .trim();
-}
-function wantsCaptionIntention(text){
-  return /(describe|reconoce|analiza|qué ves|que ves|dime sobre esta imagen)/i.test(text||"");
-}
 
-// Enter y botón enviar
-(function bindEnterSend(){
-  const input = document.getElementById("user-input");
-  const btn   = document.getElementById("send-btn");
-  if (input) {
-    input.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
-    });
-  }
-  btn?.addEventListener("click", sendMessage);
-})();
+// ======== Llamador T2I ========= (ya definido arriba) ========
 
-// ======== Llamador T2I =========
-async function tryFetchT2I(bodyJson){
-  for (const url of T2I_ENDPOINTS) {
-    const r = await fetchWithTimeout(url, { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(bodyJson) }, 60000);
-    if (r.ok) return r;
-    if (r.status !== 404) throw await httpError(r);
-  }
-  const last = await fetchWithTimeout(
-    T2I_ENDPOINTS[T2I_ENDPOINTS.length-1], 
-    { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(bodyJson) }, 
-    60000
-  );
-  if (!last.ok) throw await httpError(last);
-  return last;
-}
 
+// ======== Envío principal ========
 async function sendMessage() {
   const input = document.getElementById("user-input");
   const userMessage = (input?.value || "").trim();
@@ -770,7 +806,6 @@ async function sendMessage() {
       if (shouldSolve) {
         await window.pipelineFromVision(textBlock, userMessage || "Resume y resuelve", { userMessage });
       } else {
-        // Mostrar solo los resultados solicitados (describe/ocr/qa)
         const html = renderMarkdown(textBlock);
         appendMessage("assistant", html);
         saveMsg("assistant", textBlock);
@@ -780,9 +815,12 @@ async function sendMessage() {
       return;
     }
 
-    // --- Caso 3: Chat normal (LLM) ---
+    // --- Caso 3: Chat de texto normal — elegir modelo según complejidad ---
     showThinking();
-    aiReply = await callLLMFromText(userMessage);
+    const complex = detectComplexTextIntent(userMessage);
+    aiReply = complex.isComplex
+      ? await callLLMFromText(userMessage, { forceProvider: "openrouter" })
+      : await callLLMFromText(userMessage, { forceProvider: "groq" });
     hideThinking();
 
     if (!aiReply) aiReply = (await wikiFallback(userMessage)) || "Lo siento, no encontré una respuesta adecuada.";
@@ -806,8 +844,10 @@ async function sendMessage() {
 }
 window.sendMessage = sendMessage;
 
+
 // Helpers
 function escapeHtml(s){ return (s||"").replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+
 
 // ============ INICIALIZACIÓN ============
 function initChat() {
@@ -823,6 +863,7 @@ if (document.readyState === "loading") {
 } else {
   initChat();
 }
+
 
 /* ============================================================
    === DICTADO POR VOZ (Web Speech API) — toggle click ===
