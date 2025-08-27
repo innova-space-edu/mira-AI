@@ -11,21 +11,17 @@
   node_bundler = "esbuild"
 
 # --- Timeouts por función (ajusta según tu plan) ---
-[functions.vqa]
-  timeout = 26
+[functions.chat]
+  timeout = 30
+
+[functions.groq-proxy]
+  timeout = 30
 
 [functions.vision]
-  timeout = 26
-
-[functions.ocrspace]
-  timeout = 26
-
-# NUEVO: T2I y Caption (subimos un poco T2I por latencia del modelo)
-[functions.t2i]
-  timeout = 55
-
-[functions.caption]
   timeout = 30
+
+[functions.t2i]
+  timeout = 55   # más alto por latencia de generación
 
 # =========================
 # Rutas limpias /api/*
@@ -43,40 +39,22 @@
   to   = "/.netlify/functions/groq-proxy"
   status = 200
 
-# OCR (OCR.space)
-[[redirects]]
-  from = "/api/ocrspace"
-  to   = "/.netlify/functions/ocrspace"
-  status = 200
-
-# Compatibilidad /api/ocr
-[[redirects]]
-  from = "/api/ocr"
-  to   = "/.netlify/functions/ocrspace"
-  status = 200
-
-# (Legado) Visión clásica BLIP/VIT si la usas
+# Vision (describe, OCR, QA sobre imágenes)
 [[redirects]]
   from = "/api/vision"
   to   = "/.netlify/functions/vision"
   status = 200
 
-# VQA (Qwen-VL u otro)
-[[redirects]]
-  from = "/api/vqa"
-  to   = "/.netlify/functions/vqa"
-  status = 200
-
-# NUEVO: Text → Image
+# Text → Image
 [[redirects]]
   from = "/api/t2i"
   to   = "/.netlify/functions/t2i"
   status = 200
 
-# NUEVO: Image → Text (caption) — queda disponible pero ya no es necesario
+# hf-ping (opcional, chequeo de conexión)
 [[redirects]]
-  from = "/api/caption"
-  to   = "/.netlify/functions/caption"
+  from = "/api/hf-ping"
+  to   = "/.netlify/functions/hf-ping"
   status = 200
 
 # =========================
@@ -104,8 +82,3 @@
 #   from = "/*"
 #   to   = "/index.html"
 #   status = 200
-
-[[redirects]]
-  from = "/api/hf-ping"
-  to   = "/.netlify/functions/hf-ping"
-  status = 200
