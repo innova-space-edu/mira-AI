@@ -5,6 +5,18 @@ const OPENROUTER_MODEL_FALLBACK  = "meta-llama/llama-3.1-70b-instruct";
 
 const PREFERRED_VOICE_NAME = "Microsoft Helena - Spanish (Spain)";
 
+// >>> NUEVO: Prompt robusto para generación de imágenes (t2i)
+const IMAGE_SYSTEM_PROMPT = `
+Eres un generador de imágenes que sigue instrucciones con fidelidad cultural y de estilo.
+Reglas:
+- No inventes elementos fuera del prompt del usuario.
+- Si el prompt incluye país, cultura o vestimenta típica, respétalos con detalles auténticos.
+- Mantén composición clara: sujeto principal en foco, fondo coherente y bien iluminado.
+- Si se pide texto superpuesto (título o leyenda), colócalo legible y sin errores de ortografía.
+- Evita manos deformes, texto con artefactos, proporciones irreales y objetos duplicados.
+- No uses marcas comerciales salvo que el usuario lo pida explícitamente.
+`;
+
 // Prompt inicial para el LLM (robusto, multiarea)
 const SYSTEM_PROMPT = `
 Eres MIRA (Modular Intelligent Responsive Assistant), creada por Innova Space.
@@ -339,6 +351,18 @@ function dataUrlToB64(dataUrl) {
   return m ? m[1] : dataUrl;
 }
 
+// >>> NUEVO: Normalizador de texto para OCR/visión (evita ByteString 8211)
+function normalizeText(txt){
+  if (!txt) return "";
+  return String(txt)
+    .replace(/[\u2010\u2011\u2012\u2013\u2014\u2212]/g, "-") // guiones varios → "-"
+    .replace(/[\u00A0]/g, " ")                              // espacio no separable → espacio
+    .replace(/[“”«»]/g, '"')                                // comillas tipográficas → "
+    .replace(/[‘’]/g, "'")                                  // comilla simple tipográfica → '
+    .replace(/\u2026/g, "...")                              // puntos suspensivos tipográficos
+    .replace(/[^\u0009\u000A\u000D\u0020-\u007E]/g, "");    // fuera ASCII básico → vacío
+}
+
 // ============ VISIÓN (VQA + OCR; caption queda disponible pero sin uso) ============
 const DEFAULT_FETCH_TIMEOUT_MS = 25000;
 async function fetchWithTimeout(url, options = {}, timeoutMs = DEFAULT_FETCH_TIMEOUT_MS) {
@@ -420,7 +444,7 @@ async function callOCR(file) {
                (typeof data?.text === "string" ? data.text :
                (data?.ocrText || data?.result || "")));
   if (typeof text !== "string") throw new Error("Respuesta OCR inválida.");
-  return text.trim();
+  return normalizeText(text.trim()); // <<< normalizamos
 }
 
 /* ======= VQA (legacy + VISIÓN unificado) ======= */
@@ -461,7 +485,7 @@ async function callVQA(file, question) {
     (Array.isArray(data) && data[0]?.generated_text) ||
     "";
   if (!ans) throw new Error("Respuesta VQA inválida.");
-  return String(ans).trim();
+  return normalizeText(String(ans).trim()); // <<< normalizamos
 }
 
 /* ======= NUEVO: VISIÓN unificado helper ======= */
@@ -486,7 +510,7 @@ async function callVision(file, { task = "describe", question = "" } = {}) {
     (typeof data?.text === "string" && data.text) ||
     data?.answer || data?.caption || data?.generated_text || "";
   if (!content) throw new Error("Respuesta de visión vacía.");
-  return String(content).trim();
+  return normalizeText(String(content).trim()); // <<< normalizamos
 }
 
 /* ======= Analizar imágenes (inteligente por intención) ======= */
@@ -605,17 +629,59 @@ function detectComplexTextIntent(text) {
 function wantsT2I(text, hasFiles){
   const t = (text||"").toLowerCase();
   const genVerbs = /(genera|genérame|haz|hazme|crea|créame|crear|dibuja|pinta|píntame|ilustra|renderiza|construye|arma|modela)/i;
-  const imgNoun  = /(imagen|logo|portada|banner|afiche|fondo|wallpaper|ilustración|dibujo|arte)/i;
-  if (hasFiles) return genVerbs.test(t) && /\b(imagen|ilustración|logo|banner|portada|fondo)\b/i.test(t);
+  const imgNoun  = /(imagen|logo|portada|banner|afiche|flyer|fondo|wallpaper|ilustración|dibujo|arte)/i;
+  if (hasFiles) return genVerbs.test(t) && imgNoun.test(t);
   return genVerbs.test(t) || (genVerbs.test(t) && imgNoun.test(t));
 }
 function extractT2IPrompt(text){
   return (text||"")
-    .replace(/(genera|genérame|haz|hazme|crea|créame|crear|dibuja|pinta|ilustra|renderiza|modela)\s*(una|un)?\s*(imagen|logo|banner|portada|fondo)?\s*(de|del|de la|con)?/i, "")
+    .replace(/(genera|genérame|haz|hazme|crea|créame|crear|dibuja|pinta|píntame|ilustra|renderiza|modela)\s*(una|un)?\s*(imagen|logo|banner|portada|afiche|flyer|fondo|wallpaper|ilustración|dibujo|arte)?\s*(de|del|de la|con)?/i, "")
     .trim();
 }
 function wantsCaptionIntention(text){
   return /(describe|reconoce|analiza|qué ves|que ves|dime sobre esta imagen)/i.test(text||"");
+}
+
+
+// >>> NUEVO: Builder de prompt para imágenes (con negativos y estilo)
+function buildImagePrompt(userPromptRaw) {
+  const userPrompt = (userPromptRaw || "").trim();
+
+  // Heurística de aspecto
+  let aspect_ratio = "1:1";
+  if (/\b(banner|portada|cover|encabezado)\b/i.test(userPrompt)) aspect_ratio = "16:9";
+  if (/\b(afiche|flyer|poster|póster)\b/i.test(userPrompt)) aspect_ratio = "3:4";
+  if (/\b(historia|story|reel|vertical)\b/i.test(userPrompt)) aspect_ratio = "9:16";
+
+  // Negativos por defecto
+  const negative = [
+    "manos deformes, dedos extra, texto ilegible, artefactos, duplicaciones",
+    "proporciones irreales, ojos mal alineados, watermark, marca de agua",
+    "ruido excesivo, glitches, desorden visual, fondos incoherentes"
+  ].join(", ");
+
+  // Envoltura con sistema para fidelidad cultural
+  const prompt = [
+    IMAGE_SYSTEM_PROMPT.trim(),
+    "",
+    "Instrucciones del usuario (seguir literalmente):",
+    `"${userPrompt}"`,
+    "",
+    "Estilo: realista/ilustración nítida, iluminación cinematográfica, colores vivos pero naturales.",
+    "Composición: sujeto principal centrado, fondo coherente, profundidad y bokeh suave si aporta.",
+    "Si se pide texto en la imagen, asegúrate de que esté escrito correctamente y sea legible."
+  ].join("\n");
+
+  return {
+    prompt,
+    negative_prompt: negative,
+    options: {
+      aspect_ratio,
+      guidance: 6.5,
+      safety: "strict",
+      seed: Math.floor(Math.random() * 1e9)
+    }
+  };
 }
 
 
@@ -641,14 +707,14 @@ let __visionCtx = { ocrText: "" };
 window.setVisionContext = function({ ocrText = "" } = {}) { __visionCtx.ocrText = ocrText; };
 
 window.pipelineFromVision = async function(answerFromVision, question = "", extras = {}) {
-  const ocrText = (extras.ocrText ?? __visionCtx.ocrText ?? "").trim();
+  const ocrText = normalizeText((extras.ocrText ?? __visionCtx.ocrText ?? "").trim()); // <<< normalizamos
   const userMessage = (extras.userMessage || "").trim();
 
   const prompt =
 `Tenemos una consulta basada en una imagen.
 ${userMessage ? `Mensaje del usuario: """${userMessage}"""\n` : ""}
 Pregunta específica sobre la imagen: """${question || "Resume el enunciado, datos clave y resuelve brevemente."}"""
-Observaciones del modelo de visión (VQA/Caption): """${answerFromVision || "(vacío)"}"""
+Observaciones del modelo de visión (VQA/Caption): """${normalizeText(answerFromVision || "(vacío)")}"""
 ${ocrText ? `Texto reconocido (OCR): """${ocrText}"""\n` : ""}
 
 Por favor:
@@ -786,10 +852,10 @@ $fileInput?.addEventListener("change", async (e) => {
   }
   renderAttachmentChips();
   if ($fileInput) $fileInput.value = "";
+  // >>> NUEVO: primer clic de "Enviar" ya funciona porque los adjuntos están listos.
+  // (Opcional) auto-focus al input para que el usuario presione Enter si quiere
+  document.getElementById("user-input")?.focus();
 });
-
-
-// ======== Llamador T2I ========= (ya definido arriba) ========
 
 
 // ======== Envío principal ========
@@ -824,9 +890,10 @@ async function sendMessage() {
 
     // --- Caso 1: Generación de imagen por texto (sin adjuntos) ---
     if (!hasFiles && userMessage && wantsT2I(userMessage, false)) {
-      const prompt = extractT2IPrompt(userMessage) || userMessage;
+      const plain = extractT2IPrompt(userMessage) || userMessage;
+      const { prompt, negative_prompt, options } = buildImagePrompt(plain); // <<< builder robusto
       showThinking("Generando imagen…");
-      const r = await tryFetchT2I({ prompt, provider: "auto", options: { aspect_ratio: "1:1" } });
+      const r = await tryFetchT2I({ prompt, negative_prompt, options, provider: "auto" });
       const data = await r.json();
       hideThinking();
 
@@ -834,10 +901,10 @@ async function sendMessage() {
       if (src) {
         const html = `<div class="space-y-2">
           <img src="${src}" alt="imagen generada" class="rounded-lg border border-white/10 max-w-full"/>
-          ${prompt ? `<div class="text-xs opacity-70">Prompt: ${escapeHtml(prompt)}</div>` : ""}
+          ${plain ? `<div class="text-xs opacity-70">Prompt: ${escapeHtml(plain)}</div>` : ""}
         </div>`;
         appendMessage("assistant", html);
-        try { window.Gallery?.add?.({ src, prompt }); } catch {}
+        try { window.Gallery?.add?.({ src, prompt: plain }); } catch {}
         saveMsg("assistant", "[Imagen generada]");
         requestSucceeded = true;
       } else {
