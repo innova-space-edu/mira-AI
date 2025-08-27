@@ -27,8 +27,14 @@ function text(body, status = 200) {
   };
 }
 
+// <<< NUEVO: asegura que los headers sean ASCII (sin “–”, acentos, etc.)
+function safeHeader(val, fallback = "") {
+  const s = String(val ?? fallback);
+  // Sustituye cualquier no-ASCII por un guion normal
+  return s.replace(/[^\x20-\x7E]/g, "-").slice(0, 200);
+}
+
 exports.handler = async (event) => {
-  // CORS preflight
   if (event.httpMethod === "OPTIONS") {
     return { statusCode: 200, headers: cors(), body: "" };
   }
@@ -55,8 +61,6 @@ exports.handler = async (event) => {
     model = "qwen/qwen-2.5-32b-instruct",
     messages = [],
     temperature = 0.7,
-
-    // Campos opcionales que pasamos tal cual si vienen:
     max_tokens,
     top_p,
     presence_penalty,
@@ -65,7 +69,6 @@ exports.handler = async (event) => {
     tools,
     tool_choice,
     seed,
-    // (cualquier otro campo quedará en extras)
     ...extras
   } = body;
 
@@ -73,11 +76,10 @@ exports.handler = async (event) => {
     return json({ error: "Faltan 'messages' en el body." }, 400);
   }
 
-  // OpenRouter headers recomendados
-  const siteUrl = process.env.OPENROUTER_SITE_URL || "https://example.com";
-  const appName = process.env.OPENROUTER_APP_NAME || "Innova Space MIRA";
+  // Headers recomendados por OpenRouter (SANITIZADOS)
+  const siteUrl = safeHeader(process.env.OPENROUTER_SITE_URL || "https://example.com");
+  const appName = safeHeader(process.env.OPENROUTER_APP_NAME || "Innova Space MIRA");
 
-  // Construye payload y adjunta solo lo que exista
   const payload = {
     model,
     messages,
@@ -99,7 +101,6 @@ exports.handler = async (event) => {
       headers: {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
-        // Recomendado por OpenRouter para atribución
         "HTTP-Referer": siteUrl,
         "X-Title": appName,
       },
@@ -108,17 +109,14 @@ exports.handler = async (event) => {
 
     const raw = await r.text();
     let data = {};
-    try { data = JSON.parse(raw || "{}"); } catch { data = {}; }
+    try { data = JSON.parse(raw || "{}"); } catch {}
 
     if (!r.ok) {
-      // Propaga el status original (400/401/403/429/5xx) para que el frontend lo muestre claro
       const detail = (data?.error?.message || data?.error || raw || "").slice(0, 2000);
       return json({ error: `OpenRouter HTTP ${r.status}`, detail }, r.status);
     }
 
-    // Respuesta homogénea con tu cliente:
     const viaOpenAI = data?.choices?.[0]?.message?.content?.trim?.() || "";
-    // devolvemos "text" para tu callChatAPI_base + todo el objeto por si lo quieres usar
     return json({ text: viaOpenAI, ...data }, 200);
   } catch (e) {
     return json(
