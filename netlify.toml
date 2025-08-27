@@ -73,7 +73,7 @@
   to   = "/.netlify/functions/t2i"
   status = 200
 
-# NUEVO: Image → Text (caption)
+# NUEVO: Image → Text (caption) — queda disponible pero ya no es necesario
 [[redirects]]
   from = "/api/caption"
   to   = "/.netlify/functions/caption"
@@ -91,7 +91,7 @@
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
 
-# CORS para tus funciones (por si navegas desde otro origen/subdominio)
+# CORS para tus funciones
 [[headers]]
   for = "/.netlify/functions/*"
   [headers.values]
@@ -99,7 +99,7 @@
     Access-Control-Allow-Methods = "GET, POST, OPTIONS"
     Access-Control-Allow-Headers = "Content-Type, Authorization"
 
-# (Opcional) SPA fallback; si usas rutas del lado del cliente, descomenta:
+# (Opcional) SPA fallback
 # [[redirects]]
 #   from = "/*"
 #   to   = "/index.html"
