@@ -1,64 +1,58 @@
-// /netlify/functions/t2i.js
-// Text-to-Image usando Hugging Face Inference API (modelo FLUX.1-schnell)
-// Entrada: JSON { prompt, width?, height?, steps? }
-// Salida: JSON { image: "data:image/png;base64,..." }
-
-const MODEL = "black-forest-labs/FLUX.1-schnell";
-
-function cors() {
-  return {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "POST,OPTIONS",
-    "Access-Control-Allow-Headers": "content-type, authorization"
-  };
-}
-function json(res, status = 200) {
-  return { statusCode: status, headers: { ...cors(), "Content-Type": "application/json" }, body: JSON.stringify(res) };
-}
-function text(body, status = 200) {
-  return { statusCode: status, headers: { ...cors(), "Content-Type": "text/plain; charset=utf-8" }, body };
-}
-
-exports.handler = async (event) => {
-  if (event.httpMethod === "OPTIONS") return { statusCode: 200, headers: cors(), body: "" };
-  if (event.httpMethod !== "POST") return text("Method Not Allowed", 405);
-
-  const token = process.env.HF_API_KEY;
-  if (!token) return json({ error: "Falta HF_API_KEY" }, 500);
-
-  let payload;
+// netlify/functions/t2i.js
+export default async (req, res) => {
   try {
-    payload = JSON.parse(event.body || "{}");
-  } catch {
-    return json({ error: "JSON inválido" }, 400);
-  }
+    if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { prompt, width = 768, height = 768, steps = 12 } = payload;
-  if (!prompt || typeof prompt !== "string") return json({ error: "Falta prompt" }, 400);
+    const HF_API_KEY = process.env.HF_API_KEY;
+    if (!HF_API_KEY) return res.status(500).json({ error: 'Falta HF_API_KEY' });
 
-  try {
-    const resp = await fetch(`https://api-inference.huggingface.co/models/${MODEL}`, {
-      method: "POST",
+    const { prompt, width = 768, height = 768, steps = 12, guidance = 3 } = await readJSON(req);
+    if (!prompt) return res.status(400).json({ error: 'Falta prompt' });
+
+    const model = 'black-forest-labs/FLUX.1-schnell';
+    const url = `https://api-inference.huggingface.co/models/${encodeURIComponent(model)}`;
+
+    const r = await fetch(url, {
+      method: 'POST',
       headers: {
-        "Authorization": `Bearer ${token}`,
-        "Content-Type": "application/json",
-        "Accept": "image/png"
+        Authorization: `Bearer ${HF_API_KEY}`,
+        'Content-Type': 'application/json',
+        Accept: 'application/json'
       },
       body: JSON.stringify({
         inputs: prompt,
-        parameters: { width, height, num_inference_steps: steps }
+        parameters: {
+          width, height, num_inference_steps: steps, guidance_scale: guidance
+        },
+        options: { wait_for_model: true }
       })
     });
 
-    if (!resp.ok) {
-      const errTxt = await resp.text();
-      return json({ error: "HF error", details: errTxt }, resp.status);
+    if (!r.ok) {
+      const t = await r.text();
+      return res.status(502).json({ error: 'HF request failed', detail: t });
     }
 
-    const arrayBuf = await resp.arrayBuffer();
-    const base64 = Buffer.from(arrayBuf).toString("base64");
-    return json({ image: `data:image/png;base64,${base64}` });
+    const arrayBuffer = await r.arrayBuffer();
+    // La API devuelve imagen binaria o JSON; si fue JSON, intentar leer bytes
+    // Si es JSON, es que el endpoint respondió con {"error":...}; manejar
+    const ct = r.headers.get('content-type') || '';
+    if (ct.includes('application/json')) {
+      const j = JSON.parse(Buffer.from(arrayBuffer).toString('utf8'));
+      if (j.error) return res.status(502).json(j);
+    }
+
+    const base64 = Buffer.from(arrayBuffer).toString('base64');
+    const dataUrl = `data:image/png;base64,${base64}`;
+    return res.json({ image: dataUrl, prompt });
   } catch (e) {
-    return json({ error: e.message || String(e) }, 500);
+    return res.status(500).json({ error: e?.message || 'Unexpected error' });
   }
 };
+
+async function readJSON(req){
+  const chunks = [];
+  for await (const c of req) chunks.push(c);
+  const raw = Buffer.concat(chunks).toString('utf8');
+  return raw ? JSON.parse(raw) : {};
+}
