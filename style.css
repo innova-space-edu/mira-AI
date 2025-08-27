@@ -226,7 +226,7 @@ body.panel-open #landing{ padding-left: calc(var(--panel-w) + 20px); }
   display:grid; grid-template-columns:1fr auto; gap:10px; align-items:center;
   position:sticky; bottom:max(10px, var(--safe-bottom));
   background: linear-gradient(180deg, rgba(0,0,0,0) 0%, color-mix(in srgb, var(--surface-1) 65%, transparent) 40%, var(--surface-1) 100%);
-  padding-bottom: max(6px, var(--safe-bottom)); z-index:5;
+  padding-bottom: max(6px, var(--safe-bottom)); z-index:60; /* FIX: por encima de overlays */
 }
 .input-group{ position:relative; display:grid; align-items:center; min-width:0; }
 .composer-input{
@@ -243,7 +243,7 @@ body.panel-open #landing{ padding-left: calc(var(--panel-w) + 20px); }
   position:absolute; right:8px; bottom:8px; width:36px; height:36px;
   border-radius:.6rem; border:1px solid var(--border);
   background:transparent; color: var(--text); display:inline-flex; align-items:center; justify-content:center;
-  cursor:pointer;
+  cursor:pointer; z-index:80; /* FIX: visible sobre bandeja */
 }
 .attach-btn:hover{ background: var(--surface-3); }
 .attach-btn .plus{ font-size:18px; line-height:1; transform: rotate(0deg); transition: transform .18s ease; display:block; }
@@ -254,6 +254,7 @@ body.panel-open #landing{ padding-left: calc(var(--panel-w) + 20px); }
   position:absolute; right:52px; bottom:8px; width:36px; height:36px;
   border-radius:.6rem; border:1px solid var(--border);
   background:transparent; color:#fff; display:inline-flex; align-items:center; justify-content:center; cursor:pointer;
+  z-index:80; /* FIX */
 }
 .mic-btn:hover{ background: var(--surface-3); }
 .mic-btn svg{ width:18px; height:18px; display:block; }
@@ -265,9 +266,12 @@ body.panel-open #landing{ padding-left: calc(var(--panel-w) + 20px); }
 .upload-tray{
   position:absolute; bottom:calc(100% + .55rem); right:0;
   min-width:260px; max-width:min(420px, 92vw);
-  background: var(--surface-1); border: 1px solid var(--border); border-radius:.9rem; padding:.6rem; box-shadow: var(--shadow); z-index:40;
+  background: var(--surface-1); border: 1px solid var(--border); border-radius:.9rem; padding:.6rem; box-shadow: var(--shadow); z-index:70;
 }
+/* FIX: cuando está oculto, que no capture clicks ni tape el input/botones */
+.upload-tray.hidden{ display:none !important; pointer-events:none !important; opacity:0 !important; }
 .hidden{ display:none; }
+
 .upload-item{ display:flex; align-items:center; gap:.4rem; width:100%; text-align:left; font-size:.95rem; cursor:pointer; user-select:none; color: var(--text); background:transparent; border:none; padding:.45rem .4rem; border-radius:.6rem; }
 .upload-item:hover{ background: color-mix(in srgb, var(--surface-3) 70%, transparent); }
 
