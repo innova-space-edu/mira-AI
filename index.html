@@ -43,13 +43,6 @@
 
   <!-- Estilos -->
   <link rel="stylesheet" href="style.css"/>
-
-  <!-- FIX: evita que el menú de adjuntos tape el input/botón cuando está oculto -->
-  <style>
-    .upload-tray.hidden { display: none !important; pointer-events: none !important; opacity: 0 !important; }
-    .upload-tray { position: absolute; z-index: 50; }
-    .composer, #user-input, #send-btn { position: relative; z-index: 60; }
-  </style>
 </head>
 
 <body class="text-white font-sans">
@@ -302,6 +295,16 @@
     <section id="main-chat" class="px-4">
       <div class="chat-wrap max-w-3xl mx-auto relative mt-2 w-full">
         <div id="chat-card" class="bg-gray-900 border border-purple-500 rounded-xl p-4 shadow-xl relative">
+
+          <!-- Ventana flotante de adjuntos (mini-previews) -->
+          <div id="floating-attachments" class="floating-attachments hidden" aria-live="polite">
+            <div class="fa-header">
+              <span class="fa-title">Adjuntos</span>
+              <button id="fa-clear" class="fa-clear" title="Quitar todos">✕</button>
+            </div>
+            <div id="fa-grid" class="fa-grid"></div>
+          </div>
+
           <div id="chat-shell">
             <div id="chat-box" class="bg-gray-800 p-3 rounded-md mb-2 text-sm space-y-2 text-white"></div>
 
@@ -322,12 +325,12 @@
                   </svg>
                 </button>
 
-                <!-- Botón + (gira al abrir) -->
+                <!-- Botón + (abrir archivo) -->
                 <button id="attachBtn" class="attach-btn" title="Adjuntar" aria-haspopup="true" aria-controls="attachMenu" aria-expanded="false" aria-label="Abrir opciones de adjuntar">
                   <span class="plus" aria-hidden="true">+</span>
                 </button>
 
-                <!-- Menú adjuntar -->
+                <!-- Menú adjuntar (opcional) -->
                 <div id="attachMenu" class="upload-tray hidden" role="menu" aria-label="Opciones de adjuntar">
                   <button id="attachImageOption" class="upload-item" role="menuitem">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="margin-right:.4rem">
@@ -372,7 +375,7 @@
     const secSettings  = document.getElementById('panel-settings');
     const secGallery   = document.getElementById('panel-gallery');
 
-    // ======= GALERÍA (LocalStorage) =======>
+    // ======= GALERÍA (LocalStorage) =======
     window.Gallery = (function(){
       const KEY = 'mira_gallery_v1';
       function all(){ try { return JSON.parse(localStorage.getItem(KEY)||'[]'); } catch { return []; } }
@@ -452,7 +455,7 @@
         inp.addEventListener('focus', ensureVisible);
       }
 
-      // ===== Menú de adjuntar (+ que gira)
+      // ===== Menú de adjuntar (+ que gira) → abrimos selector de archivos directo
       const attachBtn  = document.getElementById('attachBtn');
       const attachMenu = document.getElementById('attachMenu');
       const imgOpt     = document.getElementById('attachImageOption');
@@ -843,35 +846,5 @@
 
   <!-- Lógica del chat -->
   <script src="chat.js"></script>
-
-  <!-- FIX: wirear Enter y botón Enviar al sendMessage del chat -->
-  <script>
-    (function(){
-      function wireComposerEvents(){
-        const input = document.getElementById('user-input');
-        const sendBtn = document.getElementById('send-btn');
-
-        if (input) {
-          input.addEventListener('keydown', function(e){
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault();
-              if (typeof window.sendMessage === 'function') window.sendMessage();
-            }
-          });
-        }
-        if (sendBtn) {
-          sendBtn.addEventListener('click', function(e){
-            e.preventDefault();
-            if (typeof window.sendMessage === 'function') window.sendMessage();
-          });
-        }
-      }
-      if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', wireComposerEvents);
-      } else {
-        wireComposerEvents();
-      }
-    })();
-  </script>
 </body>
 </html>
