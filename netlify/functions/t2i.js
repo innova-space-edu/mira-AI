@@ -1,94 +1,74 @@
-// File: netlify/functions/t2i.js
-// POST /.netlify/functions/t2i  { prompt, provider="auto", options? }
-// Env: FAL_KEY (Flux en FAL.ai), STABILITY_API_KEY (SDXL)
+// netlify/functions/t2i.js
+// POST /api/t2i  { prompt, negative_prompt?, options?: { aspect_ratio?, guidance?, seed?, safety? }, provider? }
 
-const cors = () => ({
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "POST,OPTIONS",
-  "Access-Control-Allow-Headers": "content-type, authorization"
-});
-const json = (res, status = 200) => ({
-  statusCode: status,
-  headers: { ...cors(), "Content-Type": "application/json" },
-  body: JSON.stringify(res)
-});
-const text = (body, status = 200) => ({
-  statusCode: status,
-  headers: { ...cors(), "Content-Type": "text/plain; charset=utf-8" },
-  body
-});
-
-async function flux_FAL({ apiKey, prompt, options = {} }) {
-  const url = "https://fal.run/fal-ai/flux-pro";
-  const r = await fetch(url, {
-    method: "POST",
-    headers: { "Authorization": `Key ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ prompt, ...options })
-  });
-  if (!r.ok) throw new Error(`FAL Flux error ${r.status}`);
-  const d = await r.json();
-  const image = d?.images?.[0]?.url || d?.image?.url || null;
-  return { provider: "fal:flux-pro", image };
-}
-
-async function sdxl_Stability({ apiKey, prompt, options = {} }) {
-  const url = "https://api.stability.ai/v1/generation/sdxl-1024-v1-0/text-to-image";
-  const body = {
-    text_prompts: [{ text: prompt }],
-    cfg_scale: options.cfg_scale ?? 7,
-    steps: options.steps ?? 30,
-    width: options.width ?? 1024,
-    height: options.height ?? 1024,
-    sampler: options.sampler || "K_EULER"
+function cors() {
+  return {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "POST,OPTIONS",
+    "Access-Control-Allow-Headers": "content-type, authorization"
   };
-  const r = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-      "Accept": "application/json"
-    },
-    body: JSON.stringify(body)
-  });
-  if (!r.ok) throw new Error(`Stability SDXL error ${r.status}`);
-  const d = await r.json();
-  const b64 = d?.artifacts?.[0]?.base64;
-  const image = b64 ? `data:image/png;base64,${b64}` : null;
-  return { provider: "stability:sdxl", image };
 }
+function json(res, status = 200) {
+  return { statusCode: status, headers: { ...cors(), "Content-Type": "application/json" }, body: JSON.stringify(res) };
+}
+function text(body, status = 200) {
+  return { statusCode: status, headers: { ...cors(), "Content-Type": "text/plain; charset=utf-8" }, body };
+}
+
+const PROVIDER_URL = process.env.T2I_PROVIDER_URL || "";  // ej: http://localhost:3002/t2i  ó  https://api.tu-proveedor.com/t2i
+const PROVIDER_KEY = process.env.T2I_API_KEY || "";
 
 exports.handler = async (event) => {
   if (event.httpMethod === "OPTIONS") return { statusCode: 200, headers: cors(), body: "" };
-  if (event.httpMethod !== "POST") return text("Method Not Allowed", 405);
+  if (event.httpMethod !== "POST")   return text("Method Not Allowed", 405);
+
+  if (!PROVIDER_URL) return json({ error: "T2I_PROVIDER_URL no configurado" }, 500);
+
+  let body = {};
+  try { body = JSON.parse(event.body || "{}"); } catch { return json({ error: "JSON inválido" }, 400); }
+
+  const { prompt, negative_prompt = "", options = {}, provider = "auto" } = body;
+  if (!prompt || typeof prompt !== "string") return json({ error: "prompt requerido" }, 400);
+
+  const payload = {
+    prompt,
+    negative_prompt,
+    options: {
+      aspect_ratio: options.aspect_ratio || "1:1",
+      guidance: typeof options.guidance === "number" ? options.guidance : 6.5,
+      seed: typeof options.seed === "number" ? options.seed : Math.floor(Math.random()*1e9),
+      safety: options.safety || "strict"
+    },
+    provider
+  };
 
   try {
-    const { prompt, provider = "auto", options = {} } = JSON.parse(event.body || "{}");
-    if (!prompt) return json({ error: "Missing prompt" }, 400);
+    const resp = await fetch(PROVIDER_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(PROVIDER_KEY ? { "Authorization": `Bearer ${PROVIDER_KEY}` } : {})
+      },
+      body: JSON.stringify(payload)
+    });
+    const raw = await resp.text();
+    if (!resp.ok) return json({ error: `Proveedor T2I falló: ${resp.status} ${resp.statusText}`, detail: raw?.slice(0,400) }, 502);
 
-    const FAL_KEY = process.env.FAL_KEY || "";
-    const STABILITY_API_KEY = process.env.STABILITY_API_KEY || "";
+    // Normalizamos respuesta del proveedor
+    let data = {};
+    try { data = JSON.parse(raw); } catch {}
+    // Aceptamos: { imageUrl }, { image }, { imageB64 }, etc.
+    if (data.imageUrl || data.image || data.imageB64) return json(data, 200);
 
-    const order = provider === "auto" ? ["fal", "sdxl"] : [provider];
-    let lastErr = null;
-
-    for (const p of order) {
-      try {
-        if (p === "fal" || p === "fal:flux-pro") {
-          if (!FAL_KEY) throw new Error("FAL_KEY missing");
-          const r = await flux_FAL({ apiKey: FAL_KEY, prompt, options });
-          if (r?.image) return json({ ...r });
-        }
-        if (p === "sdxl" || p === "stability:sdxl") {
-          if (!STABILITY_API_KEY) throw new Error("STABILITY_API_KEY missing");
-          const r = await sdxl_Stability({ apiKey: STABILITY_API_KEY, prompt, options });
-          if (r?.image) return json({ ...r });
-        }
-      } catch (e) { lastErr = e; }
+    // Si el proveedor devolvió binario (PNG/JPEG), lo convertimos a base64
+    if (!data || Object.keys(data).length === 0) {
+      // fallback: asume binario
+      const b64 = Buffer.from(raw, "binary").toString("base64");
+      return json({ imageB64: b64 }, 200);
     }
 
-    if (lastErr) return json({ error: String(lastErr) }, 502);
-    return json({ error: "No T2I providers configured" }, 503);
+    return json(data, 200);
   } catch (e) {
-    return json({ error: String(e) }, 500);
+    return json({ error: "Excepción T2I", detail: String(e?.message || e) }, 500);
   }
 };
