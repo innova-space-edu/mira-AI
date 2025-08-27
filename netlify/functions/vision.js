@@ -1,84 +1,85 @@
-// netlify/functions/vision.js
-// Captioning clásico (BLIP / VIT-GPT2) con robustez y JSON garantizado
-const fetch = (...args) => import("node-fetch").then(({ default: f }) => f(...args));
+// functions/vision.js
+const { parseBody, normalizeImagePayload } = require("./_lib/utils");
+const { qwenVL_OpenRouter } = require("./_lib/providers/vision/openrouter-qwen");
+const { llava_OpenRouter } = require("./_lib/providers/vision/openrouter-llava");
+const { qwenVL_DashScope } = require("./_lib/providers/vision/dashscope-qwen");
+const { ocrSpace } = require("./_lib/providers/ocr/ocrspace");
 
-const MODELS = [
-  process.env.HF_VISION_MODEL || "Salesforce/blip-image-captioning-base",
-  "nlpconnect/vit-gpt2-image-captioning",
-];
-
-function cors() {
-  return {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-  };
-}
-
-async function fetchWithTimeout(url, opts = {}, ms = 25000) {
-  const controller = new AbortController();
-  const t = setTimeout(() => controller.abort(), ms);
-  try {
-    const res = await fetch(url, { ...opts, signal: controller.signal });
-    return res;
-  } finally { clearTimeout(t); }
-}
-
-async function safeJson(res) {
-  const txt = await res.text();
-  try { return JSON.parse(txt); } catch { return { raw: txt, nonJson: true }; }
-}
 
 exports.handler = async (event) => {
-  if (event.httpMethod === "OPTIONS") return { statusCode: 200, headers: cors(), body: "" };
-  if (event.httpMethod !== "POST") return { statusCode: 405, headers: cors(), body: JSON.stringify({ error: "Method not allowed" }) };
+if (event.httpMethod === "OPTIONS") return { statusCode: 200, headers: cors(), body: "" };
+if (event.httpMethod !== "POST") return text("Method Not Allowed", 405);
 
-  try {
-    const { imageBase64, imageUrl } = JSON.parse(event.body || "{}");
-    const image = imageBase64 || imageUrl;
-    if (!image) return { statusCode: 400, headers: cors(), body: JSON.stringify({ error: "Falta imageBase64 o imageUrl" }) };
 
-    if (!process.env.HF_TOKEN) {
-      return { statusCode: 500, headers: cors(), body: JSON.stringify({ error: "Falta HF_TOKEN" }) };
-    }
+try {
+const body = parseBody(event);
+const { task = "describe", imageUrl, imageB64, question, prefer = [] } = body;
+const image = normalizeImagePayload({ imageUrl, imageB64 });
+if (!image && task !== "health") return json({ error: "Missing imageUrl or imageB64" }, 400);
 
-    const errors = [];
-    for (const model of MODELS) {
-      const url = `https://api-inference.huggingface.co/models/${encodeURIComponent(model)}?wait_for_model=true`;
 
-      // Estos modelos aceptan base64 (data URL) o URL http(s) en "inputs"
-      const resp = await fetchWithTimeout(url, {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${process.env.HF_TOKEN}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ inputs: image }),
-      }, 25000);
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
+const DASHSCOPE_API_KEY = process.env.DASHSCOPE_API_KEY;
+const OCRSPACE_API_KEY = process.env.OCRSPACE_API_KEY;
 
-      const data = await safeJson(resp);
-      if (resp.ok) {
-        // Formatos posibles: [{generated_text}], {generated_text}, {text}, {summary_text}
-        const text =
-          (Array.isArray(data) && data[0]?.generated_text) ||
-          data.generated_text ||
-          data.text ||
-          data.summary_text ||
-          "";
 
-        if (text) {
-          return { statusCode: 200, headers: cors(), body: JSON.stringify({ text: String(text).trim(), model }) };
-        }
-        // Ok pero sin texto — lograremos un retorno consistente
-        return { statusCode: 200, headers: cors(), body: JSON.stringify({ text: "", warning: "Respuesta sin texto utilizable", model, raw: data }) };
-      }
+// Salud del endpoint
+if (task === "health") return json({ ok: true, providers: {
+openrouter: !!OPENROUTER_API_KEY,
+dashscope: !!DASHSCOPE_API_KEY,
+ocrspace: !!OCRSPACE_API_KEY
+}});
 
-      errors.push({ model, status: resp.status, detail: data?.error || data });
-    }
 
-    return { statusCode: 502, headers: cors(), body: JSON.stringify({ error: "HF request failed", details: errors }) };
-  } catch (e) {
-    const msg = e?.name === "AbortError" ? "timeout" : (e?.message || String(e));
-    return { statusCode: 500, headers: cors(), body: JSON.stringify({ error: msg }) };
-  }
+// Atajo: OCR directo si task=ocr
+if (task === "ocr") {
+// Primero OCR.space (suele ser mejor en texto denso)
+if (OCRSPACE_API_KEY) {
+try { return json(await ocrSpace({ apiKey: OCRSPACE_API_KEY, image })); } catch (e) {}
+}
+// Si no hay OCR.space o falla, que Qwen‑VL lo intente por visión
+if (OPENROUTER_API_KEY) {
+const r = await qwenVL_OpenRouter({ apiKey: OPENROUTER_API_KEY, task: "ocr", image });
+return json(r);
+}
+if (DASHSCOPE_API_KEY) {
+const r = await qwenVL_DashScope({ apiKey: DASHSCOPE_API_KEY, task: "ocr", image });
+return json(r);
+}
+return json({ error: "No OCR providers available" }, 503);
+}
+
+
+// Para describe / qa → intenta en este orden configurable
+const order = prefer.length ? prefer : [
+"openrouter:qwen-vl",
+"dashscope:qwen-vl",
+"openrouter:llava"
+];
+
+
+let lastErr = null;
+for (const p of order) {
+try {
+if (p === "openrouter:qwen-vl" && OPENROUTER_API_KEY) {
+const r = await qwenVL_OpenRouter({ apiKey: OPENROUTER_API_KEY, task, image, question });
+return json(r);
+}
+if (p === "dashscope:qwen-vl" && DASHSCOPE_API_KEY) {
+const r = await qwenVL_DashScope({ apiKey: DASHSCOPE_API_KEY, task, image, question });
+return json(r);
+}
+if (p === "openrouter:llava" && OPENROUTER_API_KEY) {
+const r = await llava_OpenRouter({ apiKey: OPENROUTER_API_KEY, task, image, question });
+return json(r);
+}
+} catch (err) { lastErr = err; }
+}
+
+
+if (lastErr) return json({ error: String(lastErr) }, 502);
+return json({ error: "No providers configured" }, 503);
+} catch (e) {
+return json({ error: String(e) }, 500);
+}
 };
