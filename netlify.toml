@@ -104,3 +104,8 @@
 #   from = "/*"
 #   to   = "/index.html"
 #   status = 200
+
+[[redirects]]
+  from = "/api/hf-ping"
+  to   = "/.netlify/functions/hf-ping"
+  status = 200
