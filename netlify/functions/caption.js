@@ -1,125 +1,83 @@
 // netlify/functions/caption.js
-export default async (req, res) => {
+// Image -> Text (caption) usando Salesforce/blip-image-captioning-base
+export default async function handler(request) {
+  // CORS
+  if (request.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers: cors() });
+  }
+  if (request.method !== "POST") {
+    return Response.json({ error: "Método no permitido" }, { status: 405, headers: cors() });
+  }
+
+  const HF_API_KEY = process.env.HF_API_KEY;
+  const MODEL = process.env.HF_CAPTION_MODEL || "Salesforce/blip-image-captioning-base";
+  if (!HF_API_KEY) {
+    return Response.json({ error: "Falta HF_API_KEY en variables de entorno." }, { status: 401, headers: cors() });
+  }
+
   try {
-    if (req.method !== 'POST') {
-      return res.status(405).json({ error: 'Method not allowed' });
+    // Esperamos multipart/form-data con campo "image"
+    const form = await request.formData();
+    const file = form.get("image");
+    if (!file) {
+      return Response.json({ error: "Falta archivo 'image' (multipart/form-data)." }, { status: 400, headers: cors() });
     }
 
-    const HF_API_KEY = process.env.HF_API_KEY;
-    if (!HF_API_KEY) {
-      return res.status(500).json({ error: 'Falta HF_API_KEY en variables de entorno.' });
-    }
+    const url = `https://api-inference.huggingface.co/models/${encodeURIComponent(MODEL)}`;
 
-    // Parsear body: multipart (archivo) o JSON (imageUrl)
-    let imageBytes = null;
+    // Hasta 2 reintentos si el modelo está “cargando” (503 con estimated_time)
+    const maxRetries = 2;
+    let lastJson = null;
 
-    if (req.headers['content-type']?.includes('multipart/form-data')) {
-      // Netlify parsea el body como Buffer si usamos raw
-      // pero en funciones estándar, debemos reconstruir con busboy; simplificamos con arrayBuffer()
-      const chunks = [];
-      for await (const chunk of req) { chunks.push(chunk); }
-      const boundary = req.headers['content-type'].match(/boundary=(.*)$/)?.[1];
-      if (!boundary) return res.status(400).json({ error: 'multipart sin boundary' });
+    for (let i = 0; i <= maxRetries; i++) {
+      const hfResp = await fetch(url, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${HF_API_KEY}`,
+          Accept: "application/json",
+          "Content-Type": "application/octet-stream",
+        },
+        body: await file.arrayBuffer(),
+      });
 
-      // Parse muy simple (primer archivo)
-      const buffer = Buffer.concat(chunks);
-      const SEP = Buffer.from(`--${boundary}`);
-      const parts = buffer.toString('binary').split(SEP);
-      // Buscar parte que contenga "filename="
-      const filePart = parts.find(p => /filename=".+"/.test(p));
-      if (filePart) {
-        const split = filePart.split('\r\n\r\n');
-        imageBytes = Buffer.from(split.slice(1).join('\r\n\r\n'), 'binary');
-        // remover final "--\r\n"
-        const endIdx = imageBytes.lastIndexOf(Buffer.from('\r\n'));
-        if (endIdx > 0) imageBytes = imageBytes.slice(0, endIdx);
+      const isJson = (hfResp.headers.get("content-type") || "").includes("application/json");
+      const payload = isJson ? await hfResp.json() : null;
+
+      if (hfResp.ok && Array.isArray(payload)) {
+        const text =
+          payload[0]?.generated_text ||
+          payload[0]?.caption ||
+          "";
+        return Response.json({ text }, { headers: cors() });
       }
-    } else {
-      const { imageUrl } = await parseJSON(req);
-      if (imageUrl) {
-        const r = await fetch(imageUrl);
-        imageBytes = Buffer.from(await r.arrayBuffer());
+
+      // 503: modelo cargando
+      if (hfResp.status === 503 && payload?.estimated_time && i < maxRetries) {
+        await sleep(Math.min(1500 + i * 1000, 4000));
+        lastJson = payload;
+        continue;
       }
+
+      // Otro error HF
+      return new Response(JSON.stringify(payload || { error: "HF request failed" }), {
+        status: hfResp.status,
+        headers: { ...cors(), "Content-Type": "application/json" },
+      });
     }
 
-    if (!imageBytes) {
-      return res.status(400).json({ error: 'Falta imagen (archivo o imageUrl).' });
-    }
-
-    const MODELS = [
-      'Salesforce/blip-image-captioning-large',
-      'Salesforce/blip-image-captioning-base',
-      'nlpconnect/vit-gpt2-image-captioning'
-    ];
-
-    let lastErr = null;
-    for (const model of MODELS) {
-      try {
-        const out = await hfInference(model, imageBytes, HF_API_KEY);
-        if (out?.length && out[0]?.generated_text) {
-          return res.json({ text: out[0].generated_text, model });
-        }
-        if (out?.generated_text) {
-          return res.json({ text: out.generated_text, model });
-        }
-      } catch (err) {
-        lastErr = formatErr(err);
-        // probar siguiente
-      }
-    }
-    return res.status(502).json({ error: 'HF request failed', details: lastErr || 'all models failed' });
-  } catch (e) {
-    return res.status(500).json({ error: e?.message || 'Unexpected error' });
+    // Si salimos del bucle sin éxito
+    return Response.json({ error: "Modelo ocupado/cargando", details: lastJson || null }, { status: 502, headers: cors() });
+  } catch (err) {
+    return Response.json({ error: String(err?.message || err) }, { status: 500, headers: cors() });
   }
-};
-
-// Helpers
-async function parseJSON(req){
-  const chunks = [];
-  for await (const chunk of req) chunks.push(chunk);
-  const raw = Buffer.concat(chunks).toString('utf8');
-  try { return JSON.parse(raw || '{}'); } catch { return {}; }
 }
 
-async function hfInference(modelId, imageBytes, token){
-  const url = `https://api-inference.huggingface.co/models/${encodeURIComponent(modelId)}`;
-  const r = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Accept': 'application/json',
-      'Content-Type': 'application/octet-stream'
-    },
-    body: imageBytes,
-  });
-  if (r.status === 503) {
-    // trigger warmup
-    await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Accept': 'application/json',
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ inputs: imageBytes.toString('base64'), parameters: { wait_for_model: true } })
-    });
-    // reintento simple
-    const r2 = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Accept': 'application/json',
-        'Content-Type': 'application/octet-stream'
-      },
-      body: imageBytes,
-    });
-    if (!r2.ok) throw new Error(`${r2.status} ${await r2.text()}`);
-    return r2.json();
-  }
-  if (!r.ok) throw new Error(`${r.status} ${await r.text()}`);
-  return r.json();
+/* ===== Helpers ===== */
+function cors() {
+  return {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+  };
 }
-
-function formatErr(err){
-  return typeof err === 'string' ? err : (err?.message || 'unknown');
-}
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
