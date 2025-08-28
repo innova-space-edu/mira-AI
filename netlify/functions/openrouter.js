@@ -27,10 +27,9 @@ function text(body, status = 200) {
   };
 }
 
-// <<< NUEVO: asegura que los headers sean ASCII (sin “–”, acentos, etc.)
+// Asegura que los headers sean ASCII (evita ByteString 8211)
 function safeHeader(val, fallback = "") {
   const s = String(val ?? fallback);
-  // Sustituye cualquier no-ASCII por un guion normal
   return s.replace(/[^\x20-\x7E]/g, "-").slice(0, 200);
 }
 
@@ -43,32 +42,18 @@ exports.handler = async (event) => {
   }
 
   const apiKey = process.env.OPENROUTER_API_KEY;
-  if (!apiKey) {
-    return json(
-      { error: "OPENROUTER_API_KEY no está configurada en variables de entorno." },
-      500
-    );
-  }
+  if (!apiKey) return json({ error: "OPENROUTER_API_KEY no está configurada." }, 500);
 
   let body;
-  try {
-    body = JSON.parse(event.body || "{}");
-  } catch {
-    return json({ error: "JSON inválido en el body." }, 400);
-  }
+  try { body = JSON.parse(event.body || "{}"); }
+  catch { return json({ error: "JSON inválido en el body." }, 400); }
 
   const {
     model = "qwen/qwen-2.5-32b-instruct",
     messages = [],
     temperature = 0.7,
-    max_tokens,
-    top_p,
-    presence_penalty,
-    frequency_penalty,
-    response_format,
-    tools,
-    tool_choice,
-    seed,
+    max_tokens, top_p, presence_penalty, frequency_penalty,
+    response_format, tools, tool_choice, seed,
     ...extras
   } = body;
 
@@ -76,16 +61,10 @@ exports.handler = async (event) => {
     return json({ error: "Faltan 'messages' en el body." }, 400);
   }
 
-  // Headers recomendados por OpenRouter (SANITIZADOS)
   const siteUrl = safeHeader(process.env.OPENROUTER_SITE_URL || "https://example.com");
   const appName = safeHeader(process.env.OPENROUTER_APP_NAME || "Innova Space MIRA");
 
-  const payload = {
-    model,
-    messages,
-    temperature,
-    ...extras,
-  };
+  const payload = { model, messages, temperature, ...extras };
   if (max_tokens !== undefined) payload.max_tokens = max_tokens;
   if (top_p !== undefined) payload.top_p = top_p;
   if (presence_penalty !== undefined) payload.presence_penalty = presence_penalty;
@@ -119,9 +98,6 @@ exports.handler = async (event) => {
     const viaOpenAI = data?.choices?.[0]?.message?.content?.trim?.() || "";
     return json({ text: viaOpenAI, ...data }, 200);
   } catch (e) {
-    return json(
-      { error: "Error conectando a OpenRouter", detail: String(e?.message || e) },
-      502
-    );
+    return json({ error: "Error conectando a OpenRouter", detail: String(e?.message || e) }, 502);
   }
 };
