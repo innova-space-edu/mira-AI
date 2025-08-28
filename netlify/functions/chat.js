@@ -1,89 +1,76 @@
-// File: netlify/functions/chat.js
-// Function: /api/chat → proxy a Groq Chat Completions (OpenAI-compatible)
-// Env requerida: GROQ_API_KEY
+// netlify/functions/chat.js
+// Proxy a Groq Chat Completions: https://api.groq.com/openai/v1/chat/completions
+// Body: { model, messages, temperature }
 
-function cors() {
-  return {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "POST,OPTIONS",
-    "Access-Control-Allow-Headers": "content-type, authorization"
-  };
+const ALLOW_ORIGIN = "*";
+const ORIGIN_HEADERS = {
+  "Access-Control-Allow-Origin": ALLOW_ORIGIN,
+  "Access-Control-Allow-Methods": "POST,OPTIONS",
+  "Access-Control-Allow-Headers": "content-type, authorization",
+};
+
+const GROQ_API_KEY = process.env.GROQ_API_KEY || "";
+
+const json = (body, status = 200) => ({
+  statusCode: status,
+  headers: { ...ORIGIN_HEADERS, "Content-Type": "application/json; charset=utf-8" },
+  body: JSON.stringify(body),
+});
+const text = (body, status = 200) => ({
+  statusCode: status,
+  headers: { ...ORIGIN_HEADERS, "Content-Type": "text/plain; charset=utf-8" },
+  body,
+});
+
+// Normalización para transporte (evita caracteres problemáticos)
+function normalizeForTransport(s) {
+  return String(s || "")
+    .replace(/[\u2010-\u2015\u2212]/g, "-")
+    .replace(/\u00A0/g, " ")
+    .replace(/[“”«»]/g, '"')
+    .replace(/[‘’]/g, "'")
+    .replace(/\u2026/g, "...")
+    .replace(/[^\u0009\u000A\u000D\u0020-\u007E]/g, "");
 }
-function json(res, status = 200) {
-  return {
-    statusCode: status,
-    headers: { ...cors(), "Content-Type": "application/json" },
-    body: JSON.stringify(res)
-  };
-}
-function text(body, status = 200) {
-  return {
-    statusCode: status,
-    headers: { ...cors(), "Content-Type": "text/plain; charset=utf-8" },
-    body
-  };
-}
-function pickDefined(obj, keys) {
-  const out = {};
-  for (const k of keys) if (obj[k] !== undefined) out[k] = obj[k];
-  return out;
+function sanitizeMessages(msgs) {
+  return (msgs || []).map((m) => ({ ...m, content: normalizeForTransport(m.content) }));
 }
 
 exports.handler = async (event) => {
-  if (event.httpMethod === "OPTIONS") return { statusCode: 200, headers: cors(), body: "" };
-  if (event.httpMethod !== "POST")   return text("Method Not Allowed", 405);
+  if (event.httpMethod === "OPTIONS") return { statusCode: 200, headers: ORIGIN_HEADERS, body: "" };
+  if (event.httpMethod !== "POST") return text("Method Not Allowed", 405);
+
+  if (!GROQ_API_KEY) return json({ error: "GROQ_API_KEY no configurada" }, 500);
+
+  let body = {};
+  try { body = JSON.parse(event.body || "{}"); } catch { return json({ error: "JSON inválido" }, 400); }
+
+  const model       = body.model || "meta-llama/llama-4-scout-17b-16e-instruct";
+  const temperature = typeof body.temperature === "number" ? body.temperature : 0.7;
+  const messages    = sanitizeMessages(body.messages || []);
 
   try {
-    const apiKey = process.env.GROQ_API_KEY;
-    if (!apiKey) return text("Falta GROQ_API_KEY en variables de entorno.", 500);
-
-    let payload = {};
-    try { payload = JSON.parse(event.body || "{}"); }
-    catch { return text("JSON inválido en el body.", 400); }
-
-    const {
-      model = "meta-llama/llama-4-scout-17b-16e-instruct",
-      messages,
-      temperature = 0.7,
-      max_tokens, top_p, response_format, seed, stop, user
-    } = payload;
-
-    if (!Array.isArray(messages) || messages.length === 0) {
-      return text("Falta 'messages' (array).", 400);
-    }
-
-    // Límite defensivo de tamaño
-    const rawBody = JSON.stringify(payload);
-    if (rawBody.length > 2_000_000) return text("Payload demasiado grande.", 413);
-
-    // Construye cuerpo OpenAI-compatible
-    const groqBody = { model, messages, temperature };
-    Object.assign(groqBody, pickDefined(
-      { max_tokens, top_p, response_format, seed, stop, user },
-      ["max_tokens", "top_p", "response_format", "seed", "stop", "user"]
-    ));
-
-    const resp = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-        // Headers opcionales para trazabilidad
-        "HTTP-Referer": event.headers?.origin || "https://innova-space-edu.github.io/",
-        "X-Title": "Innova Space – MIRA"
+        Authorization: `Bearer ${GROQ_API_KEY}`,
+        "Content-Type": "application/json; charset=utf-8",
       },
-      body: JSON.stringify(groqBody)
+      body: JSON.stringify({ model, messages, temperature, stream: false }),
     });
 
-    // Passthrough sin tocar (mejor para compatibilidad de cliente)
-    const textResp = await resp.text();
-    return {
-      statusCode: resp.ok ? 200 : resp.status,
-      headers: { ...cors(), "Content-Type": "application/json" },
-      body: textResp || ""
-    };
-  } catch (err) {
-    const detail = err?.message ? String(err.message) : String(err);
-    return json({ error: "chat function failed", detail }, 500);
+    const raw = await r.text();
+    let data = {};
+    try { data = JSON.parse(raw || "{}"); } catch {}
+
+    if (!r.ok) {
+      const detail = data?.error?.message || raw?.slice(0, 400);
+      return json({ error: "chat function failed", detail }, r.status || 500);
+    }
+
+    const textOut = data?.choices?.[0]?.message?.content?.trim?.() || "";
+    return json({ text: textOut }, 200);
+  } catch (e) {
+    return json({ error: "chat function failed", detail: String(e?.message || e) }, 500);
   }
 };
