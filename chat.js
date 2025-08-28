@@ -591,6 +591,93 @@ async function analyzeImagesSmart(files, userMessage) {
   return { textBlock: results.join("\n\n"), shouldSolve };
 }
 
+// === NUEVO: QA robusto y análisis SIEMPRE-completo para imágenes ===
+async function robustAskVision(file, question){
+  try {
+    return await callVision(file, { task: "qa", question });
+  } catch (e) {
+    try {
+      return await callVQA(file, question);
+    } catch (ee) {
+      return `(error QA: ${escapeHtml(String(e.message||e))})`;
+    }
+  }
+}
+
+/* 
+ * NUEVO: analyzeImagesSmartAll
+ * No reemplaza tu analyzeImagesSmart (lo conservamos). 
+ * Esta versión SIEMPRE hace: descripción + OCR + extracción de ecuaciones + resolución/ análisis.
+ */
+async function analyzeImagesSmartAll(files, userMessage) {
+  const qExtract = "Transcribe con precisión todo el contenido matemático de la imagen (ecuaciones, expresiones, condiciones).";
+  const qSolve   = "Si hay un problema matemático o un sistema de ecuaciones, resuélvelo paso a paso usando el método de reducción (eliminación). Muestra sustitución, operaciones y resultado final.";
+
+  const results = [];
+  let aggregatedOCR = "";
+
+  for (const [idx, file] of files.entries()) {
+    const perImageBlocks = [];
+
+    // Descripción
+    try {
+      const desc = await callVision(file, { task: "describe" });
+      if (desc) perImageBlocks.push(`• **Descripción:** ${desc}`);
+    } catch (e) {
+      try {
+        const alt = await callVQA(file, "Describe con detalle la imagen (objetos, texto visible, contexto).");
+        if (alt) perImageBlocks.push(`• **Descripción:** ${alt}`);
+      } catch (ee) {
+        perImageBlocks.push(`• **Descripción:** (error: ${escapeHtml(String(e.message||e))})`);
+      }
+    }
+
+    // OCR
+    try {
+      const text = await callOCR(file);
+      if (text) {
+        aggregatedOCR += (aggregatedOCR ? "\n\n" : "") + text;
+        perImageBlocks.push(`• **Texto (OCR):** ${text}`);
+      }
+    } catch (e) {
+      try {
+        const alt = await callVision(file, { task: "ocr" });
+        if (alt) {
+          aggregatedOCR += (aggregatedOCR ? "\n\n" : "") + alt;
+          perImageBlocks.push(`• **Texto (OCR):** ${alt}`);
+        }
+      } catch (ee) {
+        perImageBlocks.push(`• **Texto (OCR):** (error: ${escapeHtml(String(e.message||e))})`);
+      }
+    }
+
+    // QA: extraer ecuaciones
+    try {
+      const extracted = await robustAskVision(file, qExtract);
+      if (extracted) perImageBlocks.push(`• **Ecuaciones extraídas:** ${extracted}`);
+    } catch (e) {
+      perImageBlocks.push(`• **Ecuaciones extraídas:** (error: ${escapeHtml(String(e.message||e))})`);
+    }
+
+    // QA: resolver
+    const compoundQ = (userMessage && userMessage.trim())
+      ? `${userMessage.trim()}\n\n${qSolve}`
+      : qSolve;
+    try {
+      const answer = await robustAskVision(file, compoundQ);
+      if (answer) perImageBlocks.push(`• **Resolución/Análisis:** ${answer}`);
+    } catch (e) {
+      perImageBlocks.push(`• **Resolución/Análisis:** (error: ${escapeHtml(String(e.message||e))})`);
+    }
+
+    if (!perImageBlocks.length) perImageBlocks.push("• (No se pudo obtener información de la imagen).");
+    results.push(`Imagen ${idx+1}:\n${perImageBlocks.join("\n")}`);
+  }
+
+  window.setVisionContext({ ocrText: aggregatedOCR });
+  return { textBlock: results.join("\n\n"), shouldSolve: true };
+}
+
 // Complejidad
 function detectComplexTextIntent(text) {
   const t = (text || "").toLowerCase();
@@ -879,20 +966,24 @@ async function sendMessage() {
       return;
     }
 
-    // Análisis de imagen
+    // Análisis de imagen — SIEMPRE hacer TODO (describe + OCR + extrae + resuelve)
     if (hasFiles) {
       showThinking("Analizando imagen…");
-      const { textBlock, shouldSolve } = await analyzeImagesSmart(files, userMessage || "");
+      // Usamos la versión 'All' para cumplir el requisito de hacer TODO
+      const { textBlock } = await analyzeImagesSmartAll(files, userMessage || "");
       hideThinking();
 
-      if (shouldSolve) {
-        await window.pipelineFromVision(textBlock, userMessage || "Resume y resuelve", { userMessage });
-      } else {
-        const html = renderMarkdown(textBlock);
-        appendMessage("assistant", html);
-        saveMsg("assistant", textBlock);
-        try { speakMarkdown(textBlock); } catch {}
-      }
+      // Mostrar resumen de visión/ocr/qa
+      const html = renderMarkdown(textBlock);
+      appendMessage("assistant", html);
+      saveMsg("assistant", textBlock);
+      try { speakMarkdown(textBlock); } catch {}
+
+      // Forzar razonamiento/solución final con el LLM de texto
+      const forcedQuestion =
+        "A partir de lo extraído de la imagen, resume los datos, extrae las ecuaciones y resuélvelas paso a paso con el método de reducción. Verifica la solución sustituyendo.";
+      await window.pipelineFromVision(textBlock, forcedQuestion, { userMessage: userMessage || "" });
+
       requestSucceeded = true;
       return;
     }
