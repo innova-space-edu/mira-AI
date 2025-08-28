@@ -137,6 +137,53 @@ body.theme-starfall::before{
   to   { background-position: 0 800px, 0 1200px; }
 }
 
+/* ====== NUEVO: TEMA BLANCO MINIMALISTA (tipo ChatGPT / DeepSeek / Qwen) ====== */
+body.theme-white{
+  /* Fondo blanco (gradiente plano) */
+  --bg-start:#ffffff; --bg-mid:#ffffff; --bg-end:#ffffff;
+
+  /* Superficies */
+  --surface-0:#ffffff;          /* chat-box */
+  --surface-1:#ffffff;          /* card */
+  --surface-2:#ffffff;          /* burbuja / panel base */
+  --surface-3:#f2f3f5;          /* hover/contraste suave */
+
+  /* Texto oscuro */
+  --text:#111111;
+  --text-muted:#475569;         /* slate-600 aprox */
+
+  /* Bordes negros */
+  --border:#000000cc;
+  --border-soft:#00000040;
+
+  /* Acentos discretos (no protagonistas) */
+  --primary:#111111;            /* para evitar tintes saturados */
+  --primary-strong:#000000;
+  --accent:#0ea5e9;             /* sky-500 opcional */
+  --accent-2:#94a3b8;           /* slate-400 */
+
+  /* Burbujas */
+  --bubble-assistant-bg:#f7f8fa;     /* "blanco invierno" */
+  --bubble-assistant-borde:#000000;  /* borde negro */
+  --bubble-user-bg:#ffffff;          /* blanco */
+  --bubble-user-borde:#000000;       /* borde negro */
+
+  /* Títulos (degradado muy sutil) */
+  --title-1:#111111; --title-2:#222222; --title-3:#444444;
+
+  /* Botón primario negro */
+  --btn:#111111; --btn-hov:#2b2b2b;
+
+  /* Brillos mínimos */
+  --glow-1: rgba(0,0,0,.06); --glow-2: rgba(0,0,0,.04);
+
+  /* Composer (cuadro de texto) */
+  --composer-bg:#ffffff;
+  --composer-border:#000000;
+  --composer-text:#111111;
+  --composer-placeholder:#6b7280;
+}
+
 /* Animación general al cambiar tema */
 *,
 *::before,
@@ -219,7 +266,7 @@ body.panel-open #landing{ padding-left: calc(var(--panel-w) + 20px); }
   height: calc(100dvh - var(--topbar-h) - var(--header-overlay-h) - 16px) !important;
   min-height: calc(100dvh - var(--topbar-h) - var(--header-overlay-h) - 16px);
 }
-#chat-box{ flex:1 1 auto; overflow-y:auto; padding-bottom:calc(var(--inputbar-h) + 14px); background:var(--surface-0); border-radius:10px; }
+#chat-box{ flex:1 1 auto; overflow-y:auto; padding-bottom:calc(var(--inputbar-h) + 14px); background:var(--surface-0) !important; border-radius:10px; }
 
 /* Composer */
 .composer{
@@ -249,11 +296,11 @@ body.panel-open #landing{ padding-left: calc(var(--panel-w) + 20px); }
 .attach-btn .plus{ font-size:18px; line-height:1; transform: rotate(0deg); transition: transform .18s ease; display:block; }
 .attach-btn[aria-expanded="true"] .plus{ transform: rotate(45deg); }
 
-/* Micro */
+/* Micro (ahora usa color del tema) */
 .mic-btn{
   position:absolute; right:52px; bottom:8px; width:36px; height:36px;
   border-radius:.6rem; border:1px solid var(--border);
-  background:transparent; color:#fff; display:inline-flex; align-items:center; justify-content:center; cursor:pointer;
+  background:transparent; color: var(--text); display:inline-flex; align-items:center; justify-content:center; cursor:pointer;
 }
 .mic-btn:hover{ background: var(--surface-3); }
 .mic-btn svg{ width:18px; height:18px; display:block; }
@@ -278,7 +325,7 @@ body.panel-open #landing{ padding-left: calc(var(--panel-w) + 20px); }
 /* Burbujas */
 .msg{ display:flex; gap:8px; margin:8px 0; }
 .msg.assistant{ justify-content:flex-start; } .msg.user{ justify-content:flex-end; }
-.bubble{ max-width:78%; padding:10px 12px; border-radius:14px; line-height:1.55; word-wrap: break-word; overflow-wrap: anywhere; box-shadow: 0 4px 10px rgba(0,0,0,.25); }
+.bubble{ max-width:78%; padding:10px 12px; border-radius:14px; line-height:1.55; word-wrap: break-word; overflow-wrap: anywhere; box-shadow: 0 4px 10px rgba(0,0,0,.08); }
 .msg.assistant .bubble{ background: var(--bubble-assistant-bg); border:1px solid var(--bubble-assistant-borde); }
 .msg.user .bubble{ background: var(--bubble-user-bg); border:1px solid var(--bubble-user-borde); text-align:right; }
 
@@ -357,8 +404,8 @@ mjx-container[jax="CHTML"]{ font-size:1.42em; background:transparent!important; 
 .modal-actions .modal-btn{ padding:9px 10px; font-size:.92rem }
 .modal-btn{ width:100%; text-align:center; padding:10px 12px; border-radius:10px; border:1px solid var(--border-soft); background:var(--surface-2); color:#fff; cursor:pointer; }
 .modal-btn:hover{ background: var(--surface-3); }
-.modal-btn.primary{ background: var(--btn); border-color: var(--btn); }
-.modal-btn.primary:hover{ background: var(--btn-hov); }
+.modal-btn.primary{ background:var(--btn); border-color:var(--btn); color:#fff; }
+.modal-btn.primary:hover{ background:var(--btn-hov); }
 .modal-btn.danger{ background:#3a1025; border-color:#b91c1c; }
 .modal-btn.danger:hover{ background:#4a132d; }
 
