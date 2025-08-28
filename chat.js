@@ -1,3 +1,4 @@
+/* === chat.js completo (frontend) === */
 // =============== CONFIGURACIÓN ===============
 const MODEL = "meta-llama/llama-4-scout-17b-16e-instruct"; // Groq (rápido)
 const OPENROUTER_MODEL_PRIMARY   = "qwen/qwen-2.5-32b-instruct";      // potente
@@ -5,7 +6,7 @@ const OPENROUTER_MODEL_FALLBACK  = "meta-llama/llama-3.1-70b-instruct";
 
 const PREFERRED_VOICE_NAME = "Microsoft Helena - Spanish (Spain)";
 
-// >>> NUEVO: Prompt robusto para generación de imágenes (t2i)
+// Prompt robusto para generación de imágenes (t2i)
 const IMAGE_SYSTEM_PROMPT = `
 Eres un generador de imágenes que sigue instrucciones con fidelidad cultural y de estilo.
 Reglas:
@@ -253,12 +254,26 @@ async function saveMsg(role, content){
   try{ await window.ChatStore?.saveMessage?.(role, content); }catch{} 
 }
 
+// ======== Normalización transporte (evita ByteString 8211) ========
+function normalizeForTransport(s){
+  return String(s || "")
+    .replace(/[\u2010-\u2015\u2212]/g, "-")
+    .replace(/\u00A0/g, " ")
+    .replace(/[“”«»]/g, '"')
+    .replace(/[‘’]/g, "'")
+    .replace(/\u2026/g, "...")
+    .replace(/[^\u0009\u000A\u000D\u0020-\u007E]/g, "");
+}
+function sanitizeMessages(msgs){
+  return (msgs||[]).map(m => ({ ...m, content: normalizeForTransport(m.content) }));
+}
+
 // ============ CLIENTES /api/chat y /api/openrouter ============
 async function callChatAPI_base(url, model, messages, temperature) {
   const resp = await fetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json", "Accept": "application/json" },
-    body: JSON.stringify({ model, messages, temperature })
+    headers: { "Content-Type": "application/json; charset=utf-8", "Accept": "application/json" },
+    body: JSON.stringify({ model, messages: sanitizeMessages(messages), temperature })
   });
   const raw = await resp.text();
   if (!resp.ok) {
@@ -282,7 +297,8 @@ async function callGroq(messages, temperature = 0.7, model = MODEL) {
   } catch (e) {
     const msg = String(e?.message || "");
     if (/404|no encontrado|endpoint no encontrado|not\s*found/i.test(msg)) {
-      return await callChatAPI_base("/.netlify/functions/groq-proxy", model, messages, temperature);
+      // <<< corregido: fallback correcto a la función Netlify existente
+      return await callChatAPI_base("/.netlify/functions/chat", model, messages, temperature);
     }
     throw e;
   }
@@ -351,35 +367,29 @@ function dataUrlToB64(dataUrl) {
   return m ? m[1] : dataUrl;
 }
 
-// >>> NUEVO: Normalizador de texto para OCR/visión (evita ByteString 8211)
+// Normalizador (OCR/visión)
 function normalizeText(txt){
   if (!txt) return "";
   return String(txt)
-    .replace(/[\u2010\u2011\u2012\u2013\u2014\u2212]/g, "-") // guiones varios → "-"
-    .replace(/[\u00A0]/g, " ")                              // espacio no separable → espacio
-    .replace(/[“”«»]/g, '"')                                // comillas tipográficas → "
-    .replace(/[‘’]/g, "'")                                  // comilla simple tipográfica → '
-    .replace(/\u2026/g, "...")                              // puntos suspensivos tipográficos
-    .replace(/[^\u0009\u000A\u000D\u0020-\u007E]/g, "");    // fuera ASCII básico → vacío
+    .replace(/[\u2010\u2011\u2012\u2013\u2014\u2212]/g, "-")
+    .replace(/[\u00A0]/g, " ")
+    .replace(/[“”«»]/g, '"')
+    .replace(/[‘’]/g, "'")
+    .replace(/\u2026/g, "...")
+    .replace(/[^\u0009\u000A\u000D\u0020-\u007E]/g, "");
 }
 
-// ============ VISIÓN (VQA + OCR; caption queda disponible pero sin uso) ============
+// ============ VISIÓN util ============
 const DEFAULT_FETCH_TIMEOUT_MS = 25000;
 async function fetchWithTimeout(url, options = {}, timeoutMs = DEFAULT_FETCH_TIMEOUT_MS) {
   const controller = new AbortController();
   const t = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const r = await fetch(url, { ...options, signal: controller.signal });
-    return r;
-  } finally {
-    clearTimeout(t);
-  }
+  try { return await fetch(url, { ...options, signal: controller.signal }); }
+  finally { clearTimeout(t); }
 }
 async function httpError(res) {
-  let body = "";
-  try { body = await res.text(); } catch {}
-  const msg = `HTTP ${res.status} ${res.statusText}${body ? ` – ${body.slice(0,200)}` : ""}`;
-  return new Error(msg);
+  let body = ""; try { body = await res.text(); } catch {}
+  return new Error(`HTTP ${res.status} ${res.statusText}${body ? ` – ${body.slice(0,200)}` : ""}`);
 }
 function parseNiceError(err) {
   const s = String(err?.message || err);
@@ -390,7 +400,7 @@ function parseNiceError(err) {
   return s;
 }
 
-/* ======= CAPTION (dejo la función, NO se usa) ======= */
+// (caption legacy)
 async function tryFetchCaption(formData){
   for (const url of CAPTION_ENDPOINTS) {
     const r = await fetchWithTimeout(url, { method:"POST", body: formData });
@@ -412,18 +422,15 @@ async function callCaption(file) {
   return String(desc).trim();
 }
 
-/* ======= OCR (legacy + VISIÓN unificado) ======= */
+// OCR
 async function tryFetchOCR(bodyJson){
-  // PRIMERO: nuevo endpoint unificado
   try {
     const b = { task: "ocr" };
     if (bodyJson?.imageBase64) b.imageB64 = dataUrlToB64(bodyJson.imageBase64);
     if (bodyJson?.imageUrl)   b.imageUrl  = bodyJson.imageUrl;
     const r = await tryFetchVision(b);
-    if (r) return r; // si devolvió Response ok
-  } catch (_e) { /* cae a legacy */ }
-
-  // LEGACY
+    if (r) return r;
+  } catch (_e) {}
   for (const url of OCR_ENDPOINTS) {
     const r = await fetchWithTimeout(url, { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(bodyJson) });
     if (r.ok) return r;
@@ -444,21 +451,18 @@ async function callOCR(file) {
                (typeof data?.text === "string" ? data.text :
                (data?.ocrText || data?.result || "")));
   if (typeof text !== "string") throw new Error("Respuesta OCR inválida.");
-  return normalizeText(text.trim()); // <<< normalizamos
+  return normalizeText(text.trim());
 }
 
-/* ======= VQA (legacy + VISIÓN unificado) ======= */
+// VQA
 async function tryFetchVQA(bodyJson){
-  // PRIMERO: nuevo endpoint unificado
   try {
     const b = { task: "qa", question: bodyJson?.prompt || bodyJson?.question || "" };
     if (bodyJson?.imageBase64) b.imageB64 = dataUrlToB64(bodyJson.imageBase64);
     if (bodyJson?.imageUrl)   b.imageUrl  = bodyJson.imageUrl;
     const r = await tryFetchVision(b);
     if (r) return r;
-  } catch (_e) { /* cae a legacy */ }
-
-  // LEGACY
+  } catch (_e) {}
   for (const url of VQA_ENDPOINTS) {
     const r = await fetchWithTimeout(url, { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(bodyJson) });
     if (r.ok) return r;
@@ -479,16 +483,13 @@ async function callVQA(file, question) {
   const ans =
     (typeof data?.content === "string" && data.content) ||
     (typeof data?.text === "string" && data.text) ||
-    data?.answer ||
-    data?.generated_text ||
-    data?.label ||
-    (Array.isArray(data) && data[0]?.generated_text) ||
-    "";
+    data?.answer || data?.generated_text || data?.label ||
+    (Array.isArray(data) && data[0]?.generated_text) || "";
   if (!ans) throw new Error("Respuesta VQA inválida.");
-  return normalizeText(String(ans).trim()); // <<< normalizamos
+  return normalizeText(String(ans).trim());
 }
 
-/* ======= NUEVO: VISIÓN unificado helper ======= */
+// Vision unificado
 async function tryFetchVision(bodyJson){
   let lastNon404 = null;
   for (const url of VISION_ENDPOINTS) {
@@ -497,7 +498,6 @@ async function tryFetchVision(bodyJson){
     if (r.status !== 404) { lastNon404 = await httpError(r); }
   }
   if (lastNon404) throw lastNon404;
-  // Si todos fueron 404, no existe → devuelve null para que caller pruebe legacy
   return null;
 }
 async function callVision(file, { task = "describe", question = "" } = {}) {
@@ -510,32 +510,26 @@ async function callVision(file, { task = "describe", question = "" } = {}) {
     (typeof data?.text === "string" && data.text) ||
     data?.answer || data?.caption || data?.generated_text || "";
   if (!content) throw new Error("Respuesta de visión vacía.");
-  return normalizeText(String(content).trim()); // <<< normalizamos
+  return normalizeText(String(content).trim());
 }
 
-/* ======= Analizar imágenes (inteligente por intención) ======= */
+// Intent imágenes
 function detectImageIntent(text){
   const t = (text||"").toLowerCase();
-
   const ocr = /\b(ocr|lee(?:r)?(?:\s*el)?\s*texto|transcribe|extrae\s*texto|copiar\s*texto|reconoce\s*texto|detectar\s*texto)\b/.test(t);
   const describe = /\b(describe|describir|descripción|descripcion|reconoce|identifica|analiza|detalla|resume\s*la\s*imagen)\b/.test(t);
   const qa = /(\?|¿)|\b(pregunta|respónd(?:e|eme)|qué\s+hay|que\s+hay|qué\s+dice|que\s+dice|qué\s+color|dónde|donde|cuánto|cuanto|por\s*qué|porque)\b/.test(t);
   const solve = /\b(resuelve|resolver|soluciona|calcula|desarrolla|demuestra|halla|obt[eé]n|explica|aplica)\b/.test(t);
   const analyze = /\b(analiza|analizar|estudia|evalúa|evalua|interpreta|diagnostica|clasifica|segmenta)\b/.test(t);
-
   return { ocr, describe, qa, solve, analyze };
 }
-
 async function analyzeImagesSmart(files, userMessage) {
   const intent = detectImageIntent(userMessage);
   const wantsAny = intent.ocr || intent.describe || intent.qa || intent.solve || intent.analyze;
-
   const results = [];
   let aggregatedOCR = "";
-
   for (const [idx, file] of files.entries()) {
     const perImageBlocks = [];
-
     const doDescribe = intent.describe || (!wantsAny);
     const doOCR      = intent.ocr      || (!wantsAny);
     const doQA       = intent.qa;
@@ -589,25 +583,17 @@ async function analyzeImagesSmart(files, userMessage) {
       }
     }
 
-    if (!perImageBlocks.length) {
-      perImageBlocks.push("• (No se pudo obtener información de la imagen).");
-    }
-
+    if (!perImageBlocks.length) perImageBlocks.push("• (No se pudo obtener información de la imagen).");
     results.push(`Imagen ${idx+1}:\n${perImageBlocks.join("\n")}`);
   }
-
   window.setVisionContext({ ocrText: aggregatedOCR });
-
   const shouldSolve = intent.solve || intent.analyze;
   return { textBlock: results.join("\n\n"), shouldSolve };
 }
 
-
-// ========= Clasificador de complejidad (texto → elegir modelo) =========
+// Complejidad
 function detectComplexTextIntent(text) {
   const t = (text || "").toLowerCase();
-
-  // Palabras/frases indicadas por ti + añadidos típicos de tareas complejas
   const patterns = [
     /detalla(me)?|paso a paso|expl[ií]came|profundiza|explaya(te)?|razona en detalle|analiza a fondo/,
     /resumen|resúmeme|haz un resumen|s[íi]ntesis|esquem[a|atiza]/,
@@ -619,13 +605,11 @@ function detectComplexTextIntent(text) {
     /plan de estudio|curr[ií]culo|s[íi]labo|roadmap/,
     /diagram[as]?|arquitectura|diseña el sistema|requisitos|casos de uso/
   ];
-
   const isComplex = patterns.some(rx => rx.test(t));
   return { isComplex };
 }
 
-
-// ======== INTENCIÓN NATURAL: T2I / I2T ========
+// INTENCIÓN NATURAL: T2I / I2T
 function wantsT2I(text, hasFiles){
   const t = (text||"").toLowerCase();
   const genVerbs = /(genera|genérame|haz|hazme|crea|créame|crear|dibuja|pinta|píntame|ilustra|renderiza|construye|arma|modela)/i;
@@ -642,25 +626,20 @@ function wantsCaptionIntention(text){
   return /(describe|reconoce|analiza|qué ves|que ves|dime sobre esta imagen)/i.test(text||"");
 }
 
-
-// >>> NUEVO: Builder de prompt para imágenes (con negativos y estilo)
+// Builder de prompt T2I
 function buildImagePrompt(userPromptRaw) {
   const userPrompt = (userPromptRaw || "").trim();
-
-  // Heurística de aspecto
   let aspect_ratio = "1:1";
   if (/\b(banner|portada|cover|encabezado)\b/i.test(userPrompt)) aspect_ratio = "16:9";
   if (/\b(afiche|flyer|poster|póster)\b/i.test(userPrompt)) aspect_ratio = "3:4";
   if (/\b(historia|story|reel|vertical)\b/i.test(userPrompt)) aspect_ratio = "9:16";
 
-  // Negativos por defecto
   const negative = [
     "manos deformes, dedos extra, texto ilegible, artefactos, duplicaciones",
     "proporciones irreales, ojos mal alineados, watermark, marca de agua",
     "ruido excesivo, glitches, desorden visual, fondos incoherentes"
   ].join(", ");
 
-  // Envoltura con sistema para fidelidad cultural
   const prompt = [
     IMAGE_SYSTEM_PROMPT.trim(),
     "",
@@ -684,7 +663,6 @@ function buildImagePrompt(userPromptRaw) {
   };
 }
 
-
 // ======== Llamador T2I =========
 async function tryFetchT2I(bodyJson){
   for (const url of T2I_ENDPOINTS) {
@@ -701,13 +679,12 @@ async function tryFetchT2I(bodyJson){
   return last;
 }
 
-
 // ============ PIPELINE VISIÓN → LLM ============
 let __visionCtx = { ocrText: "" };
 window.setVisionContext = function({ ocrText = "" } = {}) { __visionCtx.ocrText = ocrText; };
 
 window.pipelineFromVision = async function(answerFromVision, question = "", extras = {}) {
-  const ocrText = normalizeText((extras.ocrText ?? __visionCtx.ocrText ?? "").trim()); // <<< normalizamos
+  const ocrText = normalizeText((extras.ocrText ?? __visionCtx.ocrText ?? "").trim());
   const userMessage = (extras.userMessage || "").trim();
 
   const prompt =
@@ -727,7 +704,6 @@ Recuerda: usa LaTeX grande para fórmulas con $$ ... $$ cuando apliquen. Respond
   showThinking("Analizando lo que aparece en la imagen…");
 
   try {
-    // En pipeline de visión, forzamos modelo potente si el usuario pidió "resolver/analizar".
     const complex = detectComplexTextIntent(userMessage);
     const reply = complex.isComplex
       ? await callOpenRouter([
@@ -752,7 +728,6 @@ Recuerda: usa LaTeX grande para fórmulas con $$ ... $$ cuando apliquen. Respond
     appendMessage("assistant", `⚠️ No se pudo generar la explicación a partir de la imagen.\n\n\`\`\`\n${detail}\n\`\`\``);
   }
 };
-
 
 // ============ ENVÍO MENSAJE ============
 const $fileInput   = document.getElementById("fileInput");
@@ -823,11 +798,10 @@ function renderAttachmentChips(){
   renderFloatingPreviews();
 }
 
-// Menú “+” (dejamos por compatibilidad; tu index también lo maneja)
+// Menú “+”
 $attachBtn?.addEventListener("click", (e) => {
   e.stopPropagation();
   if ($attachMenu) {
-    // abrimos selector directo; el menú queda de respaldo
     $attachMenu.classList.add("hidden");
     $attachBtn.setAttribute("aria-expanded", "false");
   }
@@ -835,15 +809,11 @@ $attachBtn?.addEventListener("click", (e) => {
 });
 document.addEventListener("click", () => { if ($attachMenu) $attachMenu.classList.add("hidden"); });
 $attachMenu?.addEventListener("click", (e)=> e.stopPropagation());
-
-// Opción imagen (menú)
 $attachImageOption?.addEventListener("click", (e) => {
   e.stopPropagation();
   $fileInput?.click();
   if ($attachMenu) $attachMenu.classList.add("hidden");
 });
-
-// Selección de archivos
 $fileInput?.addEventListener("change", async (e) => {
   const files = Array.from(e.target.files || []);
   for (const f of files) {
@@ -852,11 +822,8 @@ $fileInput?.addEventListener("change", async (e) => {
   }
   renderAttachmentChips();
   if ($fileInput) $fileInput.value = "";
-  // >>> NUEVO: primer clic de "Enviar" ya funciona porque los adjuntos están listos.
-  // (Opcional) auto-focus al input para que el usuario presione Enter si quiere
   document.getElementById("user-input")?.focus();
 });
-
 
 // ======== Envío principal ========
 async function sendMessage() {
@@ -866,7 +833,6 @@ async function sendMessage() {
 
   cancelAllSpeech();
 
-  // Render mensaje del usuario
   let htmlUser = "";
   if (userMessage) htmlUser += renderMarkdown(userMessage);
   if (attachments.length) {
@@ -876,7 +842,6 @@ async function sendMessage() {
   appendMessage("user", htmlUser);
   saveMsg("user", userMessage || (attachments.length ? "[Imagen adjunta]" : ""));
 
-  // Limpieza y copia de archivos
   if (input) input.value = "";
   const localUrls = attachments.map(a => a.urlPreview);
   const files     = attachments.map(a => a.file);
@@ -888,10 +853,10 @@ async function sendMessage() {
   try {
     const hasFiles = files.length > 0;
 
-    // --- Caso 1: Generación de imagen por texto (sin adjuntos) ---
+    // Generación de imagen por texto
     if (!hasFiles && userMessage && wantsT2I(userMessage, false)) {
       const plain = extractT2IPrompt(userMessage) || userMessage;
-      const { prompt, negative_prompt, options } = buildImagePrompt(plain); // <<< builder robusto
+      const { prompt, negative_prompt, options } = buildImagePrompt(plain);
       showThinking("Generando imagen…");
       const r = await tryFetchT2I({ prompt, negative_prompt, options, provider: "auto" });
       const data = await r.json();
@@ -914,10 +879,9 @@ async function sendMessage() {
       return;
     }
 
-    // --- Caso 2: Análisis de imagen (intención por palabras clave) ---
+    // Análisis de imagen
     if (hasFiles) {
       showThinking("Analizando imagen…");
-
       const { textBlock, shouldSolve } = await analyzeImagesSmart(files, userMessage || "");
       hideThinking();
 
@@ -933,7 +897,7 @@ async function sendMessage() {
       return;
     }
 
-    // --- Caso 3: Chat de texto normal — elegir modelo según complejidad ---
+    // Chat de texto normal
     showThinking();
     const complex = detectComplexTextIntent(userMessage);
     aiReply = complex.isComplex
@@ -962,10 +926,7 @@ async function sendMessage() {
 }
 window.sendMessage = sendMessage;
 
-
-// Helpers
 function escapeHtml(s){ return (s||"").replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
-
 
 // ============ INICIALIZACIÓN ============
 function wireComposer(){
@@ -985,7 +946,6 @@ function wireComposer(){
     });
   }
 }
-
 function initChat() {
   hookAvatarInnerSvg();
   wireComposer();
@@ -995,96 +955,55 @@ function initChat() {
   if (window.MathJax?.typesetPromise) MathJax.typesetPromise();
   setAvatarTalking(false);
 }
-if (document.readyState === "loading") {
-  window.addEventListener("DOMContentLoaded", initChat);
-} else {
-  initChat();
-}
+if (document.readyState === "loading") window.addEventListener("DOMContentLoaded", initChat);
+else initChat();
 
-
-/* ============================================================
-   === DICTADO POR VOZ (Web Speech API) — toggle click ===
-   ============================================================ */
+/* === Dictado por voz === */
 (function initVoiceDictation() {
   const MicRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   const micBtn = document.getElementById('btn-mic');
   const input = document.getElementById('user-input');
   const sendBtn = document.getElementById('send-btn');
-
   if (!micBtn) return;
 
-  let recognition = null;
-  let listening = false;
-  let manualStop = false;
-  let lastCommitted = "";
-
+  let recognition = null, listening = false, manualStop = false, lastCommitted = "";
   if (!MicRecognition) {
     micBtn.title = "Dictado no soportado en este navegador";
-    micBtn.setAttribute('disabled', 'true');
+    micBtn.setAttribute("disabled", "true");
     micBtn.classList.add('mic-disabled');
     return;
   }
-
   recognition = new MicRecognition();
   recognition.lang = 'es-CL';
   recognition.continuous = true;
   recognition.interimResults = true;
 
   recognition.onresult = (event) => {
-    let interim = "";
-    let finalChunk = "";
-
+    let interim = "", finalChunk = "";
     for (let i = event.resultIndex; i < event.results.length; i++) {
-      const res = event.results[i];
-      const txt = res[0].transcript;
-      if (res.isFinal) finalChunk += txt + " ";
-      else interim += txt + " ";
+      const res = event.results[i], txt = res[0].transcript;
+      if (res.isFinal) finalChunk += txt + " "; else interim += txt + " ";
     }
-
     input.value = (lastCommitted + finalChunk + interim).trim();
     if (finalChunk) lastCommitted = (lastCommitted + finalChunk).trim() + " ";
   };
-
   recognition.onstart = () => {
-    listening = true;
-    manualStop = false;
+    listening = true; manualStop = false;
     lastCommitted = input.value ? (input.value.trim() + " ") : "";
-    micBtn.classList.add('recording');
-    micBtn.title = "Escuchando… toca para detener";
+    micBtn.classList.add('recording'); micBtn.title = "Escuchando… toca para detener";
   };
-
-  recognition.onerror = (e) => {
-    console.warn("SpeechRecognition error:", e);
-    micBtn.title = "Error de micrófono: " + (e.error || "desconocido");
-  };
-
+  recognition.onerror = (e) => { console.warn("SpeechRecognition error:", e); micBtn.title = "Error de micrófono: " + (e.error || "desconocido"); };
   recognition.onend = () => {
-    listening = false;
-    micBtn.classList.remove('recording');
-    if (!manualStop) {
-      try { recognition.start(); } catch {}
-    } else {
-      micBtn.title = "Dictar por voz";
-    }
+    listening = false; micBtn.classList.remove('recording');
+    if (!manualStop) { try { recognition.start(); } catch {} }
+    else micBtn.title = "Dictar por voz";
   };
-
   micBtn.addEventListener('click', () => {
     if (!recognition) return;
-    if (!listening) {
-      manualStop = false;
-      try { recognition.start(); } catch (err) { console.error("No se pudo iniciar el dictado:", err); }
-    } else {
-      manualStop = true;
-      try { recognition.stop(); } catch {}
-    }
+    if (!listening) { manualStop = false; try { recognition.start(); } catch (err) { console.error("No se pudo iniciar el dictado:", err); } }
+    else { manualStop = true; try { recognition.stop(); } catch {} }
   });
-
   if (sendBtn) {
-    sendBtn.addEventListener('click', () => {
-      if (listening) {
-        manualStop = true;
-        try { recognition.stop(); } catch {}
-      }
-    });
+    sendBtn.addEventListener('click', () => { if (listening) { manualStop = true; try { recognition.stop(); } catch {} } });
   }
 })();
