@@ -473,7 +473,7 @@
 
       document.addEventListener('click', (e)=>{
         if (attachMenu && !attachMenu.contains(e.target) && e.target !== attachBtn){
-          attachMenu.classList.add('hidden');
+          attachMenu.classList.add('hidden');  // <- mantiene coherencia del menú
           attachBtn.setAttribute('aria-expanded','false');
         }
       });
@@ -481,7 +481,7 @@
       imgOpt?.addEventListener('click', (e)=>{
         e.stopPropagation();
         if (attachMenu){
-          attachMenu classList.add('hidden');
+          attachMenu.classList.add('hidden');  // <- BUG corregido (faltaba el punto)
           attachBtn.setAttribute('aria-expanded','false');
         }
         try { fileInput?.click(); } catch(_) {}
