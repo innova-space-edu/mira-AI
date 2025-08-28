@@ -7,16 +7,26 @@ const OPENROUTER_MODEL_FALLBACK  = "meta-llama/llama-3.1-70b-instruct";
 const PREFERRED_VOICE_NAME = "Microsoft Helena - Spanish (Spain)";
 
 // Prompt robusto para generación de imágenes (t2i)
-const IMAGE_SYSTEM_PROMPT = `
-Eres un generador de imágenes que sigue instrucciones con fidelidad cultural y de estilo.
-Reglas:
-- No inventes elementos fuera del prompt del usuario.
-- Si el prompt incluye país, cultura o vestimenta típica, respétalos con detalles auténticos.
-- Mantén composición clara: sujeto principal en foco, fondo coherente y bien iluminado.
-- Si se pide texto superpuesto (título o leyenda), colócalo legible y sin errores de ortografía.
-- Evita manos deformes, texto con artefactos, proporciones irreales y objetos duplicados.
-- No uses marcas comerciales salvo que el usuario lo pida explícitamente.
-`;
+const prompt =
+`Tenemos una consulta basada en una imagen.
+${userMessage ? `Mensaje del usuario: """${userMessage}"""\n` : ""}
+Pregunta específica sobre la imagen: """${question || "Resume el enunciado, datos clave y resuelve brevemente."}"""
+Observaciones del modelo de visión (VQA/Caption): """${normalizeText(answerFromVision || "(vacío)")}"""
+${ocrText ? `Texto reconocido (OCR): """${ocrText}"""\n` : ""}
+
+Instrucciones estrictas de formato:
+- Usa LaTeX SOLO en bloque con $$ ... $$ para fórmulas importantes.
+- NO uses LaTeX en línea (\\( ... \\), $ ... $) dentro de frases o viñetas.
+- NO uses bloques de código para matemáticas.
+- En la sección “Resultado” y “Verificación”, escribe los valores en texto plano (por ejemplo: x = 2; y = 3/5 (0,6)).
+
+Por favor:
+1) Resume en 2–3 líneas el enunciado/datos relevantes.
+2) Explica la estrategia de resolución (pasos, fórmulas si aplica) — usa $$ ... $$ solo para fórmulas clave.
+3) Resuelve paso a paso con claridad.
+4) “Resultado”: entrega números en texto plano (sin LaTeX inline) y, si procede, fracción + decimal.
+5) “Verificación”: muestra sustituciones y comprobación en texto plano (sin LaTeX inline).
+Responde en español.`;
 
 // Prompt inicial para el LLM (robusto, multiarea)
 const SYSTEM_PROMPT = `
@@ -25,14 +35,16 @@ Habla SIEMPRE en español, con claridad y estructura:
 
 1) Abre con una idea general en 1–2 frases.
 2) Luego muestra pasos o listas si aportan claridad.
-3) Las FÓRMULAS deben ir en LaTeX GRANDE con $$ ... $$.
-4) Usa símbolos/unidades correctos (m/s, °C, N, J, mol/L, etc).
-5) Cuando pidan “la fórmula”, da: breve explicación, fórmula y define variables.
+3) Las FÓRMULAS deben ir en LaTeX GRANDE usando solo $$ ... $$ (bloque).
+4) NO uses LaTeX en línea (\\( ... \\) o $ ... $) en el cuerpo del texto.
+5) Usa símbolos/unidades correctos (m/s, °C, N, J, mol/L, etc).
+6) Cuando pidan “la fórmula”, da: breve explicación, fórmula y define variables.
 
 ### Estilo general
 - Sé preciso y conciso. Evita jergas innecesarias. Nombra supuestos si faltan datos.
 - Cuando calcules, muestra el razonamiento con unidades, redondeo y verificación.
 - Da alternativas o verificaciones si existen caminos distintos.
+- Evita bloques de código \`\`\` para fórmulas o resultados.
 
 ### Lengua/Escritura
 - Resume y reescribe manteniendo sentido. Ofrece títulos, subtítulos y viñetas.
@@ -41,6 +53,7 @@ Habla SIEMPRE en español, con claridad y estructura:
 ### Matemáticas y Física
 - Define variables. Muestra sustitución numérica y unidades. Incluye comprobación dimensional.
 - Si hay múltiples métodos (p. ej., trigonometría vs. vectores), di cuál eliges y por qué.
+- **Al final** (sección “Resultado” y “Verificación”) escribe los valores **en texto plano**, sin LaTeX inline. Ejemplos: x = 2, y = 3/5 (0,6). Si una fracción es simple, muestra también su decimal entre paréntesis.
 
 ### Química y Biología
 - Indica condiciones (T, P, pH, solvente). Balancea ecuaciones químicas si aplica.
