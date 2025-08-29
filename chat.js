@@ -7,26 +7,16 @@ const OPENROUTER_MODEL_FALLBACK  = "meta-llama/llama-3.1-70b-instruct";
 const PREFERRED_VOICE_NAME = "Microsoft Helena - Spanish (Spain)";
 
 // Prompt robusto para generación de imágenes (t2i)
-const prompt =
-`Tenemos una consulta basada en una imagen.
-${userMessage ? `Mensaje del usuario: """${userMessage}"""\n` : ""}
-Pregunta específica sobre la imagen: """${question || "Resume el enunciado, datos clave y resuelve brevemente."}"""
-Observaciones del modelo de visión (VQA/Caption): """${normalizeText(answerFromVision || "(vacío)")}"""
-${ocrText ? `Texto reconocido (OCR): """${ocrText}"""\n` : ""}
-
-Instrucciones estrictas de formato:
-- Usa LaTeX SOLO en bloque con $$ ... $$ para fórmulas importantes.
-- NO uses LaTeX en línea (\\( ... \\), $ ... $) dentro de frases o viñetas.
-- NO uses bloques de código para matemáticas.
-- En la sección “Resultado” y “Verificación”, escribe los valores en texto plano (por ejemplo: x = 2; y = 3/5 (0,6)).
-
-Por favor:
-1) Resume en 2–3 líneas el enunciado/datos relevantes.
-2) Explica la estrategia de resolución (pasos, fórmulas si aplica) — usa $$ ... $$ solo para fórmulas clave.
-3) Resuelve paso a paso con claridad.
-4) “Resultado”: entrega números en texto plano (sin LaTeX inline) y, si procede, fracción + decimal.
-5) “Verificación”: muestra sustituciones y comprobación en texto plano (sin LaTeX inline).
-Responde en español.`;
+const IMAGE_SYSTEM_PROMPT = `
+Eres un generador de imágenes que sigue instrucciones con fidelidad cultural y de estilo.
+Reglas:
+- No inventes elementos fuera del prompt del usuario.
+- Si el prompt incluye país, cultura o vestimenta típica, respétalos con detalles auténticos.
+- Mantén composición clara: sujeto principal en foco, fondo coherente y bien iluminado.
+- Si se pide texto superpuesto (título o leyenda), colócalo legible y sin errores de ortografía.
+- Evita manos deformes, texto con artefactos, proporciones irreales y objetos duplicados.
+- No uses marcas comerciales salvo que el usuario lo pida explícitamente.
+`;
 
 // Prompt inicial para el LLM (robusto, multiarea)
 const SYSTEM_PROMPT = `
@@ -35,16 +25,14 @@ Habla SIEMPRE en español, con claridad y estructura:
 
 1) Abre con una idea general en 1–2 frases.
 2) Luego muestra pasos o listas si aportan claridad.
-3) Las FÓRMULAS deben ir en LaTeX GRANDE usando solo $$ ... $$ (bloque).
-4) NO uses LaTeX en línea (\\( ... \\) o $ ... $) en el cuerpo del texto.
-5) Usa símbolos/unidades correctos (m/s, °C, N, J, mol/L, etc).
-6) Cuando pidan “la fórmula”, da: breve explicación, fórmula y define variables.
+3) Las FÓRMULAS deben ir en LaTeX GRANDE con $$ ... $$.
+4) Usa símbolos/unidades correctos (m/s, °C, N, J, mol/L, etc).
+5) Cuando pidan “la fórmula”, da: breve explicación, fórmula y define variables.
 
 ### Estilo general
 - Sé preciso y conciso. Evita jergas innecesarias. Nombra supuestos si faltan datos.
 - Cuando calcules, muestra el razonamiento con unidades, redondeo y verificación.
 - Da alternativas o verificaciones si existen caminos distintos.
-- Evita bloques de código \`\`\` para fórmulas o resultados.
 
 ### Lengua/Escritura
 - Resume y reescribe manteniendo sentido. Ofrece títulos, subtítulos y viñetas.
@@ -53,7 +41,6 @@ Habla SIEMPRE en español, con claridad y estructura:
 ### Matemáticas y Física
 - Define variables. Muestra sustitución numérica y unidades. Incluye comprobación dimensional.
 - Si hay múltiples métodos (p. ej., trigonometría vs. vectores), di cuál eliges y por qué.
-- **Al final** (sección “Resultado” y “Verificación”) escribe los valores **en texto plano**, sin LaTeX inline. Ejemplos: x = 2, y = 3/5 (0,6). Si una fracción es simple, muestra también su decimal entre paréntesis.
 
 ### Química y Biología
 - Indica condiciones (T, P, pH, solvente). Balancea ecuaciones químicas si aplica.
@@ -69,6 +56,11 @@ Habla SIEMPRE en español, con claridad y estructura:
 
 ### Razonamiento
 - Justifica tus decisiones y señala errores comunes. Da referencias conceptuales cuando aporte.
+
+### Presentación y verificación (anti-ruido)
+- Cuando muestres resultados al final o verificación, usa **texto normal** (ej.: 3/5) y evita renderizar LaTeX innecesario.
+- Si usas LaTeX, hazlo **solo** en bloques $$ ... $$, no uses \\( ... \\) ni dejes códigos como \\frac{..}{..} en texto corrido.
+- En la sección “Verificación”, escribe frases breves y números claros (ej.: 2 + 3 = 5), sin LaTeX salvo que lo pidan explícitamente.
 `;
 
 // Endpoints (intenta /api/* y si no, /.netlify/functions/*)
@@ -604,93 +596,6 @@ async function analyzeImagesSmart(files, userMessage) {
   return { textBlock: results.join("\n\n"), shouldSolve };
 }
 
-// === NUEVO: QA robusto y análisis SIEMPRE-completo para imágenes ===
-async function robustAskVision(file, question){
-  try {
-    return await callVision(file, { task: "qa", question });
-  } catch (e) {
-    try {
-      return await callVQA(file, question);
-    } catch (ee) {
-      return `(error QA: ${escapeHtml(String(e.message||e))})`;
-    }
-  }
-}
-
-/* 
- * NUEVO: analyzeImagesSmartAll
- * No reemplaza tu analyzeImagesSmart (lo conservamos). 
- * Esta versión SIEMPRE hace: descripción + OCR + extracción de ecuaciones + resolución/ análisis.
- */
-async function analyzeImagesSmartAll(files, userMessage) {
-  const qExtract = "Transcribe con precisión todo el contenido matemático de la imagen (ecuaciones, expresiones, condiciones).";
-  const qSolve   = "Si hay un problema matemático o un sistema de ecuaciones, resuélvelo paso a paso usando el método de reducción (eliminación). Muestra sustitución, operaciones y resultado final.";
-
-  const results = [];
-  let aggregatedOCR = "";
-
-  for (const [idx, file] of files.entries()) {
-    const perImageBlocks = [];
-
-    // Descripción
-    try {
-      const desc = await callVision(file, { task: "describe" });
-      if (desc) perImageBlocks.push(`• **Descripción:** ${desc}`);
-    } catch (e) {
-      try {
-        const alt = await callVQA(file, "Describe con detalle la imagen (objetos, texto visible, contexto).");
-        if (alt) perImageBlocks.push(`• **Descripción:** ${alt}`);
-      } catch (ee) {
-        perImageBlocks.push(`• **Descripción:** (error: ${escapeHtml(String(e.message||e))})`);
-      }
-    }
-
-    // OCR
-    try {
-      const text = await callOCR(file);
-      if (text) {
-        aggregatedOCR += (aggregatedOCR ? "\n\n" : "") + text;
-        perImageBlocks.push(`• **Texto (OCR):** ${text}`);
-      }
-    } catch (e) {
-      try {
-        const alt = await callVision(file, { task: "ocr" });
-        if (alt) {
-          aggregatedOCR += (aggregatedOCR ? "\n\n" : "") + alt;
-          perImageBlocks.push(`• **Texto (OCR):** ${alt}`);
-        }
-      } catch (ee) {
-        perImageBlocks.push(`• **Texto (OCR):** (error: ${escapeHtml(String(e.message||e))})`);
-      }
-    }
-
-    // QA: extraer ecuaciones
-    try {
-      const extracted = await robustAskVision(file, qExtract);
-      if (extracted) perImageBlocks.push(`• **Ecuaciones extraídas:** ${extracted}`);
-    } catch (e) {
-      perImageBlocks.push(`• **Ecuaciones extraídas:** (error: ${escapeHtml(String(e.message||e))})`);
-    }
-
-    // QA: resolver
-    const compoundQ = (userMessage && userMessage.trim())
-      ? `${userMessage.trim()}\n\n${qSolve}`
-      : qSolve;
-    try {
-      const answer = await robustAskVision(file, compoundQ);
-      if (answer) perImageBlocks.push(`• **Resolución/Análisis:** ${answer}`);
-    } catch (e) {
-      perImageBlocks.push(`• **Resolución/Análisis:** (error: ${escapeHtml(String(e.message||e))})`);
-    }
-
-    if (!perImageBlocks.length) perImageBlocks.push("• (No se pudo obtener información de la imagen).");
-    results.push(`Imagen ${idx+1}:\n${perImageBlocks.join("\n")}`);
-  }
-
-  window.setVisionContext({ ocrText: aggregatedOCR });
-  return { textBlock: results.join("\n\n"), shouldSolve: true };
-}
-
 // Complejidad
 function detectComplexTextIntent(text) {
   const t = (text || "").toLowerCase();
@@ -830,17 +735,27 @@ Recuerda: usa LaTeX grande para fórmulas con $$ ... $$ cuando apliquen. Respond
 };
 
 // ============ ENVÍO MENSAJE ============
-const $fileInput   = document.getElementById("fileInput");
-const $attachBtn   = document.getElementById("attachBtn");
-const $attachMenu  = document.getElementById("attachMenu");
-const $attachImageOption = document.getElementById("attachImageOption");
-const $attachments = document.getElementById("attachments");
-
+// NOTA: el cableado se hace tras DOM listo con initAttachments(); así evitamos nulls.
 let attachments = []; // { file, urlPreview }
+
+function getEls() {
+  return {
+    fileInput: document.getElementById("fileInput"),
+    attachBtn: document.getElementById("attachBtn"),
+    attachMenu: document.getElementById("attachMenu"),
+    attachImageOption: document.getElementById("attachImageOption"),
+    attachmentsWrap: document.getElementById("attachments"),
+    chatCard: document.getElementById("chat-card"),
+    input: document.getElementById("user-input"),
+    sendBtn: document.getElementById("send-btn"),
+    micBtn: document.getElementById("btn-mic"),
+  };
+}
 
 /* === Ventana flotante de adjuntos === */
 function ensureFloatingBox(){
-  const card = document.getElementById('chat-card');
+  const { chatCard } = getEls();
+  if (!chatCard) return;
   let box = document.getElementById('floating-attachments');
   if (!box) {
     box = document.createElement('div');
@@ -852,7 +767,7 @@ function ensureFloatingBox(){
         <button id="fa-clear" class="fa-clear" title="Quitar todos">✕</button>
       </div>
       <div id="fa-grid" class="fa-grid"></div>`;
-    card.appendChild(box);
+    chatCard.appendChild(box);
   }
   const btn = box.querySelector('#fa-clear');
   if (btn && !btn._wired){
@@ -862,7 +777,8 @@ function ensureFloatingBox(){
       attachments = [];
       renderAttachmentChips();
       renderFloatingPreviews();
-      if ($fileInput) $fileInput.value = "";
+      const { fileInput } = getEls();
+      if (fileInput) fileInput.value = "";
     });
   }
 }
@@ -887,47 +803,55 @@ function renderFloatingPreviews(){
 }
 
 function renderAttachmentChips(){
-  if (!$attachments) return;
-  $attachments.innerHTML = "";
+  const { attachmentsWrap } = getEls();
+  if (!attachmentsWrap) return;
+  attachmentsWrap.innerHTML = "";
   attachments.forEach(att => {
     const chip = document.createElement("span");
     chip.className = "attachment-chip";
     chip.innerHTML = `<img src="${att.urlPreview}" alt="img"><span>${att.file.name}</span>`;
-    $attachments.appendChild(chip);
+    attachmentsWrap.appendChild(chip);
   });
   renderFloatingPreviews();
 }
 
-// Menú “+”
-$attachBtn?.addEventListener("click", (e) => {
-  e.stopPropagation();
-  if ($attachMenu) {
-    $attachMenu.classList.add("hidden");
-    $attachBtn.setAttribute("aria-expanded", "false");
-  }
-  try { $fileInput?.click(); } catch {}
-});
-document.addEventListener("click", () => { if ($attachMenu) $attachMenu.classList.add("hidden"); });
-$attachMenu?.addEventListener("click", (e)=> e.stopPropagation());
-$attachImageOption?.addEventListener("click", (e) => {
-  e.stopPropagation();
-  $fileInput?.click();
-  if ($attachMenu) $attachMenu.classList.add("hidden");
-});
-$fileInput?.addEventListener("change", async (e) => {
-  const files = Array.from(e.target.files || []);
-  for (const f of files) {
-    const url = URL.createObjectURL(f);
-    attachments.push({ file: f, urlPreview: url });
-  }
-  renderAttachmentChips();
-  if ($fileInput) $fileInput.value = "";
-  document.getElementById("user-input")?.focus();
-});
+function initAttachments(){
+  const { fileInput, attachBtn, attachMenu, attachImageOption } = getEls();
+
+  // Menú “+”
+  attachBtn?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (attachMenu) {
+      attachMenu.classList.add("hidden");
+      attachBtn.setAttribute("aria-expanded", "false");
+    }
+    try { fileInput?.click(); } catch {}
+  });
+  document.addEventListener("click", () => { if (attachMenu) attachMenu.classList.add("hidden"); });
+  attachMenu?.addEventListener("click", (e)=> e.stopPropagation());
+  attachImageOption?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    fileInput?.click();
+    if (attachMenu) attachMenu.classList.add("hidden");
+  });
+
+  // Cambio de archivos
+  fileInput?.addEventListener("change", async (e) => {
+    const files = Array.from(e.target.files || []);
+    for (const f of files) {
+      const url = URL.createObjectURL(f);
+      attachments.push({ file: f, urlPreview: url });
+    }
+    renderAttachmentChips();
+    if (fileInput) fileInput.value = "";
+    const { input } = getEls();
+    input?.focus();
+  });
+}
 
 // ======== Envío principal ========
 async function sendMessage() {
-  const input = document.getElementById("user-input");
+  const { input } = getEls();
   const userMessage = (input?.value || "").trim();
   if (!userMessage && attachments.length === 0) return;
 
@@ -979,24 +903,20 @@ async function sendMessage() {
       return;
     }
 
-    // Análisis de imagen — SIEMPRE hacer TODO (describe + OCR + extrae + resuelve)
+    // Análisis de imagen
     if (hasFiles) {
       showThinking("Analizando imagen…");
-      // Usamos la versión 'All' para cumplir el requisito de hacer TODO
-      const { textBlock } = await analyzeImagesSmartAll(files, userMessage || "");
+      const { textBlock, shouldSolve } = await analyzeImagesSmart(files, userMessage || "");
       hideThinking();
 
-      // Mostrar resumen de visión/ocr/qa
-      const html = renderMarkdown(textBlock);
-      appendMessage("assistant", html);
-      saveMsg("assistant", textBlock);
-      try { speakMarkdown(textBlock); } catch {}
-
-      // Forzar razonamiento/solución final con el LLM de texto
-      const forcedQuestion =
-        "A partir de lo extraído de la imagen, resume los datos, extrae las ecuaciones y resuélvelas paso a paso con el método de reducción. Verifica la solución sustituyendo.";
-      await window.pipelineFromVision(textBlock, forcedQuestion, { userMessage: userMessage || "" });
-
+      if (shouldSolve) {
+        await window.pipelineFromVision(textBlock, userMessage || "Resume y resuelve", { userMessage });
+      } else {
+        const html = renderMarkdown(textBlock);
+        appendMessage("assistant", html);
+        saveMsg("assistant", textBlock);
+        try { speakMarkdown(textBlock); } catch {}
+      }
       requestSucceeded = true;
       return;
     }
@@ -1034,8 +954,7 @@ function escapeHtml(s){ return (s||"").replace(/[&<>"']/g, m => ({'&':'&amp;','<
 
 // ============ INICIALIZACIÓN ============
 function wireComposer(){
-  const sendBtn = document.getElementById("send-btn");
-  const input   = document.getElementById("user-input");
+  const { sendBtn, input } = getEls();
   if (sendBtn && !sendBtn._wired){
     sendBtn._wired = true;
     sendBtn.addEventListener("click", (e)=>{ e.preventDefault(); sendMessage(); });
@@ -1053,6 +972,7 @@ function wireComposer(){
 function initChat() {
   hookAvatarInnerSvg();
   wireComposer();
+  initAttachments();               // <= AÑADIDO: cableado seguro tras DOM listo
   const saludo = "¡Hola! Soy MIRA. ¿En qué puedo ayudarte hoy?";
   appendMessage("assistant", renderMarkdown(saludo));
   try { speakAfterVoices(saludo); } catch {}
@@ -1065,9 +985,7 @@ else initChat();
 /* === Dictado por voz === */
 (function initVoiceDictation() {
   const MicRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  const micBtn = document.getElementById('btn-mic');
-  const input = document.getElementById('user-input');
-  const sendBtn = document.getElementById('send-btn');
+  const { micBtn, input, sendBtn } = getEls();
   if (!micBtn) return;
 
   let recognition = null, listening = false, manualStop = false, lastCommitted = "";
@@ -1088,19 +1006,21 @@ else initChat();
       const res = event.results[i], txt = res[0].transcript;
       if (res.isFinal) finalChunk += txt + " "; else interim += txt + " ";
     }
-    input.value = (lastCommitted + finalChunk + interim).trim();
-    if (finalChunk) lastCommitted = (lastCommitted + finalChunk).trim() + " ";
+    if (input) {
+      input.value = (lastCommitted + finalChunk + interim).trim();
+      if (finalChunk) lastCommitted = (lastCommitted + finalChunk).trim() + " ";
+    }
   };
   recognition.onstart = () => {
     listening = true; manualStop = false;
-    lastCommitted = input.value ? (input.value.trim() + " ") : "";
+    lastCommitted = input?.value ? (input.value.trim() + " ") : "";
     micBtn.classList.add('recording'); micBtn.title = "Escuchando… toca para detener";
   };
   recognition.onerror = (e) => { console.warn("SpeechRecognition error:", e); micBtn.title = "Error de micrófono: " + (e.error || "desconocido"); };
   recognition.onend = () => {
     listening = false; micBtn.classList.remove('recording');
-    if (!manualStop) { try { recognition.start(); } catch {} }
-    else micBtn.title = "Dictar por voz";
+    // micro-fix: sin auto-reinicio agresivo (evita estados colgados)
+    micBtn.title = "Dictar por voz";
   };
   micBtn.addEventListener('click', () => {
     if (!recognition) return;
